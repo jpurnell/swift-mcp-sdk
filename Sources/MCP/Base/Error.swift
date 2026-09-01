@@ -34,6 +34,18 @@ public enum MCPError: Swift.Error, Sendable {
     case invalidParams(String?)  // -32602
     case internalError(String?)  // -32603
 
+    // Protocol errors reserved by the specification (-32020 to -32099).
+    //
+    // MCP 2026-07-28 partitions the JSON-RPC server-error range: -32000 to -32019 stays
+    // implementation-defined, with existing usage grandfathered, and -32020 onwards belongs to
+    // the specification. These three were renumbered into that range by SEP-2575.
+    /// A required MCP request header was missing or disagreed with the request body.
+    case headerMismatch(String?)  // -32020
+    /// The request needed a client capability the client did not declare.
+    case missingRequiredClientCapability(String?)  // -32021
+    /// The client asked for a protocol version this server does not support.
+    case unsupportedProtocolVersion(String?)  // -32022
+
     // Server errors (-32000 to -32099)
     case serverError(code: Int, message: String)
 
@@ -52,6 +64,9 @@ public enum MCPError: Swift.Error, Sendable {
         case .methodNotFound: return -32601
         case .invalidParams: return -32602
         case .internalError: return -32603
+        case .headerMismatch: return -32020
+        case .missingRequiredClientCapability: return -32021
+        case .unsupportedProtocolVersion: return -32022
         case .serverError(let code, _): return code
         case .urlElicitationRequired: return -32042
         case .connectionClosed: return -32000
@@ -89,6 +104,12 @@ extension MCPError: LocalizedError {
             return "Invalid params" + (detail.map { ": \($0)" } ?? "")
         case .internalError(let detail):
             return "Internal error" + (detail.map { ": \($0)" } ?? "")
+        case .headerMismatch(let detail):
+            return "Header mismatch\(detail.map { ": \($0)" } ?? "")"
+        case .missingRequiredClientCapability(let detail):
+            return "Missing required client capability\(detail.map { ": \($0)" } ?? "")"
+        case .unsupportedProtocolVersion(let detail):
+            return "Unsupported protocol version\(detail.map { ": \($0)" } ?? "")"
         case .serverError(_, let message):
             return "Server error: \(message)"
         case .urlElicitationRequired(let message, _):
@@ -112,6 +133,12 @@ extension MCPError: LocalizedError {
             return "Invalid method parameter(s)"
         case .internalError:
             return "Internal JSON-RPC error"
+        case .headerMismatch:
+            return "A required MCP request header was missing or disagreed with the request body"
+        case .missingRequiredClientCapability:
+            return "The request needed a client capability the client did not declare"
+        case .unsupportedProtocolVersion:
+            return "The requested protocol version is not supported by this server"
         case .serverError:
             return "Server-defined error occurred"
         case .urlElicitationRequired:
@@ -178,7 +205,10 @@ extension MCPError: Codable {
             .invalidRequest(let detail),
             .methodNotFound(let detail),
             .invalidParams(let detail),
-            .internalError(let detail):
+            .internalError(let detail),
+            .headerMismatch(let detail),
+            .missingRequiredClientCapability(let detail),
+            .unsupportedProtocolVersion(let detail):
             try container.encode(errorDescription ?? "Unknown error", forKey: .message)
             if let detail = detail {
                 try container.encode(["detail": detail], forKey: .data)
@@ -316,6 +346,12 @@ extension MCPError: Hashable {
         case .invalidParams(let detail):
             hasher.combine(detail)
         case .internalError(let detail):
+            hasher.combine(detail)
+        case .headerMismatch(let detail):
+            hasher.combine(detail)
+        case .missingRequiredClientCapability(let detail):
+            hasher.combine(detail)
+        case .unsupportedProtocolVersion(let detail):
             hasher.combine(detail)
         case .serverError(_, let message):
             hasher.combine(message)
