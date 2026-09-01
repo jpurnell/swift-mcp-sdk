@@ -43,12 +43,24 @@ struct ProtocolErrorTests {
         #expect(MCPError.transportError(URLError(.badURL)).code == -32001)
     }
 
+    /// `urlElicitationRequired` was assigned -32042, inside the range 2026-07-28 reserves for
+    /// the specification. It is moved into the implementation-defined range rather than
+    /// removed: URL-mode elicitation still exists, even though the revision removed the
+    /// `URLElicitationRequiredError` definition and the `elicitationId` field.
+    @Test("urlElicitationRequired no longer squats in the reserved range")
+    func testUrlElicitationRenumbered() {
+        let error = MCPError.urlElicitationRequired(message: "sign in", elicitations: [])
+        #expect(error.code == -32002)
+        #expect(error.code > -32020, "it must sit in the implementation-defined range")
+    }
+
     /// Codes the specification reserves must not collide with codes this SDK assigns itself.
     @Test("No implementation-defined code intrudes on the reserved range")
     func testNoCollisionWithReservedRange() {
         let implementationDefined = [
             MCPError.connectionClosed.code,
             MCPError.transportError(URLError(.badURL)).code,
+            MCPError.urlElicitationRequired(message: "x", elicitations: []).code,
         ]
         for code in implementationDefined {
             #expect(code > -32020, "\(code) is inside the specification-reserved range")

@@ -50,7 +50,7 @@ public enum MCPError: Swift.Error, Sendable {
     case serverError(code: Int, message: String)
 
     // MCP specific errors
-    case urlElicitationRequired(message: String, elicitations: [URLElicitationInfo])  // -32042
+    case urlElicitationRequired(message: String, elicitations: [URLElicitationInfo])  // -32002
 
     // Transport specific errors
     case connectionClosed
@@ -68,7 +68,12 @@ public enum MCPError: Swift.Error, Sendable {
         case .missingRequiredClientCapability: return -32021
         case .unsupportedProtocolVersion: return -32022
         case .serverError(let code, _): return code
-        case .urlElicitationRequired: return -32042
+        // Renumbered from -32042 by the 2026-07-28 allocation policy: that code sits inside
+        // the range the specification reserves for itself, and the revision removed the
+        // URLElicitationRequiredError definition entirely. URL-mode elicitation still exists,
+        // so the case is kept and moved into the implementation-defined range rather than
+        // deleted. This changes the wire code for any consumer matching on -32042.
+        case .urlElicitationRequired: return -32002
         case .connectionClosed: return -32000
         case .transportError: return -32001
         }
@@ -268,7 +273,11 @@ extension MCPError: Codable {
             self = .invalidParams(unwrapDetail(message))
         case -32603:
             self = .internalError(unwrapDetail(nil))
-        case -32042:
+        // Accepts both codes on the way in. -32002 is what this SDK now emits; -32042 is what
+        // it emitted before the 2026-07-28 allocation policy moved the case out of the
+        // specification-reserved range, and a peer built against an older release still sends
+        // it. Reading both costs one case and keeps those peers working.
+        case -32002, -32042:
             // Extract elicitations array from data
             var elicitations: [URLElicitationInfo] = []
             if case .array(let items) = data?["elicitations"] {
