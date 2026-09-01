@@ -154,3 +154,43 @@ extension InputResponse: Codable {
         }
     }
 }
+
+/// The result of a method that may pause to ask the client for input.
+///
+/// MCP `2026-07-28` names nine `*ResultResponse` envelopes, but only three carry a union:
+/// `tools/call`, `prompts/get` and `resources/read` may answer with an ``InputRequiredResult``
+/// instead of their normal result. The other envelopes are ordinary JSON-RPC responses that
+/// ``Response`` already models, so one generic union expresses the whole distinction rather
+/// than nine near-identical types.
+///
+/// The cases are told apart by `resultType`, not by which type happens to parse. A payload with
+/// no tag is ``complete`` — the rule the specification sets for results from servers on earlier
+/// revisions, which never send one.
+public enum MRTRResult<Complete: Codable & Hashable & Sendable>: Hashable, Codable, Sendable {
+    /// The call finished and this is its final content.
+    case complete(Complete)
+    /// The call needs input first; retry it with the answers attached.
+    case inputRequired(InputRequiredResult)
+
+    private enum TagKeys: String, CodingKey {
+        case resultType
+    }
+
+    public init(from decoder: Decoder) throws {
+        let tagged = try? decoder.container(keyedBy: TagKeys.self)
+        let tag = try? tagged?.decodeIfPresent(ResultType.self, forKey: .resultType)
+
+        if ResultType.resolving(tag ?? nil) == .inputRequired {
+            self = .inputRequired(try InputRequiredResult(from: decoder))
+        } else {
+            self = .complete(try Complete(from: decoder))
+        }
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        switch self {
+        case .complete(let value): try value.encode(to: encoder)
+        case .inputRequired(let value): try value.encode(to: encoder)
+        }
+    }
+}
