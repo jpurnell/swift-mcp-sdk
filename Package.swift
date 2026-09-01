@@ -55,7 +55,11 @@ let package = Package(
                 .product(
                     name: "EventSource", package: "eventsource",
                     condition: .when(platforms: [.macOS, .iOS, .tvOS, .visionOS, .watchOS, .macCatalyst])),
-            ]
+            ],
+            // Conformance fixtures copied verbatim from the specification repository's
+            // schema/2026-07-28/examples. Only 2026-07-28 and draft ship examples; no earlier
+            // revision does, so these are authored for this revision rather than inherited.
+            resources: [.copy("Fixtures")]
         ),
         .executableTarget(
             name: "MCPConformanceServer",

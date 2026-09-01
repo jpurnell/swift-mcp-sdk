@@ -116,25 +116,51 @@ public struct InputResponseRequestParams: Hashable, Codable, Sendable {
 // tried first, because `Empty` accepts any object and would otherwise swallow the others.
 
 extension InputRequest: Codable {
-    /// Decodes whichever union case the payload matches.
-    public init(from decoder: Decoder) throws {
-        if let value = try? CreateSamplingMessage.Parameters(from: decoder) { // silent: a failed match is how the next union case is tried
-            self = .createMessage(value)
-            return
-        }
-        if let value = try? CreateElicitation.Parameters(from: decoder) { // silent: a failed match is how the next union case is tried
-            self = .elicit(value)
-            return
-        }
-        self = .listRoots(try Empty(from: decoder))
+    private enum CodingKeys: String, CodingKey {
+        case method, params
     }
 
-    /// Encodes the wrapped value directly; the union has no discriminator of its own.
+    /// Decodes a request by its `method`, which is the discriminator the wire format carries.
+    ///
+    /// The values in `inputRequests` are full JSON-RPC request objects — `{"method": …,
+    /// "params": …}` — not bare parameter objects. Trying each parameter type in turn instead
+    /// would appear to work and be wrong: `Empty` accepts any object, so every entry would
+    /// decode as `.listRoots` without error. The specification's own `InputRequiredResult`
+    /// example is what caught that.
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        let method = try container.decode(String.self, forKey: .method)
+
+        switch method {
+        case CreateSamplingMessage.name:
+            self = .createMessage(
+                try container.decode(CreateSamplingMessage.Parameters.self, forKey: .params))
+        case CreateElicitation.name:
+            self = .elicit(
+                try container.decode(CreateElicitation.Parameters.self, forKey: .params))
+        case ListRoots.name:
+            self = .listRoots(
+                try container.decodeIfPresent(Empty.self, forKey: .params) ?? Empty())
+        default:
+            throw DecodingError.dataCorruptedError(
+                forKey: .method, in: container,
+                debugDescription: "'\(method)' is not a method a server may request input for")
+        }
+    }
+
+    /// Encodes the request as a JSON-RPC request object, tagged by its method.
     public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
         switch self {
-        case .createMessage(let value): try value.encode(to: encoder)
-        case .elicit(let value): try value.encode(to: encoder)
-        case .listRoots(let value): try value.encode(to: encoder)
+        case .createMessage(let value):
+            try container.encode(CreateSamplingMessage.name, forKey: .method)
+            try container.encode(value, forKey: .params)
+        case .elicit(let value):
+            try container.encode(CreateElicitation.name, forKey: .method)
+            try container.encode(value, forKey: .params)
+        case .listRoots(let value):
+            try container.encode(ListRoots.name, forKey: .method)
+            try container.encode(value, forKey: .params)
         }
     }
 }
