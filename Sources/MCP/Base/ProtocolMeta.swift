@@ -41,8 +41,8 @@ extension Metadata {
     /// Round-trips a `Codable` value through ``Value`` so it can live in ``fields``.
     private func codableField<T: Codable>(_ key: String, as type: T.Type) -> T? {
         guard let value = fields[key] else { return nil }
-        guard let data = try? JSONEncoder().encode(value) else { return nil }
-        return try? JSONDecoder().decode(T.self, from: data)
+        guard let data = try? JSONEncoder().encode(value) else { return nil } // silent: an unencodable field reads as absent rather than trapping
+        return try? JSONDecoder().decode(T.self, from: data) // silent: a field of the wrong shape reads as absent, which is how an earlier revision looks
     }
 
     private mutating func setCodableField<T: Codable>(_ key: String, _ newValue: T?) {
@@ -50,6 +50,8 @@ extension Metadata {
             fields.removeValue(forKey: key)
             return
         }
+        // silent: a value that cannot round-trip through `Value` is not written, leaving the
+        // key absent rather than storing something the wire format cannot carry.
         guard let data = try? JSONEncoder().encode(newValue),
             let value = try? JSONDecoder().decode(Value.self, from: data)
         else { return }

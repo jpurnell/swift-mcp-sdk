@@ -47,6 +47,7 @@ public struct InputRequiredResult: Hashable, Codable, Sendable {
     /// Optional metadata about this result.
     public var _meta: Metadata?
 
+    /// Creates an interim result naming what the server still needs.
     public init(
         inputRequests: [String: InputRequest]? = nil,
         requestState: String? = nil,
@@ -62,6 +63,7 @@ public struct InputRequiredResult: Hashable, Codable, Sendable {
         case resultType, inputRequests, requestState, _meta
     }
 
+    /// Decodes whichever union case the payload matches.
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         resultType =
@@ -72,6 +74,7 @@ public struct InputRequiredResult: Hashable, Codable, Sendable {
         _meta = try container.decodeIfPresent(Metadata.self, forKey: ._meta)
     }
 
+    /// Encodes the interim result, always emitting its `input_required` tag.
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encode(resultType, forKey: .resultType)
@@ -94,6 +97,7 @@ public struct InputResponseRequestParams: Hashable, Codable, Sendable {
     /// request and so still carries its own protocol version and client capabilities.
     public var _meta: Metadata?
 
+    /// Creates the parameters a client attaches when retrying.
     public init(
         inputResponses: [String: InputResponse]? = nil,
         requestState: String? = nil,
@@ -112,18 +116,20 @@ public struct InputResponseRequestParams: Hashable, Codable, Sendable {
 // tried first, because `Empty` accepts any object and would otherwise swallow the others.
 
 extension InputRequest: Codable {
+    /// Decodes whichever union case the payload matches.
     public init(from decoder: Decoder) throws {
-        if let value = try? CreateSamplingMessage.Parameters(from: decoder) {
+        if let value = try? CreateSamplingMessage.Parameters(from: decoder) { // silent: a failed match is how the next union case is tried
             self = .createMessage(value)
             return
         }
-        if let value = try? CreateElicitation.Parameters(from: decoder) {
+        if let value = try? CreateElicitation.Parameters(from: decoder) { // silent: a failed match is how the next union case is tried
             self = .elicit(value)
             return
         }
         self = .listRoots(try Empty(from: decoder))
     }
 
+    /// Encodes the wrapped value directly; the union has no discriminator of its own.
     public func encode(to encoder: Encoder) throws {
         switch self {
         case .createMessage(let value): try value.encode(to: encoder)
@@ -134,18 +140,20 @@ extension InputRequest: Codable {
 }
 
 extension InputResponse: Codable {
+    /// Decodes whichever union case the payload matches.
     public init(from decoder: Decoder) throws {
-        if let value = try? CreateSamplingMessage.Result(from: decoder) {
+        if let value = try? CreateSamplingMessage.Result(from: decoder) { // silent: a failed match is how the next union case is tried
             self = .createMessage(value)
             return
         }
-        if let value = try? CreateElicitation.Result(from: decoder) {
+        if let value = try? CreateElicitation.Result(from: decoder) { // silent: a failed match is how the next union case is tried
             self = .elicit(value)
             return
         }
         self = .listRoots(try ListRoots.Result(from: decoder))
     }
 
+    /// Encodes the wrapped value directly; the union has no discriminator of its own.
     public func encode(to encoder: Encoder) throws {
         switch self {
         case .createMessage(let value): try value.encode(to: encoder)
@@ -164,7 +172,7 @@ extension InputResponse: Codable {
 /// than nine near-identical types.
 ///
 /// The cases are told apart by `resultType`, not by which type happens to parse. A payload with
-/// no tag is ``complete`` — the rule the specification sets for results from servers on earlier
+/// no tag is `complete` — the rule the specification sets for results from servers on earlier
 /// revisions, which never send one.
 public enum MRTRResult<Complete: Codable & Hashable & Sendable>: Hashable, Codable, Sendable {
     /// The call finished and this is its final content.
@@ -176,17 +184,19 @@ public enum MRTRResult<Complete: Codable & Hashable & Sendable>: Hashable, Codab
         case resultType
     }
 
+    /// Decodes whichever union case the payload matches.
     public init(from decoder: Decoder) throws {
-        let tagged = try? decoder.container(keyedBy: TagKeys.self)
-        let tag = try? tagged?.decodeIfPresent(ResultType.self, forKey: .resultType)
+        let tagged = try? decoder.container(keyedBy: TagKeys.self) // silent: an untagged payload resolves to `.complete` below, per the specification
+        let tag = try? tagged?.decodeIfPresent(ResultType.self, forKey: .resultType) // silent: as above
 
-        if ResultType.resolving(tag ?? nil) == .inputRequired {
+        if ResultType.resolving(tag.flatMap { $0 }) == .inputRequired {
             self = .inputRequired(try InputRequiredResult(from: decoder))
         } else {
             self = .complete(try Complete(from: decoder))
         }
     }
 
+    /// Encodes the wrapped result directly; `resultType` inside it carries the tag.
     public func encode(to encoder: Encoder) throws {
         switch self {
         case .complete(let value): try value.encode(to: encoder)

@@ -20,10 +20,9 @@ struct MRTRResultTests {
         let decoded = try JSONDecoder().decode(
             MRTRResult<CallTool.Result>.self, from: try JSONEncoder().encode(value))
 
-        guard case .complete = decoded else {
-            Issue.record("expected a completed result")
-            return
-        }
+        var isComplete = false
+        if case .complete = decoded { isComplete = true }
+        #expect(isComplete, "a tagged complete result must decode as complete")
     }
 
     @Test("An input-required result decodes as input required")
@@ -51,10 +50,9 @@ struct MRTRResultTests {
         let decoded = try JSONDecoder().decode(
             MRTRResult<CallTool.Result>.self, from: Data(json.utf8))
 
-        guard case .complete = decoded else {
-            Issue.record("an untagged result must be treated as complete")
-            return
-        }
+        var isComplete = false
+        if case .complete = decoded { isComplete = true }
+        #expect(isComplete, "an untagged result must be treated as complete")
     }
 
     /// A tagged interim result must not be mistaken for a completed one just because the

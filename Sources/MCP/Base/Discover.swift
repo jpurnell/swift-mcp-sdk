@@ -15,8 +15,10 @@ import Foundation
 ///
 /// - SeeAlso: https://modelcontextprotocol.io/specification/2026-07-28/
 public enum Discover: Method {
+    /// The JSON-RPC method name.
     public static let name: String = "server/discover"
 
+    /// What the server advertises about itself.
     public struct Result: Hashable, Codable, Sendable, CacheableResult {
         /// Every protocol version this server accepts, newest first.
         ///
@@ -40,6 +42,13 @@ public enum Discover: Method {
         /// Whether a shared intermediary may cache this result.
         public var cacheScope: CacheScope?
 
+        /// Creates a discovery result.
+        ///
+        /// The parameter count reflects the schema: `2026-07-28` marks `supportedVersions`,
+        /// `capabilities`, `resultType`, `ttlMs` and `cacheScope` all required on this result,
+        /// and `instructions` and `_meta` are optional additions. Grouping them into a
+        /// sub-structure would hide which fields the specification requires.
+        // legibility:reserved the parameter list mirrors the schema's required fields
         public init(
             supportedVersions: [String],
             capabilities: Server.Capabilities,
@@ -62,6 +71,7 @@ public enum Discover: Method {
             case supportedVersions, capabilities, instructions, _meta, resultType, ttlMs, cacheScope
         }
 
+        /// Encodes the result, omitting any field the server did not set.
         public func encode(to encoder: Encoder) throws {
             var container = encoder.container(keyedBy: CodingKeys.self)
             try container.encode(supportedVersions, forKey: .supportedVersions)
@@ -73,6 +83,7 @@ public enum Discover: Method {
             try container.encodeIfPresent(cacheScope, forKey: .cacheScope)
         }
 
+        /// Decodes a discovery result, tolerating fields an earlier revision omits.
         public init(from decoder: Decoder) throws {
             let container = try decoder.container(keyedBy: CodingKeys.self)
             supportedVersions = try container.decode([String].self, forKey: .supportedVersions)

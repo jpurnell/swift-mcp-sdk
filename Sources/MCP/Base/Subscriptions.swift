@@ -20,6 +20,7 @@ public struct SubscriptionFilter: Hashable, Codable, Sendable {
     /// means the client did not ask about resource subscriptions at all.
     public var resourceSubscriptions: [String]?
 
+    /// Creates a filter. Every field is tri-state: `nil` means "not mentioned".
     public init(
         toolsListChanged: Bool? = nil,
         promptsListChanged: Bool? = nil,
@@ -42,20 +43,24 @@ public struct SubscriptionFilter: Hashable, Codable, Sendable {
 /// Request-scoped notifications such as `notifications/progress` and `notifications/message`
 /// continue to flow on the response stream of the request they belong to, **not** here.
 public enum SubscriptionsListen: Method {
+    /// The JSON-RPC method name.
     public static let name: String = "subscriptions/listen"
 
+    /// What the client asks to receive on the stream.
     public struct Parameters: Hashable, Codable, Sendable {
         /// The notifications the client opts into on this stream.
         public var notifications: SubscriptionFilter
         /// Metadata for this request, carrying its protocol version and client capabilities.
         public var _meta: Metadata?
 
+        /// Creates the parameters.
         public init(notifications: SubscriptionFilter, _meta: Metadata? = nil) {
             self.notifications = notifications
             self._meta = _meta
         }
     }
 
+    /// The server's answer opening the stream.
     public struct Result: Hashable, Codable, Sendable {
         /// Tells the client how to parse this result.
         public var resultType: ResultType?
@@ -63,6 +68,7 @@ public enum SubscriptionsListen: Method {
         /// notification that arrives on it.
         public var _meta: Metadata?
 
+        /// Creates the result.
         public init(resultType: ResultType? = nil, _meta: Metadata? = nil) {
             self.resultType = resultType
             self._meta = _meta
@@ -76,14 +82,17 @@ public enum SubscriptionsListen: Method {
 /// the acknowledgement narrows the set rather than leaving the client waiting for notifications
 /// that will never arrive.
 public enum SubscriptionsAcknowledged {
+    /// The JSON-RPC notification name.
     public static let name: String = "notifications/subscriptions/acknowledged"
 
+    /// What the server agreed to send.
     public struct Parameters: Hashable, Codable, Sendable {
         /// The subset of requested notification kinds the server agreed to honour.
         public var notifications: SubscriptionFilter
         /// Metadata carrying the subscription identifier this acknowledgement belongs to.
         public var _meta: Metadata?
 
+        /// Creates the parameters.
         public init(notifications: SubscriptionFilter, _meta: Metadata? = nil) {
             self.notifications = notifications
             self._meta = _meta

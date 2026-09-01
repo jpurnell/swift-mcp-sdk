@@ -30,7 +30,7 @@ struct ProtocolMetaTests {
         meta.clientInfo = .init(name: "probe", version: "1.0.0")
 
         #expect(meta.protocolVersion == "2026-07-28")
-        #expect(meta.clientCapabilities?.sampling != nil)
+        #expect(meta.clientCapabilities?.sampling == Client.Capabilities.Sampling())
         #expect(meta.clientInfo?.name == "probe")
     }
 
@@ -53,7 +53,7 @@ struct ProtocolMetaTests {
 
         let decoded = try JSONDecoder().decode(Metadata.self, from: data)
         #expect(decoded.protocolVersion == "2026-07-28")
-        #expect(decoded.clientCapabilities?.elicitation != nil)
+        #expect(decoded.clientCapabilities?.elicitation == Client.Capabilities.Elicitation())
         #expect(decoded.clientInfo?.version == "2.1.0")
         #expect(decoded.logLevel == .warning)
     }

@@ -33,12 +33,11 @@ struct MultiRoundTripTests {
             InputRequiredResult.self, from: try JSONEncoder().encode(result))
 
         #expect(decoded.requestState == "opaque-server-state")
+        #expect(decoded.inputRequests?.count == 1)
         #expect(decoded.inputRequests?.keys.contains("need-roots") == true)
-        if case .listRoots = decoded.inputRequests?["need-roots"] {
-            // expected
-        } else {
-            Issue.record("the request kind was lost in the round trip")
-        }
+        var isListRoots = false
+        if case .listRoots = decoded.inputRequests?["need-roots"] { isListRoots = true }
+        #expect(isListRoots, "the request kind was lost in the round trip")
     }
 
     /// The response keys must correspond to the request keys — that correspondence is the only
@@ -54,6 +53,7 @@ struct MultiRoundTripTests {
             InputResponseRequestParams.self, from: try JSONEncoder().encode(params))
 
         #expect(decoded.requestState == "opaque-server-state")
+        #expect(decoded.inputResponses?.count == 1)
         #expect(decoded.inputResponses?.keys.contains("need-roots") == true)
     }
 
@@ -85,6 +85,7 @@ struct MultiRoundTripTests {
         let result = InputRequiredResult(inputRequests: ["k": request], requestState: nil)
         let decoded = try JSONDecoder().decode(
             InputRequiredResult.self, from: try JSONEncoder().encode(result))
-        #expect(decoded.inputRequests?["k"] != nil, "\(kind) was lost")
+        #expect(decoded.inputRequests?.count == 1, "\(kind) was lost")
+        #expect(decoded.inputRequests?.keys.first == "k")
     }
 }
