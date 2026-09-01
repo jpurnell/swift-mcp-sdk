@@ -326,19 +326,27 @@ public enum ListTools: Method {
         public let tools: [Tool]
         public let nextCursor: String?
         public var _meta: Metadata?
+        /// How long, in milliseconds, the client may consider this result fresh.
+        public var ttlMs: Int?
+        /// Whether a shared intermediary may cache this result.
+        public var cacheScope: CacheScope?
 
         public init(
             tools: [Tool],
             nextCursor: String? = nil,
-            _meta: Metadata? = nil
+            _meta: Metadata? = nil,
+            ttlMs: Int? = nil,
+            cacheScope: CacheScope? = nil
         ) {
             self.tools = tools
             self.nextCursor = nextCursor
             self._meta = _meta
+            self.ttlMs = ttlMs
+            self.cacheScope = cacheScope
         }
 
         private enum CodingKeys: String, CodingKey, CaseIterable {
-            case tools, nextCursor, _meta
+            case tools, nextCursor, _meta, ttlMs, cacheScope
         }
 
         public func encode(to encoder: Encoder) throws {
@@ -346,6 +354,8 @@ public enum ListTools: Method {
             try container.encode(tools, forKey: .tools)
             try container.encodeIfPresent(nextCursor, forKey: .nextCursor)
             try container.encodeIfPresent(_meta, forKey: ._meta)
+            try container.encodeIfPresent(ttlMs, forKey: .ttlMs)
+            try container.encodeIfPresent(cacheScope, forKey: .cacheScope)
         }
 
         public init(from decoder: Decoder) throws {
@@ -353,6 +363,8 @@ public enum ListTools: Method {
             tools = try container.decode([Tool].self, forKey: .tools)
             nextCursor = try container.decodeIfPresent(String.self, forKey: .nextCursor)
             _meta = try container.decodeIfPresent(Metadata.self, forKey: ._meta)
+            ttlMs = try container.decodeIfPresent(Int.self, forKey: .ttlMs)
+            cacheScope = try container.decodeIfPresent(CacheScope.self, forKey: .cacheScope)
         }
     }
 }
