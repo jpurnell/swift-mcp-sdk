@@ -268,6 +268,8 @@ public enum ListResources: Method {
         public let resources: [Resource]
         public let nextCursor: String?
         public var _meta: Metadata?
+        /// Tells the client how to parse this result.
+        public var resultType: ResultType?
         /// How long, in milliseconds, the client may consider this result fresh.
         public var ttlMs: Int?
         /// Whether a shared intermediary may cache this result.
@@ -277,18 +279,20 @@ public enum ListResources: Method {
             resources: [Resource],
             nextCursor: String? = nil,
             _meta: Metadata? = nil,
+            resultType: ResultType? = nil,
             ttlMs: Int? = nil,
             cacheScope: CacheScope? = nil
         ) {
             self.resources = resources
             self.nextCursor = nextCursor
             self._meta = _meta
+            self.resultType = resultType
             self.ttlMs = ttlMs
             self.cacheScope = cacheScope
         }
 
         private enum CodingKeys: String, CodingKey, CaseIterable {
-            case resources, nextCursor, _meta, ttlMs, cacheScope
+            case resources, nextCursor, _meta, resultType, ttlMs, cacheScope
         }
 
         public func encode(to encoder: Encoder) throws {
@@ -296,6 +300,7 @@ public enum ListResources: Method {
             try container.encode(resources, forKey: .resources)
             try container.encodeIfPresent(nextCursor, forKey: .nextCursor)
             try container.encodeIfPresent(_meta, forKey: ._meta)
+            try container.encodeIfPresent(resultType, forKey: .resultType)
             try container.encodeIfPresent(ttlMs, forKey: .ttlMs)
             try container.encodeIfPresent(cacheScope, forKey: .cacheScope)
         }
@@ -305,6 +310,9 @@ public enum ListResources: Method {
             resources = try container.decode([Resource].self, forKey: .resources)
             nextCursor = try container.decodeIfPresent(String.self, forKey: .nextCursor)
             _meta = try container.decodeIfPresent(Metadata.self, forKey: ._meta)
+            // An unrecognised tag from a future revision reads as absent rather than
+            // throwing, so the rest of the result stays readable.
+            resultType = try? container.decodeIfPresent(ResultType.self, forKey: .resultType)
             ttlMs = try container.decodeIfPresent(Int.self, forKey: .ttlMs)
             cacheScope = try container.decodeIfPresent(CacheScope.self, forKey: .cacheScope)
         }
@@ -328,6 +336,8 @@ public enum ReadResource: Method {
         public let contents: [Resource.Content]
         /// Optional metadata about this result
         public var _meta: Metadata?
+        /// Tells the client how to parse this result.
+        public var resultType: ResultType?
         /// How long, in milliseconds, the client may consider this result fresh.
         public var ttlMs: Int?
         /// Whether a shared intermediary may cache this result.
@@ -336,23 +346,26 @@ public enum ReadResource: Method {
         public init(
             contents: [Resource.Content],
             _meta: Metadata? = nil,
+            resultType: ResultType? = nil,
             ttlMs: Int? = nil,
             cacheScope: CacheScope? = nil
         ) {
             self.contents = contents
             self._meta = _meta
+            self.resultType = resultType
             self.ttlMs = ttlMs
             self.cacheScope = cacheScope
         }
 
         private enum CodingKeys: String, CodingKey, CaseIterable {
-            case contents, _meta, ttlMs, cacheScope
+            case contents, _meta, resultType, ttlMs, cacheScope
         }
 
         public func encode(to encoder: Encoder) throws {
             var container = encoder.container(keyedBy: CodingKeys.self)
             try container.encode(contents, forKey: .contents)
             try container.encodeIfPresent(_meta, forKey: ._meta)
+            try container.encodeIfPresent(resultType, forKey: .resultType)
             try container.encodeIfPresent(ttlMs, forKey: .ttlMs)
             try container.encodeIfPresent(cacheScope, forKey: .cacheScope)
         }
@@ -361,6 +374,9 @@ public enum ReadResource: Method {
             let container = try decoder.container(keyedBy: CodingKeys.self)
             contents = try container.decode([Resource.Content].self, forKey: .contents)
             _meta = try container.decodeIfPresent(Metadata.self, forKey: ._meta)
+            // An unrecognised tag from a future revision reads as absent rather than
+            // throwing, so the rest of the result stays readable.
+            resultType = try? container.decodeIfPresent(ResultType.self, forKey: .resultType)
             ttlMs = try container.decodeIfPresent(Int.self, forKey: .ttlMs)
             cacheScope = try container.decodeIfPresent(CacheScope.self, forKey: .cacheScope)
         }
@@ -389,6 +405,8 @@ public enum ListResourceTemplates: Method {
         public let nextCursor: String?
         /// Optional metadata about this result
         public var _meta: Metadata?
+        /// Tells the client how to parse this result.
+        public var resultType: ResultType?
         /// How long, in milliseconds, the client may consider this result fresh.
         public var ttlMs: Int?
         /// Whether a shared intermediary may cache this result.
@@ -398,12 +416,14 @@ public enum ListResourceTemplates: Method {
             templates: [Resource.Template],
             nextCursor: String? = nil,
             _meta: Metadata? = nil,
+            resultType: ResultType? = nil,
             ttlMs: Int? = nil,
             cacheScope: CacheScope? = nil
         ) {
             self.templates = templates
             self.nextCursor = nextCursor
             self._meta = _meta
+            self.resultType = resultType
             self.ttlMs = ttlMs
             self.cacheScope = cacheScope
         }
@@ -411,7 +431,7 @@ public enum ListResourceTemplates: Method {
         private enum CodingKeys: String, CodingKey, CaseIterable {
             case templates = "resourceTemplates"
             case nextCursor
-            case _meta, ttlMs, cacheScope
+            case _meta, resultType, ttlMs, cacheScope
         }
 
         public func encode(to encoder: Encoder) throws {
@@ -419,6 +439,7 @@ public enum ListResourceTemplates: Method {
             try container.encode(templates, forKey: .templates)
             try container.encodeIfPresent(nextCursor, forKey: .nextCursor)
             try container.encodeIfPresent(_meta, forKey: ._meta)
+            try container.encodeIfPresent(resultType, forKey: .resultType)
             try container.encodeIfPresent(ttlMs, forKey: .ttlMs)
             try container.encodeIfPresent(cacheScope, forKey: .cacheScope)
         }
@@ -428,6 +449,9 @@ public enum ListResourceTemplates: Method {
             templates = try container.decode([Resource.Template].self, forKey: .templates)
             nextCursor = try container.decodeIfPresent(String.self, forKey: .nextCursor)
             _meta = try container.decodeIfPresent(Metadata.self, forKey: ._meta)
+            // An unrecognised tag from a future revision reads as absent rather than
+            // throwing, so the rest of the result stays readable.
+            resultType = try? container.decodeIfPresent(ResultType.self, forKey: .resultType)
             ttlMs = try container.decodeIfPresent(Int.self, forKey: .ttlMs)
             cacheScope = try container.decodeIfPresent(CacheScope.self, forKey: .cacheScope)
         }

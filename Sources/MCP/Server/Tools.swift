@@ -326,6 +326,8 @@ public enum ListTools: Method {
         public let tools: [Tool]
         public let nextCursor: String?
         public var _meta: Metadata?
+        /// Tells the client how to parse this result.
+        public var resultType: ResultType?
         /// How long, in milliseconds, the client may consider this result fresh.
         public var ttlMs: Int?
         /// Whether a shared intermediary may cache this result.
@@ -335,18 +337,20 @@ public enum ListTools: Method {
             tools: [Tool],
             nextCursor: String? = nil,
             _meta: Metadata? = nil,
+            resultType: ResultType? = nil,
             ttlMs: Int? = nil,
             cacheScope: CacheScope? = nil
         ) {
             self.tools = tools
             self.nextCursor = nextCursor
             self._meta = _meta
+            self.resultType = resultType
             self.ttlMs = ttlMs
             self.cacheScope = cacheScope
         }
 
         private enum CodingKeys: String, CodingKey, CaseIterable {
-            case tools, nextCursor, _meta, ttlMs, cacheScope
+            case tools, nextCursor, _meta, resultType, ttlMs, cacheScope
         }
 
         public func encode(to encoder: Encoder) throws {
@@ -354,6 +358,7 @@ public enum ListTools: Method {
             try container.encode(tools, forKey: .tools)
             try container.encodeIfPresent(nextCursor, forKey: .nextCursor)
             try container.encodeIfPresent(_meta, forKey: ._meta)
+            try container.encodeIfPresent(resultType, forKey: .resultType)
             try container.encodeIfPresent(ttlMs, forKey: .ttlMs)
             try container.encodeIfPresent(cacheScope, forKey: .cacheScope)
         }
@@ -363,6 +368,9 @@ public enum ListTools: Method {
             tools = try container.decode([Tool].self, forKey: .tools)
             nextCursor = try container.decodeIfPresent(String.self, forKey: .nextCursor)
             _meta = try container.decodeIfPresent(Metadata.self, forKey: ._meta)
+            // An unrecognised tag from a future revision reads as absent rather than
+            // throwing, so the rest of the result stays readable.
+            resultType = try? container.decodeIfPresent(ResultType.self, forKey: .resultType)
             ttlMs = try container.decodeIfPresent(Int.self, forKey: .ttlMs)
             cacheScope = try container.decodeIfPresent(CacheScope.self, forKey: .cacheScope)
         }
@@ -420,17 +428,21 @@ public enum CallTool: Method {
         public let isError: Bool?
         /// Optional metadata about this result
         public var _meta: Metadata?
+        /// Tells the client how to parse this result.
+        public var resultType: ResultType?
 
         public init(
             content: [Tool.Content] = [],
             structuredContent: Value? = nil,
             isError: Bool? = nil,
-            _meta: Metadata? = nil
+            _meta: Metadata? = nil,
+            resultType: ResultType? = nil
         ) {
             self.content = content
             self.structuredContent = structuredContent
             self.isError = isError
             self._meta = _meta
+            self.resultType = resultType
         }
 
         public init<Output: Codable>(
@@ -449,7 +461,7 @@ public enum CallTool: Method {
         }
 
         private enum CodingKeys: String, CodingKey, CaseIterable {
-            case content, structuredContent, isError, _meta
+            case content, structuredContent, isError, _meta, resultType
         }
 
         public func encode(to encoder: Encoder) throws {
@@ -458,6 +470,7 @@ public enum CallTool: Method {
             try container.encodeIfPresent(structuredContent, forKey: .structuredContent)
             try container.encodeIfPresent(isError, forKey: .isError)
             try container.encodeIfPresent(_meta, forKey: ._meta)
+            try container.encodeIfPresent(resultType, forKey: .resultType)
         }
 
         public init(from decoder: Decoder) throws {
@@ -467,6 +480,9 @@ public enum CallTool: Method {
                 Value.self, forKey: .structuredContent)
             isError = try container.decodeIfPresent(Bool.self, forKey: .isError)
             _meta = try container.decodeIfPresent(Metadata.self, forKey: ._meta)
+            // An unrecognised tag from a future revision reads as absent rather than
+            // throwing, so the rest of the result stays readable.
+            resultType = try? container.decodeIfPresent(ResultType.self, forKey: .resultType)
         }
     }
 }

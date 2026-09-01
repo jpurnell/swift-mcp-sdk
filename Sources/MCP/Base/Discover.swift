@@ -33,6 +33,8 @@ public enum Discover: Method {
         public let instructions: String?
         /// Optional metadata about this result.
         public var _meta: Metadata?
+        /// Tells the client how to parse this result.
+        public var resultType: ResultType?
         /// How long, in milliseconds, the client may consider this result fresh.
         public var ttlMs: Int?
         /// Whether a shared intermediary may cache this result.
@@ -43,6 +45,7 @@ public enum Discover: Method {
             capabilities: Server.Capabilities,
             instructions: String? = nil,
             _meta: Metadata? = nil,
+            resultType: ResultType? = nil,
             ttlMs: Int? = nil,
             cacheScope: CacheScope? = nil
         ) {
@@ -50,12 +53,13 @@ public enum Discover: Method {
             self.capabilities = capabilities
             self.instructions = instructions
             self._meta = _meta
+            self.resultType = resultType
             self.ttlMs = ttlMs
             self.cacheScope = cacheScope
         }
 
         private enum CodingKeys: String, CodingKey {
-            case supportedVersions, capabilities, instructions, _meta, ttlMs, cacheScope
+            case supportedVersions, capabilities, instructions, _meta, resultType, ttlMs, cacheScope
         }
 
         public func encode(to encoder: Encoder) throws {
@@ -64,6 +68,7 @@ public enum Discover: Method {
             try container.encode(capabilities, forKey: .capabilities)
             try container.encodeIfPresent(instructions, forKey: .instructions)
             try container.encodeIfPresent(_meta, forKey: ._meta)
+            try container.encodeIfPresent(resultType, forKey: .resultType)
             try container.encodeIfPresent(ttlMs, forKey: .ttlMs)
             try container.encodeIfPresent(cacheScope, forKey: .cacheScope)
         }
@@ -74,6 +79,8 @@ public enum Discover: Method {
             capabilities = try container.decode(Server.Capabilities.self, forKey: .capabilities)
             instructions = try container.decodeIfPresent(String.self, forKey: .instructions)
             _meta = try container.decodeIfPresent(Metadata.self, forKey: ._meta)
+            // An unrecognised tag from a future revision reads as absent rather than throwing.
+            resultType = try? container.decodeIfPresent(ResultType.self, forKey: .resultType)
             ttlMs = try container.decodeIfPresent(Int.self, forKey: .ttlMs)
             cacheScope = try container.decodeIfPresent(CacheScope.self, forKey: .cacheScope)
         }

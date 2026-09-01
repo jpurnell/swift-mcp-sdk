@@ -138,26 +138,37 @@ public enum Complete: Method {
         public let completion: Completion
         /// Optional metadata about this result
         public var _meta: Metadata?
+        /// Tells the client how to parse this result.
+        public var resultType: ResultType?
 
-        public init(completion: Completion, _meta: Metadata? = nil) {
+        public init(
+            completion: Completion,
+            _meta: Metadata? = nil,
+            resultType: ResultType? = nil
+        ) {
             self.completion = completion
             self._meta = _meta
+            self.resultType = resultType
         }
 
         private enum CodingKeys: String, CodingKey, CaseIterable {
-            case completion, _meta
+            case completion, _meta, resultType
         }
 
         public func encode(to encoder: Encoder) throws {
             var container = encoder.container(keyedBy: CodingKeys.self)
             try container.encode(completion, forKey: .completion)
             try container.encodeIfPresent(_meta, forKey: ._meta)
+            try container.encodeIfPresent(resultType, forKey: .resultType)
         }
 
         public init(from decoder: Decoder) throws {
             let container = try decoder.container(keyedBy: CodingKeys.self)
             completion = try container.decode(Completion.self, forKey: .completion)
             _meta = try container.decodeIfPresent(Metadata.self, forKey: ._meta)
+            // An unrecognised tag from a future revision reads as absent rather than
+            // throwing, so the rest of the result stays readable.
+            resultType = try? container.decodeIfPresent(ResultType.self, forKey: .resultType)
         }
 
         /// Completion result containing suggested values
