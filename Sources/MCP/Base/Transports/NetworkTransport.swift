@@ -544,10 +544,17 @@ import Logging
                                                     "Connection appears broken, will attempt to reconnect..."
                                                 )
 
-                                                // Schedule connection restart
-                                                Task { [weak self] in  // Operate on self's executor
-                                                    guard let self = self else { return }
-
+                                                // Schedule connection restart.
+                                                // Captures `self` strongly and deliberately: the
+                                                // enclosing `Task` already holds it strongly via the
+                                                // `guard let self` above, so a nested `[weak self]`
+                                                // bought nothing and made the outer implicit capture
+                                                // inconsistent with it — the ImplicitStrongCapture
+                                                // warning. The reconnect must keep the transport
+                                                // alive while it sleeps and redials; the retain ends
+                                                // when this task does, and the completion closure
+                                                // that owns the chain is released once it fires.
+                                                Task { [self] in  // Operate on self's executor
                                                     await self.setIsConnected(false)
 
                                                     try? await Task.sleep(for: .milliseconds(500))
