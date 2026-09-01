@@ -50,8 +50,23 @@ struct ProtocolErrorTests {
     @Test("urlElicitationRequired no longer squats in the reserved range")
     func testUrlElicitationRenumbered() {
         let error = MCPError.urlElicitationRequired(message: "sign in", elicitations: [])
-        #expect(error.code == -32002)
+        #expect(error.code == -32003)
         #expect(error.code > -32020, "it must sit in the implementation-defined range")
+    }
+
+    /// Implementation-defined codes must not collide with each other either. -32002 is already
+    /// StatelessHTTPServerTransport's request-cancelled code, and it was also the resource
+    /// not-found code before this revision moved that to -32602 — so a peer on an earlier
+    /// revision still sends it with that older meaning.
+    @Test("No two implementation-defined codes collide")
+    func testImplementationCodesAreDistinct() {
+        let codes = [
+            MCPError.connectionClosed.code,
+            MCPError.transportError(URLError(.badURL)).code,
+            MCPError.urlElicitationRequired(message: "x", elicitations: []).code,
+        ]
+        #expect(Set(codes).count == codes.count, "each case needs its own code")
+        #expect(!codes.contains(-32002), "-32002 is taken by request-cancelled and by legacy resource-not-found")
     }
 
     /// Codes the specification reserves must not collide with codes this SDK assigns itself.

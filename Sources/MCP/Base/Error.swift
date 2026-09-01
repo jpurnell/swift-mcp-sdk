@@ -50,7 +50,7 @@ public enum MCPError: Swift.Error, Sendable {
     case serverError(code: Int, message: String)
 
     // MCP specific errors
-    case urlElicitationRequired(message: String, elicitations: [URLElicitationInfo])  // -32002
+    case urlElicitationRequired(message: String, elicitations: [URLElicitationInfo])  // -32003
 
     // Transport specific errors
     case connectionClosed
@@ -73,7 +73,12 @@ public enum MCPError: Swift.Error, Sendable {
         // URLElicitationRequiredError definition entirely. URL-mode elicitation still exists,
         // so the case is kept and moved into the implementation-defined range rather than
         // deleted. This changes the wire code for any consumer matching on -32042.
-        case .urlElicitationRequired: return -32002
+        //
+        // -32003, not -32002: that code is already StatelessHTTPServerTransport's
+        // request-cancelled code, AND it was the resource not-found code before this revision
+        // moved that to -32602, so peers on earlier revisions still send it with the older
+        // meaning. Two senders of one code cannot be told apart by the receiver.
+        case .urlElicitationRequired: return -32003
         case .connectionClosed: return -32000
         case .transportError: return -32001
         }
@@ -273,11 +278,15 @@ extension MCPError: Codable {
             self = .invalidParams(unwrapDetail(message))
         case -32603:
             self = .internalError(unwrapDetail(nil))
-        // Accepts both codes on the way in. -32002 is what this SDK now emits; -32042 is what
+        // Accepts both codes on the way in. -32003 is what this SDK now emits; -32042 is what
         // it emitted before the 2026-07-28 allocation policy moved the case out of the
         // specification-reserved range, and a peer built against an older release still sends
         // it. Reading both costs one case and keeps those peers working.
-        case -32002, -32042:
+        //
+        // -32002 is deliberately NOT accepted here: it means request-cancelled to this SDK's
+        // own stateless transport, and resource-not-found to any peer on a pre-2026 revision.
+        // Decoding it as a URL elicitation would silently mistranslate both.
+        case -32003, -32042:
             // Extract elicitations array from data
             var elicitations: [URLElicitationInfo] = []
             if case .array(let items) = data?["elicitations"] {
