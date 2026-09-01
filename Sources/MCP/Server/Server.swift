@@ -108,6 +108,19 @@ public actor Server {
 
         /// Completions capabilities
         public var completions: Completions?
+        /// Experimental features supported by the server.
+        ///
+        /// Keyed by feature identifier, with an arbitrary JSON object as the value. The
+        /// specification types this as a `JSONObject`, which `[String: Value]` models
+        /// directly — no separate JSON value type is needed.
+        public var experimental: [String: Value]?
+        /// Capability extensions declared by the server.
+        ///
+        /// Added by MCP `2026-07-28`, which introduces `extensions` on both
+        /// `ServerCapabilities` and `ClientCapabilities` to carry optional behaviour beyond
+        /// the core protocol. Keyed by extension identifier, such as
+        /// `io.modelcontextprotocol/tasks`.
+        public var extensions: [String: Value]?
         /// Logging capabilities
         public var logging: Logging?
         /// Prompts capabilities
@@ -119,12 +132,16 @@ public actor Server {
 
         public init(
             completions: Completions? = nil,
+            experimental: [String: Value]? = nil,
+            extensions: [String: Value]? = nil,
             logging: Logging? = nil,
             prompts: Prompts? = nil,
             resources: Resources? = nil,
             tools: Tools? = nil
         ) {
             self.completions = completions
+            self.experimental = experimental
+            self.extensions = extensions
             self.logging = logging
             self.prompts = prompts
             self.resources = resources

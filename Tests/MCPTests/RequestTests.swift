@@ -206,6 +206,30 @@ struct RequestTests {
         #expect(decoded.params.clientInfo.name == "unknown")
     }
 
+    @Test("Server capabilities round-trip with experimental and extensions")
+    func testServerCapabilitiesExperimentalExtensionsRoundTrip() throws {
+        // MCP 2026-07-28 adds `extensions` to ServerCapabilities as well as ClientCapabilities.
+        // The spec types both as JSONObject, which `[String: Value]` already models.
+        let capabilities = Server.Capabilities(
+            experimental: ["openai/visibility": .object(["enabled": .bool(true)])],
+            extensions: [
+                "io.modelcontextprotocol/ui": .object([
+                    "mimeTypes": .array([.string("text/html;profile=mcp-app")])
+                ])
+            ],
+            tools: .init(listChanged: true)
+        )
+
+        let data = try JSONEncoder().encode(capabilities)
+        let decoded = try JSONDecoder().decode(Server.Capabilities.self, from: data)
+
+        #expect(decoded.experimental?["openai/visibility"] == .object(["enabled": .bool(true)]))
+        #expect(
+            decoded.extensions?["io.modelcontextprotocol/ui"]
+                == .object(["mimeTypes": .array([.string("text/html;profile=mcp-app")])]))
+        #expect(decoded.tools?.listChanged == true)
+    }
+
     @Test("Initialize parameters decoding - nested experimental and extensions")
     func testInitializeParametersDecodingNestedCapabilities() throws {
         let jsonString = """
