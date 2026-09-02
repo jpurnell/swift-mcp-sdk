@@ -196,8 +196,6 @@ public actor Server {
     private var clientCapabilities: Client.Capabilities?
     /// The protocol version
     private var protocolVersion: String?
-    /// The list of subscriptions
-    private var subscriptions: [String: Set<ID>] = [:]
     /// The task for the message handling loop
     private var task: Task<Void, Never>?
 

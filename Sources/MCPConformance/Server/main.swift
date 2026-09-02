@@ -34,13 +34,6 @@ actor ServerState {
         resourceSubscriptions.remove(uri)
     }
 
-    func isSubscribed(to uri: String) -> Bool {
-        resourceSubscriptions.contains(uri)
-    }
-
-    func updateWatchedResource(_ newContent: String) {
-        watchedResourceContent = newContent
-    }
 }
 
 // MARK: - Server Setup

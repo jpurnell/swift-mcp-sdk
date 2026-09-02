@@ -144,8 +144,11 @@ import struct Foundation.Data
                     // an `UnsafeMutableRawBufferPointer` inside the block instead put a second
                     // pointer to the same memory in scope, which is the shape that goes wrong
                     // when someone later returns it.
-                    let bytesRead = try buffer.withUnsafeMutableBytes { raw in
-                        try input.read(into: raw)
+                    let bytesRead = try buffer.withUnsafeMutableBytes { raw -> Int in
+                        // Bound to a local and returned separately, so what leaves the block is
+                        // plainly the count and not the buffer it was read into.
+                        let count = try input.read(into: raw)
+                        return count
                     }
 
                     if bytesRead == 0 {
@@ -212,8 +215,9 @@ import struct Foundation.Data
                 do {
                     // The block's own argument is already an `UnsafeRawBufferPointer`; the
                     // conversion only made a second pointer to the same bytes.
-                    let written = try remaining.withUnsafeBytes { buffer in
-                        try output.write(buffer)
+                    let written = try remaining.withUnsafeBytes { buffer -> Int in
+                        let count = try output.write(buffer)
+                        return count
                     }
                     if written > 0 {
                         remaining = remaining.dropFirst(written)

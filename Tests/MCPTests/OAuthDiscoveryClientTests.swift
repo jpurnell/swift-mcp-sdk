@@ -173,7 +173,6 @@ import Testing
                 tokenEndpoint: URL(string: "https://auth.example.com/token"),
                 registrationEndpoint: nil,
                 codeChallengeMethodsSupported: ["S256"],
-                tokenEndpointAuthMethodsSupported: nil,
                 clientIDMetadataDocumentSupported: nil)
             #expect(server == expectedServer)
             #expect(metadata == expectedMetadata)

@@ -22,7 +22,6 @@ import Testing
                 tokenEndpoint: URL(string: "https://auth.example.com/token"),
                 registrationEndpoint: registrationEndpoint,
                 codeChallengeMethodsSupported: ["S256"],
-                tokenEndpointAuthMethodsSupported: nil,
                 clientIDMetadataDocumentSupported: nil
             )
         }
@@ -74,7 +73,7 @@ import Testing
             let asMetadata = OAuthAuthorizationServerMetadata(
                 issuer: nil, authorizationEndpoint: nil, tokenEndpoint: nil,
                 registrationEndpoint: nil, codeChallengeMethodsSupported: nil,
-                tokenEndpointAuthMethodsSupported: nil, clientIDMetadataDocumentSupported: false
+                clientIDMetadataDocumentSupported: false
             )
             let (session, _) = makeIsolatedSession()
 
@@ -160,7 +159,7 @@ import Testing
         func testUpdatedAuthenticationBasic() {
             let registration = OAuthClientRegistrationResponse(
                 clientID: "new-id", clientSecret: "new-secret",
-                tokenEndpointAuthMethod: nil, clientSecretExpiresAt: nil
+                clientSecretExpiresAt: nil
             )
             let result = OAuthClientRegistrar.updatedAuthentication(
                 from: registration,
@@ -174,7 +173,7 @@ import Testing
         func testUpdatedAuthenticationFallsBackToCurrentSecret() {
             let registration = OAuthClientRegistrationResponse(
                 clientID: "new-id", clientSecret: nil,
-                tokenEndpointAuthMethod: nil, clientSecretExpiresAt: nil
+                clientSecretExpiresAt: nil
             )
             let result = OAuthClientRegistrar.updatedAuthentication(
                 from: registration,

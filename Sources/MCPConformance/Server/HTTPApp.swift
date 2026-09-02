@@ -49,6 +49,8 @@ actor HTTPApp {
     private let serverFactory: ServerFactory
     private let validationPipeline: (any HTTPRequestValidationPipeline)?
     private var channel: Channel?
+    /// Held for the process lifetime: a released DispatchSourceSignal stops firing.
+    private var shutdownSources: [any DispatchSourceSignal] = []
     private var sessions: [String: SessionContext] = [:]
 
     nonisolated let logger: Logger
@@ -133,8 +135,26 @@ actor HTTPApp {
         self.channel = channel
 
         Task { await sessionCleanupLoop() }
+        installShutdownHandler()
 
         try await channel.closeFuture.get()
+    }
+
+    /// Closes sessions on SIGINT and SIGTERM.
+    ///
+    /// `stop()` existed with nothing to call it, so an interrupted run left its sessions open
+    /// and its clients waiting for a close that never came. The conformance harness stops this
+    /// process between scenarios, which is exactly when that matters.
+    private func installShutdownHandler() {
+        for signalNumber in [SIGINT, SIGTERM] {
+            signal(signalNumber, SIG_IGN)
+            let source = DispatchSource.makeSignalSource(signal: signalNumber, queue: .main)
+            source.setEventHandler { [weak self] in
+                Task { await self?.stop() }
+            }
+            source.resume()
+            shutdownSources.append(source)
+        }
     }
 
     /// Stops the HTTP application gracefully, closing all sessions.

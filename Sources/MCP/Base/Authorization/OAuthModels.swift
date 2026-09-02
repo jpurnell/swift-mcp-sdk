@@ -75,7 +75,6 @@ struct OAuthAuthorizationServerMetadata: Decodable, Sendable, Equatable {
     let tokenEndpoint: URL?
     let registrationEndpoint: URL?
     let codeChallengeMethodsSupported: [String]?
-    let tokenEndpointAuthMethodsSupported: [String]?
     let clientIDMetadataDocumentSupported: Bool?
 
     enum CodingKeys: String, CodingKey {
@@ -84,7 +83,6 @@ struct OAuthAuthorizationServerMetadata: Decodable, Sendable, Equatable {
         case tokenEndpoint = "token_endpoint"
         case registrationEndpoint = "registration_endpoint"
         case codeChallengeMethodsSupported = "code_challenge_methods_supported"
-        case tokenEndpointAuthMethodsSupported = "token_endpoint_auth_methods_supported"
         case clientIDMetadataDocumentSupported = "client_id_metadata_document_supported"
     }
 }
@@ -209,7 +207,6 @@ public struct BearerTokenInfo: Sendable, Equatable {
 struct OAuthClientRegistrationResponse: Decodable {
     let clientID: String
     let clientSecret: String?
-    let tokenEndpointAuthMethod: String?
     /// Unix timestamp after which `clientSecret` is no longer valid, per RFC 7591 §3.2.
     /// A value of `0` means the secret does not expire.
     let clientSecretExpiresAt: Int?
@@ -217,7 +214,6 @@ struct OAuthClientRegistrationResponse: Decodable {
     enum CodingKeys: String, CodingKey {
         case clientID = "client_id"
         case clientSecret = "client_secret"
-        case tokenEndpointAuthMethod = "token_endpoint_auth_method"
         case clientSecretExpiresAt = "client_secret_expires_at"
     }
 }

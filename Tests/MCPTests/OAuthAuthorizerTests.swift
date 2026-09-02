@@ -60,7 +60,6 @@ final class MockDiscoveryClient: OAuthDiscoveryFetching, @unchecked Sendable {
                 tokenEndpoint: tokenEndpoint,
                 registrationEndpoint: nil,
                 codeChallengeMethodsSupported: ["S256"],
-                tokenEndpointAuthMethodsSupported: nil,
                 clientIDMetadataDocumentSupported: nil
             )
         )
@@ -400,7 +399,6 @@ struct OAuthAuthorizerTests {
             response: OAuthClientRegistrationResponse(
                 clientID: assignedClientID,
                 clientSecret: nil,
-                tokenEndpointAuthMethod: nil,
                 clientSecretExpiresAt: nil
             ),
             updatedAuthentication: .none(clientID: assignedClientID)

@@ -33,8 +33,9 @@ struct StdioTransportTests {
 
         // Read and verify the output
         var buffer = [UInt8](repeating: 0, count: 1024)
-        let bytesRead = try buffer.withUnsafeMutableBytes { raw in
-            try reader.read(into: raw)
+        let bytesRead = try buffer.withUnsafeMutableBytes { raw -> Int in
+            let count = try reader.read(into: raw)
+            return count
         }
         let data = Data(buffer[..<bytesRead])
         let expectedOutput = Data(message.utf8) + Data("\n".utf8)

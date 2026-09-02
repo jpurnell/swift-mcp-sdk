@@ -260,12 +260,6 @@ package enum JSONRPCMessageKind {
         }
     }
 
-    /// Whether this message is a JSON-RPC response (success or error).
-    var isResponse: Bool {
-        if case .response = self { return true }
-        return false
-    }
-
     /// Whether this message is an `initialize` request.
     package var isInitializeRequest: Bool {
         if case .request(_, let method) = self {
