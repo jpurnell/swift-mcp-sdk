@@ -217,20 +217,30 @@ public actor Client {
             "Client connected", metadata: ["name": "\(name)", "version": "\(version)"])
 
         // Start message handling loop (matches Server.swift — no outer repeat)
+        //
+        // The loop reads `transport` — the connection this call established — rather than the
+        // `connection` property from inside the task. Read there it is whatever the property
+        // happens to hold when the scheduler first runs the body, and a `disconnect()` landing
+        // in that window made the loop return before it started, which looks exactly like a
+        // connection that produced no messages.
+        // Named apart from the properties they came from rather than shadowing them: a local
+        // `let connection = connection` reads as a no-op, and at a glance inside the loop there
+        // is no way to tell which of the two any use means.
+        let activeConnection = transport
+        let messageDecoder = decoder
         task = Task {
-            guard let connection = self.connection else { return }
             do {
-                let stream = await connection.receive()
+                let stream = await activeConnection.receive()
                 for try await data in stream {
                     if Task.isCancelled { break }
 
-                    if let batchResponse = try? decoder.decode([AnyResponse].self, from: data) {
+                    if let batchResponse = try? messageDecoder.decode([AnyResponse].self, from: data) {
                         await handleBatchResponse(batchResponse)
-                    } else if let response = try? decoder.decode(AnyResponse.self, from: data) {
+                    } else if let response = try? messageDecoder.decode(AnyResponse.self, from: data) {
                         await handleResponse(response)
-                    } else if let request = try? decoder.decode(AnyRequest.self, from: data) {
+                    } else if let request = try? messageDecoder.decode(AnyRequest.self, from: data) {
                         await handleIncomingRequest(request)
-                    } else if let message = try? decoder.decode(AnyMessage.self, from: data) {
+                    } else if let message = try? messageDecoder.decode(AnyMessage.self, from: data) {
                         await handleMessage(message)
                     } else {
                         var metadata: Logger.Metadata = [:]
@@ -390,27 +400,28 @@ public actor Client {
 
         let requestData = try encoder.encode(request)
 
-        let requestTask = Task<M.Result, Error> {
+        // Registered before the send, synchronously, on the actor. The comment here used to say
+        // "before attempting to send" while doing it inside a nested task the scheduler was free
+        // to run after the send had completed and the response had already arrived — at which
+        // point the response had nowhere to go.
+        let response = Task<M.Result, Error> {
             try await withCheckedThrowingContinuation { continuation in
-                Task {
-                    // Add the pending request before attempting to send
-                    self.addPendingRequest(
-                        id: request.id,
-                        continuation: continuation,
-                        type: M.Result.self
-                    )
+                addPendingRequest(id: request.id, continuation: continuation, type: M.Result.self)
+            }
+        }
 
-                    // Send the request data
-                    do {
-                        try await connection.send(requestData)
-                    } catch {
-                        // If send fails, try to remove the pending request.
-                        if self.removePendingRequest(id: request.id) != nil {
-                            continuation.resume(throwing: error)
-                        }
-                    }
+        let requestTask = Task<M.Result, Error> {
+            do {
+                try await connection.send(requestData)
+            } catch {
+                // The pending entry carries its own continuation, so the failure path resumes
+                // through it and the send can live here rather than in a second, nested task.
+                // `nil` means the response arrived first and the entry is already gone.
+                if let pending = removePendingRequest(id: request.id) {
+                    pending.resume(throwing: error)
                 }
             }
+            return try await response.value
         }
 
         return RequestContext(requestID: request.id, requestTask: requestTask)

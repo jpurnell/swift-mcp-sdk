@@ -316,6 +316,30 @@ import Logging
         /// Once the connection is established, it starts the message receiving loop.
         ///
         /// - Throws: Error if the connection fails to establish
+        /// Dials again unless the transport is shutting down.
+        ///
+        /// The check and the redial happen in the same actor step. Sampling `isStopping` before
+        /// a backoff sleep and acting on it afterwards asks whether the transport *was* running,
+        /// which is a different question from whether it still is.
+        ///
+        /// - Throws: Whatever ``redial()`` throws.
+        private func redialIfRunning() async throws {
+            guard !isStopping else { return }
+            try await redial()
+        }
+
+        /// Tears down the current connection and dials again, without yielding in between.
+        ///
+        /// The two halves used to be separate statements in a deferred task. Between them the
+        /// actor could run anything else — including another reconnect — and the cancel would
+        /// then land on the connection that had just replaced the failed one.
+        ///
+        /// - Throws: Whatever ``connect()`` throws once the old connection is gone.
+        private func redial() async throws {
+            connection.cancel()
+            try await connect()
+        }
+
         public func connect() async throws {
             guard !isConnected else { return }
 
@@ -426,6 +450,13 @@ import Logging
             // Cancel any existing heartbeat task
             heartbeatTask?.cancel()
 
+            // `logger` and the two configuration values are `nonisolated let`s — immutable, and
+            // not isolated state at all. Bound to locals here so the task bodies below say what
+            // they use instead of reaching back through `self` for a value that cannot change,
+            // and so a log line does not depend on the transport still being alive.
+            let log = logger
+            let heartbeat = heartbeatConfig
+
             // Start a new heartbeat task
             heartbeatTask = Task { [weak self] in
                 guard let self = self else { return }
@@ -436,16 +467,19 @@ import Logging
                 while !Task.isCancelled {
                     do {
                         // Check actor-isolated properties first
-                        let isStopping = await self.isStopping
-                        let isConnected = await self.isConnected
+                        // Named apart from the properties they were read from: a local that
+                        // shadows the property it snapshots reads, three lines later, as though
+                        // it were still the live value.
+                        let stopping = await self.isStopping
+                        let connected = await self.isConnected
 
-                        guard !isStopping && isConnected else { break }
+                        guard !stopping && connected else { break }
 
                         try await self.sendHeartbeat()
-                        try await Task.sleep(for: .seconds(self.heartbeatConfig.interval))
+                        try await Task.sleep(for: .seconds(heartbeat.interval))
                     } catch {
                         // If heartbeat fails, log and retry after a shorter interval
-                        self.logger.warning("Heartbeat failed: \(error)")
+                        log.warning("Heartbeat failed: \(error)")
                         try? await Task.sleep(for: .seconds(2))
                     }
                 }
@@ -530,6 +564,12 @@ import Logging
                     return
                 }
 
+                // Immutable, not isolated state: bound here so the completion chain below says
+                // what it uses rather than reaching back through `self` for values that cannot
+                // change while it runs.
+                let log = self.logger
+                let reconnection = self.reconnectionConfig
+
                 connection.send(
                     content: messageWithNewline,
                     contentContext: .defaultMessage,
@@ -541,15 +581,15 @@ import Logging
                             if !sendContinuationResumed.flag {
                                 sendContinuationResumed.flag = true
                                 if let error = error {
-                                    self.logger.error("Send error: \(error)")
+                                    log.error("Send error: \(error)")
 
                                     // Check if we should attempt to reconnect on send failure
-                                    let isStopping = await self.isStopping  // Await actor-isolated property
-                                    if !isStopping && self.reconnectionConfig.enabled {
-                                        let isConnected = await self.isConnected
-                                        if isConnected {
+                                    let stopping = await self.isStopping
+                                    if !stopping && reconnection.enabled {
+                                        let connected = await self.isConnected
+                                        if connected {
                                             if error.isConnectionLost {
-                                                self.logger.warning(
+                                                log.warning(
                                                     "Connection appears broken, will attempt to reconnect..."
                                                 )
 
@@ -568,12 +608,13 @@ import Logging
 
                                                     try? await Task.sleep(for: .milliseconds(500))
 
-                                                    let currentIsStopping = await self.isStopping
-                                                    if !currentIsStopping {
-                                                        // Cancel the connection, then attempt to reconnect fully.
-                                                        self.connection.cancel()
-                                                        try? await self.connect()
-                                                    }
+                                                    // One step on the actor rather than two.
+                                                    // Cancelling and redialling separately leaves
+                                                    // a window in which another path can replace
+                                                    // `connection` between them — and then the
+                                                    // cancel lands on the connection that just
+                                                    // took its place.
+                                                    try? await self.redial()
                                                 }
                                             }
                                         }
@@ -683,18 +724,17 @@ import Logging
                                 isConnected = false
 
                                 // Schedule reconnection attempt
+                                // The delay is computed here, on the actor, rather than inside
+                                // the task: `reconnectAttempt` is what it is now, and reading it
+                                // after a sleep would back off by whatever the count had become.
+                                let delay = reconnectionConfig.backoffDelay(for: reconnectAttempt)
                                 Task {
-                                    let delay = reconnectionConfig.backoffDelay(
-                                        for: reconnectAttempt)
                                     try? await Task.sleep(for: .seconds(delay))
-
-                                    if !isStopping {
-                                        // Cancel the connection, then attempt to reconnect fully.
-                                        self.connection.cancel()
-                                        try? await self.connect()
-
-                                        // If connect succeeded, a new receive loop will be started
-                                    }
+                                    // `redial` is one step on the actor, and it re-reads
+                                    // `isStopping` there rather than trusting a value sampled
+                                    // before the sleep. If connect succeeds a new receive loop
+                                    // starts with it.
+                                    try? await self.redialIfRunning()
                                 }
 
                                 // Exit this receive loop since we're starting a new one after reconnect
@@ -732,14 +772,10 @@ import Logging
 
                             isConnected = false
 
+                            let delay = reconnectionConfig.backoffDelay(for: reconnectAttempt)
                             Task {
-                                let delay = reconnectionConfig.backoffDelay(for: reconnectAttempt)
                                 try? await Task.sleep(for: .seconds(delay))
-
-                                if !isStopping {
-                                    self.connection.cancel()
-                                    try? await connect()
-                                }
+                                try? await self.redialIfRunning()
                             }
 
                             break
@@ -774,6 +810,9 @@ import Logging
                 }
 
                 let maxLength = bufferConfig.maxReceiveBufferSize ?? Int.max
+                // Immutable and not isolated state, bound here so the completion below does not
+                // reach back through `self` for it.
+                let log = self.logger
                 connection.receive(minimumIncompleteLength: 1, maximumLength: maxLength) {
                     content, _, isComplete, error in
                     Task { @MainActor in
@@ -784,7 +823,7 @@ import Logging
                             } else if let content = content {
                                 continuation.resume(returning: content)
                             } else if isComplete {
-                                self.logger.trace("Connection completed by peer")
+                                log.trace("Connection completed by peer")
                                 continuation.resume(throwing: MCPError.connectionClosed)
                             } else {
                                 // EOF: Resume with empty data instead of throwing an error

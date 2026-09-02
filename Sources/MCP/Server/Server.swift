@@ -418,30 +418,32 @@ public actor Server {
         encoder.outputFormatting = [.sortedKeys, .withoutEscapingSlashes]
         let requestData = try encoder.encode(request)
 
-        let requestTask = Task<M.Result, Error> {
+        // Registered before the send, synchronously, on the actor. It used to happen inside a
+        // nested `Task` under a comment claiming it happened first — which the scheduler was
+        // free to run after the send had completed and the response had already arrived, at
+        // which point the response had nowhere to go.
+        let response = Task<M.Result, Error> {
             try await withCheckedThrowingContinuation { continuation in
-                // Registered here rather than inside the Task below. The comment on this line
-                // used to say "before sending" while doing it from a task that the scheduler
-                // was free to run after the send had completed and the response had already
-                // arrived — at which point the response has nowhere to go. This body runs
-                // synchronously on the actor, so "before" is now true.
-                self.addPendingResponse(
-                    id: request.id,
-                    continuation: continuation,
-                    type: M.Result.self
-                )
+                addPendingResponse(id: request.id, continuation: continuation, type: M.Result.self)
+            }
+        }
 
-                Task {
-                    do {
-                        try await connection.send(requestData)
-                    } catch {
-                        // If send fails, remove pending response and resume with error
-                        if self.removePendingResponse(id: request.id) != nil {
-                            continuation.resume(throwing: error)
-                        }
-                    }
+        let requestTask = Task<M.Result, Error> {
+            do {
+                try await connection.send(requestData)
+            } catch {
+                // The pending entry carries its own continuation, so the failure path resumes
+                // through it rather than needing the continuation in scope. That is what lets
+                // the send live here instead of in a second, nested task: one task, in order,
+                // and no deferred mutation of actor state from a closure the scheduler places.
+                //
+                // `nil` means the response arrived first and the entry is already gone. The
+                // send failed after it was answered, which is not the caller's problem.
+                if let pending = removePendingResponse(id: request.id) {
+                    pending.resume(throwing: error)
                 }
             }
+            return try await response.value
         }
 
         return requestTask
