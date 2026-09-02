@@ -16,7 +16,7 @@ import Foundation
 /// The keys a flat task envelope writes, shared by every shape below so they cannot drift.
 private enum TaskEnvelopeKeys: String, CodingKey {
     case taskId, status, statusMessage, createdAt, lastUpdatedAt, ttlMs, pollIntervalMs
-    case resultType, result, error, inputRequests, _meta
+    case resultType, result, error, inputRequests, content, _meta
 }
 
 extension MCPTask {
@@ -85,6 +85,25 @@ public struct CreateTaskResult: Hashable, Codable, Sendable {
     public var task: MCPTask
     /// Always ``ResultType/task``, which is how a client tells this from a finished result.
     public var resultType: ResultType
+    /// Empty, because the task has not produced anything yet.
+    ///
+    /// ## Why a field that is always empty
+    ///
+    /// `2026-07-28`'s `CallToolResult` declares `required: ["content", "resultType"]`, and it
+    /// types `resultType` as an open string rather than an enum — which is what makes
+    /// `"task"` legal there at all. A task-augmented `tools/call` response is therefore still a
+    /// `CallToolResult`, and omitting `content` makes it schema-invalid.
+    ///
+    /// **This is a judgement call on an ambiguity, not a settled rule.** The other reading is
+    /// that a created task is content-free the way `InputRequiredResult` is — that shape
+    /// requires only `resultType`, so the specification does carve out "not finished yet"
+    /// results when it means to. It could not carve one out here, because tasks are an
+    /// extension and live outside the core schema.
+    ///
+    /// Emitting an empty array satisfies both readings: a client switches on `resultType` and
+    /// never reads this, and a validator holding the core schema is satisfied. If SEP-2663 is
+    /// clarified the other way, deleting this property is the whole change.
+    public var content: [Tool.Content]
 
     /// The task's identifier.
     public var taskId: String { task.taskId }
@@ -99,12 +118,14 @@ public struct CreateTaskResult: Hashable, Codable, Sendable {
     public init(task: MCPTask) {
         self.task = task
         self.resultType = .task
+        self.content = []
     }
 
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: TaskEnvelopeKeys.self)
         try task.encodeFlat(into: &container)
         try container.encode(resultType, forKey: .resultType)
+        try container.encode(content, forKey: .content)
     }
 
     public init(from decoder: Decoder) throws {
@@ -112,6 +133,7 @@ public struct CreateTaskResult: Hashable, Codable, Sendable {
         self.task = try MCPTask(flat: container)
         self.resultType = try container.decodeIfPresent(ResultType.self, forKey: .resultType)
             ?? .task
+        self.content = try container.decodeIfPresent([Tool.Content].self, forKey: .content) ?? []
     }
 }
 

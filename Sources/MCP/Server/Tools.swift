@@ -395,16 +395,40 @@ public enum CallTool: Method {
         /// Arguments to use for the tool call.
         public let arguments: [String: Value]?
 
-        public init(name: String, arguments: [String: Value]? = nil, meta: Metadata? = nil) {
+        /// Answers to a previous ``InputRequiredResult`` from this same call (SEP-2322).
+        ///
+        /// There is no "continue" method: the client retries the original request with the
+        /// answers attached, and that retry *is* the continuation. Which is why these live
+        /// beside `name` rather than inside `arguments` — they are protocol carriage, not
+        /// something the tool asked for.
+        public let inputResponses: [String: InputResponse]?
+
+        /// The opaque state from that ``InputRequiredResult``, echoed back unchanged.
+        ///
+        /// The server correlates the retry with work it has already done. A client must not
+        /// interpret or alter it; a server that signs it will notice if one does.
+        public let requestState: String?
+
+        public init(
+            name: String,
+            arguments: [String: Value]? = nil,
+            inputResponses: [String: InputResponse]? = nil,
+            requestState: String? = nil,
+            meta: Metadata? = nil
+        ) {
             self._meta = meta
             self.name = name
             self.arguments = arguments
+            self.inputResponses = inputResponses
+            self.requestState = requestState
         }
 
         private enum CodingKeys: String, CodingKey {
             case _meta
             case name
             case arguments
+            case inputResponses
+            case requestState
         }
 
         public init(from decoder: Decoder) throws {
@@ -412,6 +436,12 @@ public enum CallTool: Method {
             _meta = try container.decodeIfPresent(Metadata.self, forKey: ._meta)
             name = try container.decode(String.self, forKey: .name)
             arguments = try container.decodeIfPresent([String: Value].self, forKey: .arguments)
+            // Decoded leniently: a malformed answer is the server's to diagnose and re-request,
+            // and throwing here would turn a recoverable round into a protocol error the client
+            // cannot act on.
+            inputResponses = try? container.decodeIfPresent(
+                [String: InputResponse].self, forKey: .inputResponses)
+            requestState = try container.decodeIfPresent(String.self, forKey: .requestState)
         }
 
         public func encode(to encoder: Encoder) throws {
@@ -419,6 +449,8 @@ public enum CallTool: Method {
             try container.encodeIfPresent(_meta, forKey: ._meta)
             try container.encode(name, forKey: .name)
             try container.encodeIfPresent(arguments, forKey: .arguments)
+            try container.encodeIfPresent(inputResponses, forKey: .inputResponses)
+            try container.encodeIfPresent(requestState, forKey: .requestState)
         }
     }
 

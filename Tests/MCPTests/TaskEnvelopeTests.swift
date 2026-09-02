@@ -165,3 +165,16 @@ struct TaskEnvelopeTests {
         #expect(decoded.result?.objectValue?["ok"]?.boolValue == true)
     }
 }
+
+extension TaskEnvelopeTests {
+    /// `2026-07-28`'s `CallToolResult` requires `content` and `resultType`, and types
+    /// `resultType` as an open string so an extension can add `"task"`. A task-augmented
+    /// `tools/call` response is still a `CallToolResult`, so it carries the field — empty,
+    /// because nothing has been produced yet.
+    @Test("A created task carries an empty content array, as its schema requires")
+    func testCreateTaskResultCarriesEmptyContent() throws {
+        let json = try encoded(CreateTaskResult(task: task))
+        let content = try #require(json["content"] as? [Any])
+        #expect(content.isEmpty, "the task has not produced anything yet")
+    }
+}

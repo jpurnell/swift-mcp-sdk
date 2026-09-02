@@ -349,10 +349,29 @@ public enum GetPrompt: Method {
     public struct Parameters: Hashable, Codable, Sendable {
         public let name: String
         public let arguments: [String: String]?
+        /// Answers to a previous ``InputRequiredResult`` from this same request (SEP-2322).
+        ///
+        /// SEP-2322 is not a tools feature: any request can need input before it can answer,
+        /// and `prompts/get` is where that is easiest to see — a prompt template may need to
+        /// ask the user what to fill in.
+        public let inputResponses: [String: InputResponse]?
+        /// The opaque state from that ``InputRequiredResult``, echoed back unchanged.
+        public let requestState: String?
+        /// Metadata for this request.
+        public let _meta: Metadata?
 
-        public init(name: String, arguments: [String: String]? = nil) {
+        public init(
+            name: String,
+            arguments: [String: String]? = nil,
+            inputResponses: [String: InputResponse]? = nil,
+            requestState: String? = nil,
+            _meta: Metadata? = nil
+        ) {
             self.name = name
             self.arguments = arguments
+            self.inputResponses = inputResponses
+            self.requestState = requestState
+            self._meta = _meta
         }
     }
 
