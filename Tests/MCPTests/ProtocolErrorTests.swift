@@ -54,6 +54,23 @@ struct ProtocolErrorTests {
         #expect(error.code > -32020, "it must sit in the implementation-defined range")
     }
 
+    /// MCP 2026-07-28 moves resource not-found from -32002 to -32602 (Invalid Params), aligning
+    /// it with JSON-RPC. The old code cannot be decoded back into this case: -32002 is also this
+    /// SDK's request-cancelled code, so a receiver cannot tell the two apart.
+    @Test("Resource not found is -32602, the JSON-RPC invalid-params code")
+    func testResourceNotFoundCode() {
+        #expect(MCPError.resourceNotFound("file:///missing.txt").code == -32602)
+        #expect(
+            MCPError.resourceNotFound(nil).code == MCPError.invalidParams(nil).code,
+            "the revision aligns it with invalid params rather than giving it a private code")
+    }
+
+    @Test("Resource not found names the resource it could not find")
+    func testResourceNotFoundDescribesTheResource() {
+        let error = MCPError.resourceNotFound("file:///missing.txt")
+        #expect(error.errorDescription?.contains("file:///missing.txt") == true)
+    }
+
     /// Implementation-defined codes must not collide with each other either. -32002 is already
     /// StatelessHTTPServerTransport's request-cancelled code, and it was also the resource
     /// not-found code before this revision moved that to -32602 — so a peer on an earlier

@@ -39,6 +39,14 @@ public enum MCPError: Swift.Error, Sendable {
     // MCP 2026-07-28 partitions the JSON-RPC server-error range: -32000 to -32019 stays
     // implementation-defined, with existing usage grandfathered, and -32020 onwards belongs to
     // the specification. These three were renumbered into that range by SEP-2575.
+    /// A resource was requested that the server does not have.
+    ///
+    /// MCP 2026-07-28 moved this from -32002 to -32602, aligning it with JSON-RPC's invalid
+    /// params. The old code is NOT decoded back into this case: -32002 is also this SDK's
+    /// request-cancelled code, so a receiver cannot tell the two apart, and guessing would
+    /// mistranslate one of them.
+    case resourceNotFound(String?)  // -32602
+
     /// A required MCP request header was missing or disagreed with the request body.
     case headerMismatch(String?)  // -32020
     /// The request needed a client capability the client did not declare.
@@ -64,6 +72,7 @@ public enum MCPError: Swift.Error, Sendable {
         case .methodNotFound: return -32601
         case .invalidParams: return -32602
         case .internalError: return -32603
+        case .resourceNotFound: return -32602
         case .headerMismatch: return -32020
         case .missingRequiredClientCapability: return -32021
         case .unsupportedProtocolVersion: return -32022
@@ -114,6 +123,8 @@ extension MCPError: LocalizedError {
             return "Invalid params" + (detail.map { ": \($0)" } ?? "")
         case .internalError(let detail):
             return "Internal error" + (detail.map { ": \($0)" } ?? "")
+        case .resourceNotFound(let detail):
+            return "Resource not found\(detail.map { ": \($0)" } ?? "")"
         case .headerMismatch(let detail):
             return "Header mismatch\(detail.map { ": \($0)" } ?? "")"
         case .missingRequiredClientCapability(let detail):
@@ -143,6 +154,8 @@ extension MCPError: LocalizedError {
             return "Invalid method parameter(s)"
         case .internalError:
             return "Internal JSON-RPC error"
+        case .resourceNotFound:
+            return "The requested resource does not exist on this server"
         case .headerMismatch:
             return "A required MCP request header was missing or disagreed with the request body"
         case .missingRequiredClientCapability:
@@ -216,6 +229,7 @@ extension MCPError: Codable {
             .methodNotFound(let detail),
             .invalidParams(let detail),
             .internalError(let detail),
+            .resourceNotFound(let detail),
             .headerMismatch(let detail),
             .missingRequiredClientCapability(let detail),
             .unsupportedProtocolVersion(let detail):
@@ -364,6 +378,8 @@ extension MCPError: Hashable {
         case .invalidParams(let detail):
             hasher.combine(detail)
         case .internalError(let detail):
+            hasher.combine(detail)
+        case .resourceNotFound(let detail):
             hasher.combine(detail)
         case .headerMismatch(let detail):
             hasher.combine(detail)
