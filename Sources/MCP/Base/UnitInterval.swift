@@ -98,7 +98,10 @@ extension UnitInterval: ExpressibleByFloatLiteral {
     ///   let half: UnitInterval = 0.5
     ///   ```
     public init(floatLiteral value: Double) {
-        self.init(value)!
+        guard let interval = UnitInterval(value) else {
+            preconditionFailure("UnitInterval literal \(value) is outside 0...1")
+        }
+        self = interval
     }
 }
 
@@ -121,6 +124,9 @@ extension UnitInterval: ExpressibleByIntegerLiteral {
     ///   let one: UnitInterval = 1
     ///   ```
     public init(integerLiteral value: Int) {
-        self.init(Double(value))!
+        guard let interval = UnitInterval(Double(value)) else {
+            preconditionFailure("UnitInterval literal \(value) is outside 0...1")
+        }
+        self = interval
     }
 }

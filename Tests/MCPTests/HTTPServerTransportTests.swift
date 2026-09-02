@@ -21,12 +21,12 @@ private func makeInitializeBody(id: String = "1") -> Data {
             "clientInfo": ["name": "test", "version": "1.0"],
         ] as [String: Any],
     ]
-    return try! JSONSerialization.data(withJSONObject: json)
+    return testJSONBody(json)
 }
 
 private func makeNotificationBody(method: String = "notifications/initialized") -> Data {
     let json: [String: Any] = ["jsonrpc": "2.0", "method": method]
-    return try! JSONSerialization.data(withJSONObject: json)
+    return testJSONBody(json)
 }
 
 private func makeRequestBody(id: String = "2", method: String = "tools/list") -> Data {
@@ -36,7 +36,7 @@ private func makeRequestBody(id: String = "2", method: String = "tools/list") ->
         "method": method,
         "params": [:] as [String: Any],
     ]
-    return try! JSONSerialization.data(withJSONObject: json)
+    return testJSONBody(json)
 }
 
 private func makeResponseBody(id: String = "2") -> Data {
@@ -45,7 +45,7 @@ private func makeResponseBody(id: String = "2") -> Data {
         "id": id,
         "result": ["tools": []] as [String: Any],
     ]
-    return try! JSONSerialization.data(withJSONObject: json)
+    return testJSONBody(json)
 }
 
 private func makeStatefulPOSTRequest(
@@ -104,7 +104,7 @@ private func makeCancelledNotificationBody(requestId: Any, reason: String? = nil
         "method": "notifications/cancelled",
         "params": params,
     ]
-    return try! JSONSerialization.data(withJSONObject: json)
+    return testJSONBody(json)
 }
 
 private func makeStatefulTransport(

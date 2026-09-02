@@ -30,9 +30,9 @@ struct OAuthAuthorizationCodeFlowTests {
             state: "state-xyz",
             scopeSerializer: scopeSelector
         )
-        let components = URLComponents(url: url, resolvingAgainstBaseURL: false)!
+        let components = try #require(URLComponents(url: url, resolvingAgainstBaseURL: false))
         let items = Dictionary(
-            uniqueKeysWithValues: components.queryItems!.map { ($0.name, $0.value ?? "") })
+            uniqueKeysWithValues: try #require(components.queryItems).map { ($0.name, $0.value ?? "") })
 
         #expect(items["response_type"] == "code")
         #expect(items["client_id"] == "my-client")
@@ -55,9 +55,9 @@ struct OAuthAuthorizationCodeFlowTests {
             state: "state-xyz",
             scopeSerializer: scopeSelector
         )
-        let components = URLComponents(url: url, resolvingAgainstBaseURL: false)!
+        let components = try #require(URLComponents(url: url, resolvingAgainstBaseURL: false))
         let items = Dictionary(
-            uniqueKeysWithValues: components.queryItems!.map { ($0.name, $0.value ?? "") })
+            uniqueKeysWithValues: try #require(components.queryItems).map { ($0.name, $0.value ?? "") })
 
         let scope = items["scope"] ?? ""
         #expect(scope.contains("read"))
@@ -76,7 +76,7 @@ struct OAuthAuthorizationCodeFlowTests {
             state: "state-xyz",
             scopeSerializer: scopeSelector
         )
-        let components = URLComponents(url: url, resolvingAgainstBaseURL: false)!
+        let components = try #require(URLComponents(url: url, resolvingAgainstBaseURL: false))
         let items = components.queryItems ?? []
         #expect(!items.contains(where: { $0.name == "scope" }))
     }
@@ -93,7 +93,7 @@ struct OAuthAuthorizationCodeFlowTests {
             state: "state-xyz",
             scopeSerializer: scopeSelector
         )
-        let components = URLComponents(url: url, resolvingAgainstBaseURL: false)!
+        let components = try #require(URLComponents(url: url, resolvingAgainstBaseURL: false))
         let items = components.queryItems ?? []
         #expect(!items.contains(where: { $0.name == "scope" }))
     }

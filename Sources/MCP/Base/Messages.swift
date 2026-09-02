@@ -123,9 +123,23 @@ extension Request {
 
         if M.Parameters.self is NotRequired.Type {
             // For NotRequired parameters, use decodeIfPresent or init()
-            params =
-                (try container.decodeIfPresent(M.Parameters.self, forKey: .params)
-                    ?? (M.Parameters.self as! NotRequired.Type).init() as! M.Parameters)
+            // The `is NotRequired.Type` test above is what makes both casts sound. Written
+            // conditionally anyway, so that a future change to that test surfaces as a decoding
+            // error naming the type rather than as a trap inside Foundation's decoder.
+            if let decoded = try container.decodeIfPresent(M.Parameters.self, forKey: .params) {
+                params = decoded
+            } else {
+                guard let notRequired = M.Parameters.self as? any NotRequired.Type,
+                    let empty = notRequired.init() as? M.Parameters
+                else {
+                    throw DecodingError.dataCorrupted(
+                        DecodingError.Context(
+                            codingPath: container.codingPath,
+                            debugDescription:
+                                "\(M.Parameters.self) claims NotRequired but cannot be built empty"))
+                }
+                params = empty
+            }
         } else if let value = try? container.decode(M.Parameters.self, forKey: .params) {
             // If params exists and can be decoded, use it
             params = value
@@ -134,8 +148,8 @@ extension Request {
         {
             // If params is missing or explicitly null, use Empty for Empty parameters
             // or throw for non-Empty parameters
-            if M.Parameters.self == Empty.self {
-                params = Empty() as! M.Parameters
+            if let empty = Empty() as? M.Parameters {
+                params = empty
             } else {
                 throw DecodingError.dataCorrupted(
                     DecodingError.Context(
@@ -356,9 +370,23 @@ public struct Message<N: Notification>: Hashable, Codable, Sendable {
 
         if N.Parameters.self is NotRequired.Type {
             // For NotRequired parameters, use decodeIfPresent or init()
-            params =
-                (try container.decodeIfPresent(N.Parameters.self, forKey: .params)
-                    ?? (N.Parameters.self as! NotRequired.Type).init() as! N.Parameters)
+            // The `is NotRequired.Type` test above is what makes both casts sound. Written
+            // conditionally anyway, so that a future change to that test surfaces as a decoding
+            // error naming the type rather than as a trap inside Foundation's decoder.
+            if let decoded = try container.decodeIfPresent(N.Parameters.self, forKey: .params) {
+                params = decoded
+            } else {
+                guard let notRequired = N.Parameters.self as? any NotRequired.Type,
+                    let empty = notRequired.init() as? N.Parameters
+                else {
+                    throw DecodingError.dataCorrupted(
+                        DecodingError.Context(
+                            codingPath: container.codingPath,
+                            debugDescription:
+                                "\(N.Parameters.self) claims NotRequired but cannot be built empty"))
+                }
+                params = empty
+            }
         } else if let value = try? container.decode(N.Parameters.self, forKey: .params) {
             // If params exists and can be decoded, use it
             params = value
@@ -367,8 +395,8 @@ public struct Message<N: Notification>: Hashable, Codable, Sendable {
         {
             // If params is missing or explicitly null, use Empty for Empty parameters
             // or throw for non-Empty parameters
-            if N.Parameters.self == Empty.self {
-                params = Empty() as! N.Parameters
+            if let empty = Empty() as? N.Parameters {
+                params = empty
             } else {
                 throw DecodingError.dataCorrupted(
                     DecodingError.Context(

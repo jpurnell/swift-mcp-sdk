@@ -483,9 +483,13 @@ public actor StatefulHTTPServerTransport: Transport, HTTPContextProviding {
             return nil
         }
         let streamID = storedEvents[index].streamID
+        // compactMap rather than filter-then-unwrap: the two steps could drift apart, and the
+        // unwrap would then be the thing that noticed.
         let eventsToReplay = storedEvents[(index + 1)...]
-            .filter { $0.streamID == streamID && $0.message != nil }
-            .map { (eventID: $0.eventID, message: $0.message!) }
+            .compactMap { stored -> (eventID: String, message: Data)? in
+                guard stored.streamID == streamID, let message = stored.message else { return nil }
+                return (eventID: stored.eventID, message: message)
+            }
         return (streamID, eventsToReplay)
     }
 

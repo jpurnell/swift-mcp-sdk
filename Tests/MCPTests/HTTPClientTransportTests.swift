@@ -199,9 +199,7 @@ import Testing
                         == "application/json, text/event-stream"
                 )
 
-                let response = HTTPURLResponse(
-                    url: testEndpoint, statusCode: 200, httpVersion: "HTTP/1.1",
-                    headerFields: ["Content-Type": "application/json"])!
+                let response = testHTTPResponse(url: testEndpoint, statusCode: 200, headers: ["Content-Type": "application/json"])
                 return (response, responseData)
             }
 
@@ -233,12 +231,10 @@ import Testing
             await MockURLProtocol.requestHandlerStorage.setHandler {
                 [testEndpoint] (request: URLRequest) in
                 #expect(request.value(forHTTPHeaderField: "MCP-Session-Id") == nil)
-                let response = HTTPURLResponse(
-                    url: testEndpoint, statusCode: 200, httpVersion: "HTTP/1.1",
-                    headerFields: [
+                let response = testHTTPResponse(url: testEndpoint, statusCode: 200, headers: [
                         "Content-Type": "application/json",
                         "MCP-Session-Id": newSessionID,
-                    ])!
+                    ])
                 return (response, Data())
             }
 
@@ -269,12 +265,10 @@ import Testing
                 [testEndpoint] (request: URLRequest) in
                 #expect(request.readBody() == firstMessageData)
                 #expect(request.value(forHTTPHeaderField: "MCP-Session-Id") == nil)
-                let response = HTTPURLResponse(
-                    url: testEndpoint, statusCode: 200, httpVersion: "HTTP/1.1",
-                    headerFields: [
+                let response = testHTTPResponse(url: testEndpoint, statusCode: 200, headers: [
                         "Content-Type": "application/json",
                         "MCP-Session-Id": initialSessionID,
-                    ])!
+                    ])
                 return (response, Data())
             }
             try await transport.send(firstMessageData)
@@ -285,9 +279,7 @@ import Testing
                 #expect(request.readBody() == secondMessageData)
                 #expect(request.value(forHTTPHeaderField: "MCP-Session-Id") == initialSessionID)
 
-                let response = HTTPURLResponse(
-                    url: testEndpoint, statusCode: 200, httpVersion: "HTTP/1.1",
-                    headerFields: ["Content-Type": "application/json"])!
+                let response = testHTTPResponse(url: testEndpoint, statusCode: 200, headers: ["Content-Type": "application/json"])
                 return (response, Data())
             }
             try await transport.send(secondMessageData)
@@ -305,8 +297,7 @@ import Testing
             // Set up the handler BEFORE creating the transport
             await MockURLProtocol.requestHandlerStorage.setHandler {
                 [testEndpoint] (request: URLRequest) in
-                let response = HTTPURLResponse(
-                    url: testEndpoint, statusCode: 404, httpVersion: "HTTP/1.1", headerFields: nil)!
+                let response = testHTTPResponse(url: testEndpoint, statusCode: 404)
                 return (response, Data("Not Found".utf8))
             }
 
@@ -343,8 +334,7 @@ import Testing
             // Set up the handler BEFORE creating the transport
             await MockURLProtocol.requestHandlerStorage.setHandler {
                 [testEndpoint] (request: URLRequest) in
-                let response = HTTPURLResponse(
-                    url: testEndpoint, statusCode: 500, httpVersion: "HTTP/1.1", headerFields: nil)!
+                let response = testHTTPResponse(url: testEndpoint, statusCode: 500)
                 return (response, Data("Server Error".utf8))
             }
 
@@ -380,8 +370,7 @@ import Testing
 
             await MockURLProtocol.requestHandlerStorage.setHandler {
                 [testEndpoint] (_: URLRequest) in
-                let response = HTTPURLResponse(
-                    url: testEndpoint, statusCode: 400, httpVersion: "HTTP/1.1", headerFields: nil)!
+                let response = testHTTPResponse(url: testEndpoint, statusCode: 400)
                 return (response, Data("Bad Request".utf8))
             }
 
@@ -417,13 +406,9 @@ import Testing
 
             await MockURLProtocol.requestHandlerStorage.setHandler {
                 [testEndpoint] (_: URLRequest) in
-                let response = HTTPURLResponse(
-                    url: testEndpoint,
-                    statusCode: 401,
-                    httpVersion: "HTTP/1.1",
-                    headerFields: [
+                let response = testHTTPResponse(url: testEndpoint, statusCode: 401, headers: [
                         "WWW-Authenticate": "Bearer scope=\"files:read\""
-                    ])!
+                    ])
                 return (response, Data())
             }
 
@@ -459,14 +444,10 @@ import Testing
 
             await MockURLProtocol.requestHandlerStorage.setHandler {
                 [testEndpoint] (_: URLRequest) in
-                let response = HTTPURLResponse(
-                    url: testEndpoint,
-                    statusCode: 403,
-                    httpVersion: "HTTP/1.1",
-                    headerFields: [
+                let response = testHTTPResponse(url: testEndpoint, statusCode: 403, headers: [
                         "WWW-Authenticate":
                             "Bearer error=\"insufficient_scope\", scope=\"files:write\""
-                    ])!
+                    ])
                 return (response, Data())
             }
 
@@ -527,33 +508,21 @@ import Testing
                 case testEndpoint:
                     switch request.value(forHTTPHeaderField: "Authorization") {
                     case nil:
-                        let response = HTTPURLResponse(
-                            url: url,
-                            statusCode: 401,
-                            httpVersion: "HTTP/1.1",
-                            headerFields: [
+                        let response = testHTTPResponse(url: url, statusCode: 401, headers: [
                                 "WWW-Authenticate":
                                     "Bearer resource_metadata=\"\(resourceMetadataURL.absoluteString)\", scope=\"files:read\""
-                            ])!
+                            ])
                         return (response, Data())
 
                     case "Bearer access-token-read":
-                        let response = HTTPURLResponse(
-                            url: url,
-                            statusCode: 403,
-                            httpVersion: "HTTP/1.1",
-                            headerFields: [
+                        let response = testHTTPResponse(url: url, statusCode: 403, headers: [
                                 "WWW-Authenticate":
                                     "Bearer error=\"insufficient_scope\", scope=\"files:write\", resource_metadata=\"\(resourceMetadataURL.absoluteString)\", error_description=\"Additional file write permission required\""
-                            ])!
+                            ])
                         return (response, Data())
 
                     case "Bearer access-token-read-write":
-                        let response = HTTPURLResponse(
-                            url: url,
-                            statusCode: 200,
-                            httpVersion: "HTTP/1.1",
-                            headerFields: ["Content-Type": "application/json"])!
+                        let response = testHTTPResponse(url: url, statusCode: 200, headers: ["Content-Type": "application/json"])
                         return (response, finalResponseData)
 
                     default:
@@ -569,20 +538,12 @@ import Testing
                 case resourceMetadataURL:
                     let metadata =
                         Data(#"{ "authorization_servers": ["https://localhost:8080/auth"], "scopes_supported": ["files:read","files:write"] }"#.utf8)
-                    let response = HTTPURLResponse(
-                        url: url,
-                        statusCode: 200,
-                        httpVersion: "HTTP/1.1",
-                        headerFields: ["Content-Type": "application/json"])!
+                    let response = testHTTPResponse(url: url, statusCode: 200, headers: ["Content-Type": "application/json"])
                     return (response, metadata)
 
                 case asMetadataURL:
                     let metadata = Data(#"{ "issuer": "https://localhost:8080/auth", "token_endpoint": "https://localhost:8080/oauth/token" }"#.utf8)
-                    let response = HTTPURLResponse(
-                        url: url,
-                        statusCode: 200,
-                        httpVersion: "HTTP/1.1",
-                        headerFields: ["Content-Type": "application/json"])!
+                    let response = testHTTPResponse(url: url, statusCode: 200, headers: ["Content-Type": "application/json"])
                     return (response, metadata)
 
                 case tokenEndpointURL:
@@ -596,11 +557,7 @@ import Testing
                         #expect(body.contains("scope=files%3Aread"))
                         let tokenResponse =
                             Data(#"{ "access_token": "access-token-read", "token_type": "Bearer", "expires_in": 3600 }"#.utf8)
-                        let response = HTTPURLResponse(
-                            url: url,
-                            statusCode: 200,
-                            httpVersion: "HTTP/1.1",
-                            headerFields: ["Content-Type": "application/json"])!
+                        let response = testHTTPResponse(url: url, statusCode: 200, headers: ["Content-Type": "application/json"])
                         return (response, tokenResponse)
                     }
 
@@ -608,11 +565,7 @@ import Testing
                     #expect(body.contains("scope=files%3Aread%20files%3Awrite"))
                     let tokenResponse =
                         Data(#"{ "access_token": "access-token-read-write", "token_type": "Bearer", "expires_in": 3600 }"#.utf8)
-                    let response = HTTPURLResponse(
-                        url: url,
-                        statusCode: 200,
-                        httpVersion: "HTTP/1.1",
-                        headerFields: ["Content-Type": "application/json"])!
+                    let response = testHTTPResponse(url: url, statusCode: 200, headers: ["Content-Type": "application/json"])
                     return (response, tokenResponse)
 
                 default:
@@ -695,14 +648,10 @@ import Testing
                     let authorization = request.value(forHTTPHeaderField: "Authorization")
 
                     if authorization == nil {
-                        let response = HTTPURLResponse(
-                            url: url,
-                            statusCode: 401,
-                            httpVersion: "HTTP/1.1",
-                            headerFields: [
+                        let response = testHTTPResponse(url: url, statusCode: 401, headers: [
                                 "WWW-Authenticate":
                                     "Bearer resource_metadata=\"\(resourceMetadataURL.absoluteString)\", scope=\"files:read\""
-                            ])!
+                            ])
                         return (response, Data())
                     }
 
@@ -711,14 +660,10 @@ import Testing
                             || authorization == "Bearer access-token-read-write"
                         {
                             await tracker.incrementOpAForbiddenCalls()
-                            let response = HTTPURLResponse(
-                                url: url,
-                                statusCode: 403,
-                                httpVersion: "HTTP/1.1",
-                                headerFields: [
+                            let response = testHTTPResponse(url: url, statusCode: 403, headers: [
                                     "WWW-Authenticate":
                                         "Bearer error=\"insufficient_scope\", scope=\"files:write\", resource_metadata=\"\(resourceMetadataURL.absoluteString)\""
-                                ])!
+                                ])
                             return (response, Data())
                         }
 
@@ -734,23 +679,15 @@ import Testing
                     if isOperationB {
                         if authorization == "Bearer access-token-read-write" {
                             await tracker.incrementOpBForbiddenCalls()
-                            let response = HTTPURLResponse(
-                                url: url,
-                                statusCode: 403,
-                                httpVersion: "HTTP/1.1",
-                                headerFields: [
+                            let response = testHTTPResponse(url: url, statusCode: 403, headers: [
                                     "WWW-Authenticate":
                                         "Bearer error=\"insufficient_scope\", scope=\"files:write\", resource_metadata=\"\(resourceMetadataURL.absoluteString)\""
-                                ])!
+                                ])
                             return (response, Data())
                         }
 
                         if authorization == "Bearer access-token-opb" {
-                            let response = HTTPURLResponse(
-                                url: url,
-                                statusCode: 200,
-                                httpVersion: "HTTP/1.1",
-                                headerFields: ["Content-Type": "application/json"])!
+                            let response = testHTTPResponse(url: url, statusCode: 200, headers: ["Content-Type": "application/json"])
                             return (response, finalResponseData)
                         }
 
@@ -774,20 +711,12 @@ import Testing
                 case resourceMetadataURL:
                     let metadata =
                         Data(#"{ "authorization_servers": ["https://localhost:8080/auth"], "scopes_supported": ["files:read","files:write"] }"#.utf8)
-                    let response = HTTPURLResponse(
-                        url: url,
-                        statusCode: 200,
-                        httpVersion: "HTTP/1.1",
-                        headerFields: ["Content-Type": "application/json"])!
+                    let response = testHTTPResponse(url: url, statusCode: 200, headers: ["Content-Type": "application/json"])
                     return (response, metadata)
 
                 case asMetadataURL:
                     let metadata = Data(#"{ "issuer": "https://localhost:8080/auth", "token_endpoint": "https://localhost:8080/oauth/token" }"#.utf8)
-                    let response = HTTPURLResponse(
-                        url: url,
-                        statusCode: 200,
-                        httpVersion: "HTTP/1.1",
-                        headerFields: ["Content-Type": "application/json"])!
+                    let response = testHTTPResponse(url: url, statusCode: 200, headers: ["Content-Type": "application/json"])
                     return (response, metadata)
 
                 case tokenEndpointURL:
@@ -805,33 +734,21 @@ import Testing
                         #expect(body.contains("scope=files%3Aread"))
                         let tokenResponse =
                             Data(#"{ "access_token": "access-token-read", "token_type": "Bearer", "expires_in": 3600 }"#.utf8)
-                        let response = HTTPURLResponse(
-                            url: url,
-                            statusCode: 200,
-                            httpVersion: "HTTP/1.1",
-                            headerFields: ["Content-Type": "application/json"])!
+                        let response = testHTTPResponse(url: url, statusCode: 200, headers: ["Content-Type": "application/json"])
                         return (response, tokenResponse)
 
                     case 2:
                         #expect(body.contains("scope=files%3Aread%20files%3Awrite"))
                         let tokenResponse =
                             Data(#"{ "access_token": "access-token-read-write", "token_type": "Bearer", "expires_in": 3600 }"#.utf8)
-                        let response = HTTPURLResponse(
-                            url: url,
-                            statusCode: 200,
-                            httpVersion: "HTTP/1.1",
-                            headerFields: ["Content-Type": "application/json"])!
+                        let response = testHTTPResponse(url: url, statusCode: 200, headers: ["Content-Type": "application/json"])
                         return (response, tokenResponse)
 
                     case 3:
                         #expect(body.contains("scope=files%3Aread%20files%3Awrite"))
                         let tokenResponse =
                             Data(#"{ "access_token": "access-token-opb", "token_type": "Bearer", "expires_in": 3600 }"#.utf8)
-                        let response = HTTPURLResponse(
-                            url: url,
-                            statusCode: 200,
-                            httpVersion: "HTTP/1.1",
-                            headerFields: ["Content-Type": "application/json"])!
+                        let response = testHTTPResponse(url: url, statusCode: 200, headers: ["Content-Type": "application/json"])
                         return (response, tokenResponse)
 
                     default:
@@ -911,12 +828,10 @@ import Testing
             // Set up the first handler BEFORE creating the transport
             await MockURLProtocol.requestHandlerStorage.setHandler {
                 [testEndpoint, initialSessionID] (request: URLRequest) in
-                let response = HTTPURLResponse(
-                    url: testEndpoint, statusCode: 200, httpVersion: "HTTP/1.1",
-                    headerFields: [
+                let response = testHTTPResponse(url: testEndpoint, statusCode: 200, headers: [
                         "Content-Type": "application/json",
                         "MCP-Session-Id": initialSessionID,
-                    ])!
+                    ])
                 return (response, Data())
             }
 
@@ -935,8 +850,7 @@ import Testing
             await MockURLProtocol.requestHandlerStorage.setHandler {
                 [testEndpoint, initialSessionID] (request: URLRequest) in
                 #expect(request.value(forHTTPHeaderField: "MCP-Session-Id") == initialSessionID)
-                let response = HTTPURLResponse(
-                    url: testEndpoint, statusCode: 404, httpVersion: "HTTP/1.1", headerFields: nil)!
+                let response = testHTTPResponse(url: testEndpoint, statusCode: 404)
                 return (response, Data("Not Found".utf8))
             }
 
@@ -977,12 +891,10 @@ import Testing
                 // First, set up a handler for the initial POST that will provide a session ID
                 await MockURLProtocol.requestHandlerStorage.setHandler {
                     [testEndpoint] (request: URLRequest) in
-                    let response = HTTPURLResponse(
-                        url: testEndpoint, statusCode: 200, httpVersion: "HTTP/1.1",
-                        headerFields: [
+                    let response = testHTTPResponse(url: testEndpoint, statusCode: 200, headers: [
                             "Content-Type": "text/plain",
                             "Mcp-Session-Id": "test-session-123",
-                        ])!
+                        ])
                     return (response, Data())
                 }
 
@@ -999,9 +911,7 @@ import Testing
                     #expect(
                         request.value(forHTTPHeaderField: "MCP-Session-Id") == "test-session-123")
 
-                    let response = HTTPURLResponse(
-                        url: testEndpoint, statusCode: 200, httpVersion: "HTTP/1.1",
-                        headerFields: ["Content-Type": "text/event-stream"])!
+                    let response = testHTTPResponse(url: testEndpoint, statusCode: 200, headers: ["Content-Type": "text/event-stream"])
 
                     return (response, sseEventData)  // Will return empty Data for SSE
                 }
@@ -1039,12 +949,10 @@ import Testing
                 // Use text/plain to prevent its (empty) body from being yielded to messageStream
                 await MockURLProtocol.requestHandlerStorage.setHandler {
                     [testEndpoint] (request: URLRequest) in
-                    let response = HTTPURLResponse(
-                        url: testEndpoint, statusCode: 200, httpVersion: "HTTP/1.1",
-                        headerFields: [
+                    let response = testHTTPResponse(url: testEndpoint, statusCode: 200, headers: [
                             "Content-Type": "text/plain",
                             "Mcp-Session-Id": "test-session-123",
-                        ])!
+                        ])
                     return (response, Data())
                 }
 
@@ -1061,9 +969,7 @@ import Testing
                     #expect(
                         request.value(forHTTPHeaderField: "MCP-Session-Id") == "test-session-123")
 
-                    let response = HTTPURLResponse(
-                        url: testEndpoint, statusCode: 200, httpVersion: "HTTP/1.1",
-                        headerFields: ["Content-Type": "text/event-stream"])!
+                    let response = testHTTPResponse(url: testEndpoint, statusCode: 200, headers: ["Content-Type": "text/event-stream"])
 
                     return (response, sseEventData)
                 }
@@ -1155,7 +1061,7 @@ import Testing
                     if method == "initialize" {
                         await tracker.setRequest(.initialize)
 
-                        let requestID = json["id"] as! String
+                        let requestID = try #require(json["id"] as? String)
                         let result = Initialize.Result(
                             protocolVersion: Version.latest,
                             capabilities: .init(tools: .init()),
@@ -1165,9 +1071,7 @@ import Testing
                         let response = Initialize.response(id: .string(requestID), result: result)
                         let responseData = try JSONEncoder().encode(response)
 
-                        let httpResponse = HTTPURLResponse(
-                            url: testEndpoint, statusCode: 200, httpVersion: "HTTP/1.1",
-                            headerFields: ["Content-Type": "application/json"])!
+                        let httpResponse = testHTTPResponse(url: testEndpoint, statusCode: 200, headers: ["Content-Type": "application/json"])
                         return (httpResponse, responseData)
                     } else if method == "tools/call" {
                         // Verify initialize was called first
@@ -1183,20 +1087,16 @@ import Testing
                         let toolName = params?["name"] as? String
                         #expect(toolName == "calculator")
 
-                        let requestID = json["id"] as! String
+                        let requestID = try #require(json["id"] as? String)
                         let result = CallTool.Result(content: [.text(text: "42", annotations: nil, _meta: nil)])
                         let response = CallTool.response(id: .string(requestID), result: result)
                         let responseData = try JSONEncoder().encode(response)
 
-                        let httpResponse = HTTPURLResponse(
-                            url: testEndpoint, statusCode: 200, httpVersion: "HTTP/1.1",
-                            headerFields: ["Content-Type": "application/json"])!
+                        let httpResponse = testHTTPResponse(url: testEndpoint, statusCode: 200, headers: ["Content-Type": "application/json"])
                         return (httpResponse, responseData)
                     } else if method == "notifications/initialized" {
                         // Ignore initialized notifications
-                        let httpResponse = HTTPURLResponse(
-                            url: testEndpoint, statusCode: 200, httpVersion: "HTTP/1.1",
-                            headerFields: ["Content-Type": "application/json"])!
+                        let httpResponse = testHTTPResponse(url: testEndpoint, statusCode: 200, headers: ["Content-Type": "application/json"])
                         return (httpResponse, Data())
                     } else {
                         throw NSError(
@@ -1244,9 +1144,7 @@ import Testing
                         request.value(forHTTPHeaderField: "Authorization") == "Bearer \(testToken)")
 
                     // Return a successful response
-                    let response = HTTPURLResponse(
-                        url: testEndpoint, statusCode: 200, httpVersion: "HTTP/1.1",
-                        headerFields: ["Content-Type": "application/json"])!
+                    let response = testHTTPResponse(url: testEndpoint, statusCode: 200, headers: ["Content-Type": "application/json"])
                     return (response, Data())
                 }
 
@@ -1395,7 +1293,8 @@ import Testing
                         Issue.record("Expected MCPError.internalError, got \(error)")
                         throw error
                     }
-                    #expect(detail?.contains(scenario.expectedErrorSubstring!) == true)
+                    let expectedSubstring = try #require(scenario.expectedErrorSubstring)
+                #expect(detail?.contains(expectedSubstring) == true)
                     for unexpected in scenario.unexpectedErrorSubstrings {
                         #expect(detail?.contains(unexpected) == false)
                     }
@@ -1433,7 +1332,8 @@ import Testing
                         Issue.record("Expected MCPError.internalError, got \(error)")
                         throw error
                     }
-                    #expect(detail?.contains(scenario.expectedErrorSubstring!) == true)
+                    let expectedSubstring = try #require(scenario.expectedErrorSubstring)
+                #expect(detail?.contains(expectedSubstring) == true)
                     for unexpected in scenario.unexpectedErrorSubstrings {
                         #expect(detail?.contains(unexpected) == false)
                     }
@@ -1471,7 +1371,8 @@ import Testing
                         Issue.record("Expected MCPError.internalError, got \(error)")
                         throw error
                     }
-                    #expect(detail?.contains(scenario.expectedErrorSubstring!) == true)
+                    let expectedSubstring = try #require(scenario.expectedErrorSubstring)
+                #expect(detail?.contains(expectedSubstring) == true)
                     for unexpected in scenario.unexpectedErrorSubstrings {
                         #expect(detail?.contains(unexpected) == false)
                     }
@@ -1509,7 +1410,8 @@ import Testing
                         Issue.record("Expected MCPError.internalError, got \(error)")
                         throw error
                     }
-                    #expect(detail?.contains(scenario.expectedErrorSubstring!) == true)
+                    let expectedSubstring = try #require(scenario.expectedErrorSubstring)
+                #expect(detail?.contains(expectedSubstring) == true)
                     for unexpected in scenario.unexpectedErrorSubstrings {
                         #expect(detail?.contains(unexpected) == false)
                     }
@@ -1567,7 +1469,7 @@ import Testing
                 let receivedFirst = try await iterator.next()
                 #expect(receivedFirst == scenario.expectedResponseData)
 
-                try await transport.send(scenario.secondMessageData!)
+                try await transport.send(#require(scenario.secondMessageData))
                 let receivedSecond = try await iterator.next()
                 #expect(receivedSecond == scenario.secondExpectedResponseData)
 
@@ -1583,7 +1485,7 @@ import Testing
                     endpoint: scenario.testEndpoint,
                     configuration: MockResponses.ephemeralConfiguration(),
                     streaming: scenario.streaming,
-                    sseInitializationTimeout: scenario.sseInitializationTimeout!,
+                    sseInitializationTimeout: try #require(scenario.sseInitializationTimeout),
                     authorizer: OAuthAuthorizer(configuration: scenario.oauthConfiguration),
                     logger: nil
                 )
@@ -1621,7 +1523,8 @@ import Testing
                         Issue.record("Expected MCPError.internalError, got \(error)")
                         throw error
                     }
-                    #expect(detail?.contains(scenario.expectedErrorSubstring!) == true)
+                    let expectedSubstring = try #require(scenario.expectedErrorSubstring)
+                #expect(detail?.contains(expectedSubstring) == true)
                     for unexpected in scenario.unexpectedErrorSubstrings {
                         #expect(detail?.contains(unexpected) == false)
                     }
@@ -1656,7 +1559,8 @@ import Testing
                         Issue.record("Expected MCPError.internalError, got \(error)")
                         throw error
                     }
-                    #expect(detail?.contains(scenario.expectedErrorSubstring!) == true)
+                    let expectedSubstring = try #require(scenario.expectedErrorSubstring)
+                #expect(detail?.contains(expectedSubstring) == true)
                     for unexpected in scenario.unexpectedErrorSubstrings {
                         #expect(detail?.contains(unexpected) == false)
                     }
@@ -1691,7 +1595,8 @@ import Testing
                         Issue.record("Expected MCPError.internalError, got \(error)")
                         throw error
                     }
-                    #expect(detail?.contains(scenario.expectedErrorSubstring!) == true)
+                    let expectedSubstring = try #require(scenario.expectedErrorSubstring)
+                #expect(detail?.contains(expectedSubstring) == true)
                     for unexpected in scenario.unexpectedErrorSubstrings {
                         #expect(detail?.contains(unexpected) == false)
                     }
@@ -1838,7 +1743,8 @@ import Testing
                         Issue.record("Expected MCPError.internalError, got \(error)")
                         throw error
                     }
-                    #expect(detail?.contains(scenario.expectedErrorSubstring!) == true)
+                    let expectedSubstring = try #require(scenario.expectedErrorSubstring)
+                #expect(detail?.contains(expectedSubstring) == true)
                 } catch {
                     Issue.record("Expected MCPError, got \(error)")
                     throw error
@@ -2034,7 +1940,8 @@ import Testing
                         Issue.record("Expected MCPError.internalError, got \(error)")
                         throw error
                     }
-                    #expect(detail?.contains(scenario.expectedErrorSubstring!) == true)
+                    let expectedSubstring = try #require(scenario.expectedErrorSubstring)
+                #expect(detail?.contains(expectedSubstring) == true)
                     for unexpected in scenario.unexpectedErrorSubstrings {
                         #expect(detail?.contains(unexpected) == false)
                     }
@@ -2070,7 +1977,8 @@ import Testing
                         Issue.record("Expected MCPError.internalError, got \(error)")
                         throw error
                     }
-                    #expect(detail?.contains(scenario.expectedErrorSubstring!) == true)
+                    let expectedSubstring = try #require(scenario.expectedErrorSubstring)
+                #expect(detail?.contains(expectedSubstring) == true)
                     for unexpected in scenario.unexpectedErrorSubstrings {
                         #expect(detail?.contains(unexpected) == false)
                     }
@@ -2106,7 +2014,8 @@ import Testing
                         Issue.record("Expected MCPError.internalError, got \(error)")
                         throw error
                     }
-                    #expect(detail?.contains(scenario.expectedErrorSubstring!) == true)
+                    let expectedSubstring = try #require(scenario.expectedErrorSubstring)
+                #expect(detail?.contains(expectedSubstring) == true)
                     for unexpected in scenario.unexpectedErrorSubstrings {
                         #expect(detail?.contains(unexpected) == false)
                     }
@@ -2142,7 +2051,8 @@ import Testing
                         Issue.record("Expected MCPError.internalError, got \(error)")
                         throw error
                     }
-                    #expect(detail?.contains(scenario.expectedErrorSubstring!) == true)
+                    let expectedSubstring = try #require(scenario.expectedErrorSubstring)
+                #expect(detail?.contains(expectedSubstring) == true)
                     for unexpected in scenario.unexpectedErrorSubstrings {
                         #expect(detail?.contains(unexpected) == false)
                     }
@@ -2177,7 +2087,7 @@ import Testing
                 let receivedFirst = try await iterator.next()
                 #expect(receivedFirst == scenario.expectedResponseData)
 
-                try await transport.send(scenario.secondMessageData!)
+                try await transport.send(#require(scenario.secondMessageData))
                 let receivedSecond = try await iterator.next()
                 #expect(receivedSecond == scenario.secondExpectedResponseData)
 
@@ -2263,7 +2173,7 @@ import Testing
                 let receivedFirst = try await iterator.next()
                 #expect(receivedFirst == scenario.expectedResponseData)
 
-                try await transport.send(scenario.secondMessageData!)
+                try await transport.send(#require(scenario.secondMessageData))
                 let receivedSecond = try await iterator.next()
                 #expect(receivedSecond == scenario.secondExpectedResponseData)
 
@@ -2322,7 +2232,7 @@ import Testing
                 let receivedFirst = try await iterator.next()
                 #expect(receivedFirst == scenario.expectedResponseData)
 
-                try await transport.send(scenario.secondMessageData!)
+                try await transport.send(#require(scenario.secondMessageData))
                 let receivedSecond = try await iterator.next()
                 #expect(receivedSecond == scenario.secondExpectedResponseData)
 
@@ -2354,9 +2264,7 @@ import Testing
                         request.value(forHTTPHeaderField: "MCP-Protocol-Version")
                             == protocolVersion)
 
-                    let response = HTTPURLResponse(
-                        url: testEndpoint, statusCode: 200, httpVersion: "HTTP/1.1",
-                        headerFields: ["Content-Type": "application/json"])!
+                    let response = testHTTPResponse(url: testEndpoint, statusCode: 200, headers: ["Content-Type": "application/json"])
                     return (response, Data())
                 }
 

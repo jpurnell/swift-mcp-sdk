@@ -41,9 +41,7 @@ import Testing
                 authorizationServers: ["https://auth.example.com"])
             let (session, key) = makeIsolatedSession()
             await IsolatedMockURLProtocol.setHandler(key: key) { _ in
-                let response = HTTPURLResponse(
-                    url: testURL("https://example.com/.well-known/oauth-protected-resource"),
-                    statusCode: 200, httpVersion: nil, headerFields: nil)!
+                let response = testHTTPResponse(url: testURL("https://example.com/.well-known/oauth-protected-resource"), statusCode: 200)
                 return (response, body)
             }
 
@@ -66,9 +64,7 @@ import Testing
             let (session, key) = makeIsolatedSession()
             await IsolatedMockURLProtocol.setHandler(key: key) { request in
                 let statusCode = request.url?.lastPathComponent == "mcp" ? 404 : 200
-                let response = HTTPURLResponse(
-                    url: testRequestURL(request), statusCode: statusCode,
-                    httpVersion: nil, headerFields: nil)!
+                let response = testHTTPResponse(url: testRequestURL(request), statusCode: statusCode)
                 return (response, statusCode == 200 ? body : Data())
             }
 
@@ -95,8 +91,7 @@ import Testing
             let (session, key) = makeIsolatedSession()
             await IsolatedMockURLProtocol.setHandler(key: key) { request in
                 let body = request.url?.lastPathComponent == "mcp" ? emptyBody : validBody
-                let response = HTTPURLResponse(
-                    url: testRequestURL(request), statusCode: 200, httpVersion: nil, headerFields: nil)!
+                let response = testHTTPResponse(url: testRequestURL(request), statusCode: 200)
                 return (response, body)
             }
 
@@ -119,8 +114,7 @@ import Testing
         func testFetchProtectedResourceMetadataThrowsWhenAllFail() async throws {
             let (session, key) = makeIsolatedSession()
             await IsolatedMockURLProtocol.setHandler(key: key) { request in
-                let response = HTTPURLResponse(
-                    url: testRequestURL(request), statusCode: 404, httpVersion: nil, headerFields: nil)!
+                let response = testHTTPResponse(url: testRequestURL(request), statusCode: 404)
                 return (response, Data())
             }
 
@@ -140,8 +134,7 @@ import Testing
             let fallback = testURL("https://example.com")
             let (session, key) = makeIsolatedSession()
             await IsolatedMockURLProtocol.setHandler(key: key) { request in
-                let response = HTTPURLResponse(
-                    url: testRequestURL(request), statusCode: 404, httpVersion: nil, headerFields: nil)!
+                let response = testHTTPResponse(url: testRequestURL(request), statusCode: 404)
                 return (response, Data())
             }
 
@@ -165,17 +158,15 @@ import Testing
             let body = try makeASMetadataBody(issuer: issuer)
             let (session, key) = makeIsolatedSession()
             await IsolatedMockURLProtocol.setHandler(key: key) { _ in
-                let response = HTTPURLResponse(
-                    url: testURL("\(issuer)/.well-known/oauth-authorization-server"),
-                    statusCode: 200, httpVersion: nil, headerFields: nil)!
+                let response = testHTTPResponse(url: testURL("\(issuer)/.well-known/oauth-authorization-server"), statusCode: 200)
                 return (response, body)
             }
 
             let (server, metadata) = try await makeClient().fetchAuthorizationServerMetadata(
-                candidates: [URL(string: issuer)!],
+                candidates: [testURL(issuer)],
                 session: session
             )
-            let expectedServer = URL(string: issuer)!
+            let expectedServer = testURL(issuer)
             let expectedMetadata = OAuthAuthorizationServerMetadata(
                 issuer: URL(string: issuer),
                 authorizationEndpoint: nil,
@@ -194,9 +185,7 @@ import Testing
             let body = try makeASMetadataBody(issuer: metadataIssuer)
             let (session, key) = makeIsolatedSession()
             await IsolatedMockURLProtocol.setHandler(key: key) { _ in
-                let response = HTTPURLResponse(
-                    url: testURL("https://auth.example.com"),
-                    statusCode: 200, httpVersion: nil, headerFields: nil)!
+                let response = testHTTPResponse(url: testURL("https://auth.example.com"), statusCode: 200)
                 return (response, body)
             }
 
@@ -204,7 +193,7 @@ import Testing
                 candidates: [testURL("https://auth.example.com")],
                 session: session
             )
-            #expect(server == URL(string: metadataIssuer)!)
+            #expect(server == testURL(metadataIssuer))
         }
 
         @Test("Skips private IP candidates without making HTTP calls")
@@ -222,8 +211,7 @@ import Testing
         func testFetchAuthorizationServerMetadataThrowsWhenAllFail() async throws {
             let (session, key) = makeIsolatedSession()
             await IsolatedMockURLProtocol.setHandler(key: key) { request in
-                let response = HTTPURLResponse(
-                    url: testRequestURL(request), statusCode: 500, httpVersion: nil, headerFields: nil)!
+                let response = testHTTPResponse(url: testRequestURL(request), statusCode: 500)
                 return (response, Data())
             }
 

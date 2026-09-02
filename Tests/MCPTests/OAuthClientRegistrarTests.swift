@@ -94,9 +94,7 @@ import Testing
             let body = try successRegistrationBody(clientID: "registered-client")
             let (session, key) = makeIsolatedSession()
             await IsolatedMockURLProtocol.setHandler(key: key) { _ in
-                let response = HTTPURLResponse(
-                    url: self.registrationEndpoint, statusCode: 201,
-                    httpVersion: nil, headerFields: nil)!
+                let response = testHTTPResponse(url: self.registrationEndpoint, statusCode: 201)
                 return (response, body)
             }
 
@@ -118,9 +116,7 @@ import Testing
                 withJSONObject: ["error": "invalid_client_metadata"])
             let (session, key) = makeIsolatedSession()
             await IsolatedMockURLProtocol.setHandler(key: key) { _ in
-                let response = HTTPURLResponse(
-                    url: self.registrationEndpoint, statusCode: 400,
-                    httpVersion: nil, headerFields: nil)!
+                let response = testHTTPResponse(url: self.registrationEndpoint, statusCode: 400)
                 return (response, errorBody)
             }
 
@@ -138,9 +134,7 @@ import Testing
         func testRegisterThrowsOn5xx() async throws {
             let (session, key) = makeIsolatedSession()
             await IsolatedMockURLProtocol.setHandler(key: key) { _ in
-                let response = HTTPURLResponse(
-                    url: self.registrationEndpoint, statusCode: 503,
-                    httpVersion: nil, headerFields: nil)!
+                let response = testHTTPResponse(url: self.registrationEndpoint, statusCode: 503)
                 return (response, Data())
             }
 

@@ -186,7 +186,18 @@ public struct OAuthConfiguration: Sendable {
 
     static func defaultAuthorizationRedirectURI() -> URL {
         let port = Int.random(in: 49152...65535)
-        return URL(string: "http://\(OAuthLoopbackHost.ipv4):\(port)/callback")!
+        // Assembled from parts rather than interpolated into a string: the host is a fixed IPv4
+        // literal and the port an integer, so there is nothing here a parser could reject, and
+        // building it structurally is what makes that true rather than merely likely.
+        var components = URLComponents()
+        components.scheme = "http"
+        components.host = OAuthLoopbackHost.ipv4
+        components.port = port
+        components.path = "/callback"
+        guard let url = components.url else {
+            preconditionFailure("The loopback redirect URI is built from fixed parts and cannot fail to form")
+        }
+        return url
     }
 
     // MARK: - Retry Policy

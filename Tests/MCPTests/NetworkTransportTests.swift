@@ -120,7 +120,7 @@ import Testing
             if let nwError = error as? NWError {
                 updateState(.failed(nwError))
             } else {
-                updateState(.failed(NWError.posix(POSIXErrorCode(rawValue: 57)!)))
+                updateState(.failed(NWError.posix(.ENOTCONN)))
             }
         }
 
@@ -513,8 +513,8 @@ import Testing
             // Split a message into multiple parts
             let message = #"{"key":"value"}"#
             let parts = [
-                message.prefix(5).data(using: .utf8)!,
-                message.dropFirst(5).data(using: .utf8)!,
+                Data(message.prefix(5).utf8),
+                Data(message.dropFirst(5).utf8),
                 Data("\n".utf8),
             ]
 

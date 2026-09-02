@@ -320,9 +320,7 @@ import Testing
                         let locationValue =
                             redirectComponents?.url?.absoluteString
                             ?? "http://127.0.0.1:3000/callback?code=test&state=\(state ?? "")"
-                        let response = HTTPURLResponse(
-                            url: url, statusCode: 302, httpVersion: "HTTP/1.1",
-                            headerFields: ["Location": locationValue])!
+                        let response = testHTTPResponse(url: url, statusCode: 302, headers: ["Location": locationValue])
                         return (response, Data())
                     }
 
@@ -410,11 +408,9 @@ import Testing
                         url.port == authorizationEndpointURL.port,
                         url.path == authorizationEndpointURL.path
                     {
-                        let response = HTTPURLResponse(
-                            url: url, statusCode: 302, httpVersion: "HTTP/1.1",
-                            headerFields: [
+                        let response = testHTTPResponse(url: url, statusCode: 302, headers: [
                                 "Location": "http://127.0.0.1:3000/callback?code=test"
-                            ])!
+                            ])
                         return (response, Data())
                     }
 
@@ -479,11 +475,9 @@ import Testing
                         url.port == authorizationEndpointURL.port,
                         url.path == authorizationEndpointURL.path
                     {
-                        let response = HTTPURLResponse(
-                            url: url, statusCode: 302, httpVersion: "HTTP/1.1",
-                            headerFields: [
+                        let response = testHTTPResponse(url: url, statusCode: 302, headers: [
                                 "Location": "http://127.0.0.1:3000/callback?code=test"
-                            ])!
+                            ])
                         return (response, Data())
                     }
 
@@ -558,9 +552,7 @@ import Testing
                             queryItems.first(where: { $0.name == "state" })?.value ?? ""
                         let locationValue =
                             "https://evil.example.com/callback?code=test&state=\(state)"
-                        let response = HTTPURLResponse(
-                            url: url, statusCode: 302, httpVersion: "HTTP/1.1",
-                            headerFields: ["Location": locationValue])!
+                        let response = testHTTPResponse(url: url, statusCode: 302, headers: ["Location": locationValue])
                         return (response, Data())
                     }
 
@@ -642,9 +634,7 @@ import Testing
                         let locationValue =
                             redirectComponents?.url?.absoluteString
                             ?? "http://127.0.0.1:3000/callback?code=test&state=unexpected-state"
-                        let response = HTTPURLResponse(
-                            url: url, statusCode: 302, httpVersion: "HTTP/1.1",
-                            headerFields: ["Location": locationValue])!
+                        let response = testHTTPResponse(url: url, statusCode: 302, headers: ["Location": locationValue])
                         return (response, Data())
                     }
 
@@ -783,12 +773,10 @@ import Testing
                                 "Unexpected JSON-RPC body: \(requestBody)")
                         }
 
-                        let response = HTTPURLResponse(
-                            url: testRequestURL(request), statusCode: 200, httpVersion: "HTTP/1.1",
-                            headerFields: [
+                        let response = testHTTPResponse(url: testRequestURL(request), statusCode: 200, headers: [
                                 "Content-Type": "application/json",
                                 "MCP-Session-Id": "session-123",
-                            ])!
+                            ])
                         return (response, responseBody)
                     },
                     resourceMetadataURL: MockResponses.resourceMetadata(
@@ -847,9 +835,7 @@ import Testing
                             #expect(
                                 request.value(forHTTPHeaderField: "MCP-Session-Id")
                                     == "stream-session-id")
-                            let response = HTTPURLResponse(
-                                url: testRequestURL(request), statusCode: 200, httpVersion: "HTTP/1.1",
-                                headerFields: ["Content-Type": "text/event-stream"])!
+                            let response = testHTTPResponse(url: testRequestURL(request), statusCode: 200, headers: ["Content-Type": "text/event-stream"])
                             return (response, sseEventData)
                         }
 
@@ -868,12 +854,10 @@ import Testing
                             String(data: readRequestBody(request) ?? Data(), encoding: .utf8) ?? ""
                         #expect(!requestBody.contains("access_token="))
 
-                        let response = HTTPURLResponse(
-                            url: testRequestURL(request), statusCode: 200, httpVersion: "HTTP/1.1",
-                            headerFields: [
+                        let response = testHTTPResponse(url: testRequestURL(request), statusCode: 200, headers: [
                                 "Content-Type": "text/plain",
                                 "MCP-Session-Id": "stream-session-id",
-                            ])!
+                            ])
                         return (response, Data())
                     },
                     resourceMetadataURL: MockResponses.resourceMetadata(
@@ -1103,9 +1087,7 @@ import Testing
                         codeChallengeMethodsSupported: ["S256"]
                     ),
                     tokenEndpointURL: { request in
-                        let response = HTTPURLResponse(
-                            url: testRequestURL(request), statusCode: 200, httpVersion: "HTTP/1.1",
-                            headerFields: ["Content-Type": "application/json"])!
+                        let response = testHTTPResponse(url: testRequestURL(request), statusCode: 200, headers: ["Content-Type": "application/json"])
                         return (response, Data())
                     },
                 ])
@@ -2025,9 +2007,7 @@ import Testing
                             "client_secret_expires_at": 1,
                         ]
                         let data = try JSONSerialization.data(withJSONObject: dict)
-                        let response = HTTPURLResponse(
-                            url: testRequestURL(request), statusCode: 201, httpVersion: "HTTP/1.1",
-                            headerFields: ["Content-Type": "application/json"])!
+                        let response = testHTTPResponse(url: testRequestURL(request), statusCode: 201, headers: ["Content-Type": "application/json"])
                         return (response, data)
                     },
                     tokenEndpointURL: { request in

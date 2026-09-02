@@ -85,3 +85,25 @@ func testRequestURL(
     }
     return url
 }
+
+/// A JSON body a test builds from a dictionary of literals.
+///
+/// `JSONSerialization.data(withJSONObject:)` throws on a value it cannot represent. Every caller
+/// here passes a dictionary written out in the test, so the throw is unreachable — but `try!`
+/// makes that unreachability load-bearing, and takes the whole run down if a future edit puts a
+/// non-JSON value in the literal. This names the offending body instead.
+///
+/// - Parameters:
+///   - object: The JSON object to encode.
+///   - sourceLocation: Where the body was written, so a failure names that line.
+/// - Returns: The encoded body, or empty data once the failure has been recorded.
+func testJSONBody(
+    _ object: [String: Any], sourceLocation: SourceLocation = #_sourceLocation
+) -> Data {
+    do {
+        return try JSONSerialization.data(withJSONObject: object)
+    } catch {
+        Issue.record("Not a JSON-representable body: \(error)", sourceLocation: sourceLocation)
+        return Data()
+    }
+}

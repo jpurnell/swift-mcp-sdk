@@ -178,9 +178,9 @@ struct MetaFieldsTests {
         )
 
         let data = try JSONEncoder().encode(result)
-        let json = try JSONSerialization.jsonObject(with: data) as! [String: Any]
+        let json = try #require(try JSONSerialization.jsonObject(with: data) as? [String: Any])
 
-        let metaObject = json["_meta"] as! [String: Any]
+        let metaObject = try #require(json["_meta"] as? [String: Any])
         #expect(metaObject["vendor.example/cacheControl"] as? String == "max-age=3600")
 
         let decoded = try JSONDecoder().decode(ListResources.Result.self, from: data)
@@ -244,9 +244,9 @@ struct MetaFieldsTests {
         )
 
         let data = try JSONEncoder().encode(result)
-        let json = try JSONSerialization.jsonObject(with: data) as! [String: Any]
+        let json = try #require(try JSONSerialization.jsonObject(with: data) as? [String: Any])
 
-        let metaObject = json["_meta"] as! [String: Any]
+        let metaObject = try #require(json["_meta"] as? [String: Any])
         #expect(metaObject["vendor.example/version"] as? Int == 2)
 
         let decoded = try JSONDecoder().decode(GetPrompt.Result.self, from: data)

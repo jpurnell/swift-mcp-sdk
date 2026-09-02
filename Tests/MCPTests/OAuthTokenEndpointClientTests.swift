@@ -38,9 +38,7 @@ import Testing
             let body = try successBody()
             let (session, key) = makeIsolatedSession()
             await IsolatedMockURLProtocol.setHandler(key: key) { _ in
-                let response = HTTPURLResponse(
-                    url: self.tokenEndpoint, statusCode: 200,
-                    httpVersion: nil, headerFields: nil)!
+                let response = testHTTPResponse(url: self.tokenEndpoint, statusCode: 200)
                 return (response, body)
             }
 
@@ -62,9 +60,7 @@ import Testing
             let body = try successBody(scope: "read write", refreshToken: "refresh-xyz")
             let (session, key) = makeIsolatedSession()
             await IsolatedMockURLProtocol.setHandler(key: key) { _ in
-                let response = HTTPURLResponse(
-                    url: self.tokenEndpoint, statusCode: 200,
-                    httpVersion: nil, headerFields: nil)!
+                let response = testHTTPResponse(url: self.tokenEndpoint, statusCode: 200)
                 return (response, body)
             }
 
@@ -88,9 +84,7 @@ import Testing
             let errorBody = try JSONSerialization.data(withJSONObject: ["error": "invalid_client"])
             let (session, key) = makeIsolatedSession()
             await IsolatedMockURLProtocol.setHandler(key: key) { _ in
-                let response = HTTPURLResponse(
-                    url: self.tokenEndpoint, statusCode: 401,
-                    httpVersion: nil, headerFields: nil)!
+                let response = testHTTPResponse(url: self.tokenEndpoint, statusCode: 401)
                 return (response, errorBody)
             }
 
@@ -110,9 +104,7 @@ import Testing
             let body = try successBody(accessToken: "")
             let (session, key) = makeIsolatedSession()
             await IsolatedMockURLProtocol.setHandler(key: key) { _ in
-                let response = HTTPURLResponse(
-                    url: self.tokenEndpoint, statusCode: 200,
-                    httpVersion: nil, headerFields: nil)!
+                let response = testHTTPResponse(url: self.tokenEndpoint, statusCode: 200)
                 return (response, body)
             }
 
@@ -132,9 +124,7 @@ import Testing
             let body = try successBody(tokenType: "MAC")
             let (session, key) = makeIsolatedSession()
             await IsolatedMockURLProtocol.setHandler(key: key) { _ in
-                let response = HTTPURLResponse(
-                    url: self.tokenEndpoint, statusCode: 200,
-                    httpVersion: nil, headerFields: nil)!
+                let response = testHTTPResponse(url: self.tokenEndpoint, statusCode: 200)
                 return (response, body)
             }
 
@@ -159,9 +149,7 @@ import Testing
             let capture = RequestCapture()
             await IsolatedMockURLProtocol.setHandler(key: key) { request in
                 await capture.set(request)
-                let response = HTTPURLResponse(
-                    url: self.tokenEndpoint, statusCode: 200,
-                    httpVersion: nil, headerFields: nil)!
+                let response = testHTTPResponse(url: self.tokenEndpoint, statusCode: 200)
                 return (response, body)
             }
 

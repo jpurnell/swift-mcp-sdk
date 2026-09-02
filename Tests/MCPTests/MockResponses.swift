@@ -33,9 +33,7 @@ import Testing
 
         static func jsonSuccess(body: Data) -> Route {
             { request in
-                let response = HTTPURLResponse(
-                    url: testRequestURL(request), statusCode: 200, httpVersion: "HTTP/1.1",
-                    headerFields: ["Content-Type": "application/json"])!
+                let response = testHTTPResponse(url: testRequestURL(request), statusCode: 200, headers: ["Content-Type": "application/json"])
                 return (response, body)
             }
         }
@@ -56,9 +54,7 @@ import Testing
                 if let error { params.append("error=\"\(error)\"") }
                 if let errorDescription { params.append("error_description=\"\(errorDescription)\"") }
                 let headerValue = "Bearer \(params.joined(separator: ", "))"
-                let response = HTTPURLResponse(
-                    url: testRequestURL(request), statusCode: statusCode, httpVersion: "HTTP/1.1",
-                    headerFields: ["WWW-Authenticate": headerValue])!
+                let response = testHTTPResponse(url: testRequestURL(request), statusCode: statusCode, headers: ["WWW-Authenticate": headerValue])
                 return (response, Data())
             }
         }
@@ -73,9 +69,7 @@ import Testing
                 if let scopes = scopesSupported { dict["scopes_supported"] = scopes }
                 if let resource { dict["resource"] = resource }
                 let data = try JSONSerialization.data(withJSONObject: dict)
-                let response = HTTPURLResponse(
-                    url: testRequestURL(request), statusCode: 200, httpVersion: "HTTP/1.1",
-                    headerFields: ["Content-Type": "application/json"])!
+                let response = testHTTPResponse(url: testRequestURL(request), statusCode: 200, headers: ["Content-Type": "application/json"])
                 return (response, data)
             }
         }
@@ -103,9 +97,7 @@ import Testing
                     dict["client_id_metadata_document_supported"] = v
                 }
                 let data = try JSONSerialization.data(withJSONObject: dict)
-                let response = HTTPURLResponse(
-                    url: testRequestURL(request), statusCode: 200, httpVersion: "HTTP/1.1",
-                    headerFields: ["Content-Type": "application/json"])!
+                let response = testHTTPResponse(url: testRequestURL(request), statusCode: 200, headers: ["Content-Type": "application/json"])
                 return (response, data)
             }
         }
@@ -123,9 +115,7 @@ import Testing
                 if let scope { dict["scope"] = scope }
                 if let refreshToken { dict["refresh_token"] = refreshToken }
                 let data = try JSONSerialization.data(withJSONObject: dict)
-                let response = HTTPURLResponse(
-                    url: testRequestURL(request), statusCode: 200, httpVersion: "HTTP/1.1",
-                    headerFields: ["Content-Type": "application/json"])!
+                let response = testHTTPResponse(url: testRequestURL(request), statusCode: 200, headers: ["Content-Type": "application/json"])
                 return (response, data)
             }
         }
@@ -140,9 +130,7 @@ import Testing
                     "access_token": accessToken, "token_type": tokenType, "expires_in": expiresIn,
                 ]
                 let data = try JSONSerialization.data(withJSONObject: dict)
-                let response = HTTPURLResponse(
-                    url: testRequestURL(request), statusCode: 200, httpVersion: "HTTP/1.1",
-                    headerFields: ["Content-Type": "application/json"])!
+                let response = testHTTPResponse(url: testRequestURL(request), statusCode: 200, headers: ["Content-Type": "application/json"])
                 return (response, data)
             }
         }
@@ -158,18 +146,14 @@ import Testing
                 if let errorDescription { dict["error_description"] = errorDescription }
                 for (key, value) in extraFields { dict[key] = value }
                 let data = try JSONSerialization.data(withJSONObject: dict)
-                let response = HTTPURLResponse(
-                    url: testRequestURL(request), statusCode: statusCode, httpVersion: "HTTP/1.1",
-                    headerFields: ["Content-Type": "application/json"])!
+                let response = testHTTPResponse(url: testRequestURL(request), statusCode: statusCode, headers: ["Content-Type": "application/json"])
                 return (response, data)
             }
         }
 
         static func httpError(statusCode: Int) -> Route {
             { request in
-                let response = HTTPURLResponse(
-                    url: testRequestURL(request), statusCode: statusCode, httpVersion: "HTTP/1.1",
-                    headerFields: nil)!
+                let response = testHTTPResponse(url: testRequestURL(request), statusCode: statusCode)
                 return (response, Data())
             }
         }
@@ -182,18 +166,14 @@ import Testing
                 var dict: [String: Any] = ["client_id": clientID]
                 if let clientSecret { dict["client_secret"] = clientSecret }
                 let data = try JSONSerialization.data(withJSONObject: dict)
-                let response = HTTPURLResponse(
-                    url: testRequestURL(request), statusCode: 201, httpVersion: "HTTP/1.1",
-                    headerFields: ["Content-Type": "application/json"])!
+                let response = testHTTPResponse(url: testRequestURL(request), statusCode: 201, headers: ["Content-Type": "application/json"])
                 return (response, data)
             }
         }
 
         static func redirect(to location: String, statusCode: Int = 302) -> Route {
             { request in
-                let response = HTTPURLResponse(
-                    url: testRequestURL(request), statusCode: statusCode, httpVersion: "HTTP/1.1",
-                    headerFields: ["Location": location])!
+                let response = testHTTPResponse(url: testRequestURL(request), statusCode: statusCode, headers: ["Location": location])
                 return (response, Data())
             }
         }

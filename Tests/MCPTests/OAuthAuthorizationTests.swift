@@ -251,8 +251,8 @@ struct OAuthAuthorizationTests {
             #expect(headerData != nil)
             #expect(payloadData != nil)
 
-            let header = try JSONSerialization.jsonObject(with: headerData!) as? [String: Any]
-            let payload = try JSONSerialization.jsonObject(with: payloadData!) as? [String: Any]
+            let header = try JSONSerialization.jsonObject(with: #require(headerData)) as? [String: Any]
+            let payload = try JSONSerialization.jsonObject(with: #require(payloadData)) as? [String: Any]
 
             #expect(header?["alg"] as? String == "ES256")
             #expect(header?["typ"] as? String == "JWT")
