@@ -178,3 +178,41 @@ extension TaskEnvelopeTests {
         #expect(content.isEmpty, "the task has not produced anything yet")
     }
 }
+
+extension TaskEnvelopeTests {
+    /// A client may answer a question the server never asked — retrying with a superset of what
+    /// it already sent, or carrying state from a round that has moved on. The store's rule is
+    /// that those are ignored, and a decoder that throws first makes that rule unreachable:
+    /// the whole update fails as `-32603`, which tells the client its request was malformed
+    /// when in fact one entry was merely surplus.
+    @Test("An unrecognised answer is dropped, not fatal")
+    func testUnknownInputResponseIsIgnored() throws {
+        let json = """
+        {
+          "taskId": "task-1",
+          "inputResponses": {
+            "unknown-key": { "ignored": true },
+            "confirm": { "action": "decline" }
+          }
+        }
+        """
+        let decoded = try JSONDecoder().decode(
+            UpdateTask.Parameters.self, from: Data(json.utf8))
+
+        #expect(decoded.taskId == "task-1")
+        #expect(
+            Array(decoded.inputResponses?.keys ?? [:].keys) == ["confirm"],
+            "the readable answer survives and the unreadable one is dropped")
+    }
+
+    /// The whole field being unreadable is the same case, one level up.
+    @Test("An unreadable inputResponses object leaves the update itself intact")
+    func testUnreadableInputResponsesDoesNotThrow() throws {
+        let json = #"{"taskId": "task-1", "inputResponses": "not-an-object"}"#
+        let decoded = try JSONDecoder().decode(
+            UpdateTask.Parameters.self, from: Data(json.utf8))
+
+        #expect(decoded.taskId == "task-1")
+        #expect(decoded.inputResponses == nil)
+    }
+}

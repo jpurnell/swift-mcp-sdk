@@ -182,6 +182,40 @@ public enum UpdateTask: Method {
             self.inputResponses = inputResponses
             self._meta = _meta
         }
+
+        private enum CodingKeys: String, CodingKey {
+            case taskId, inputResponses, _meta
+        }
+
+        /// Decodes an update, keeping the answers it can read.
+        ///
+        /// A client may answer a question the server never asked — retrying with a superset of
+        /// what it already sent, or carrying an entry from a round that has moved on. Ignoring
+        /// those is the rule; throwing on them makes the rule unreachable, because the whole
+        /// update fails as an internal error and the client is told its request was malformed
+        /// when one entry was merely surplus.
+        ///
+        /// `taskId` is decoded strictly: without it there is nothing to update.
+        public init(from decoder: Decoder) throws {
+            let container = try decoder.container(keyedBy: CodingKeys.self)
+            taskId = try container.decode(String.self, forKey: .taskId)
+            _meta = try container.decodeIfPresent(Metadata.self, forKey: ._meta)
+
+            guard let raw = try? container.decodeIfPresent(
+                [String: Value].self, forKey: .inputResponses)
+            else {
+                inputResponses = nil
+                return
+            }
+            var readable: [String: InputResponse] = [:]
+            for (key, value) in raw ?? [:] {
+                guard let data = try? JSONEncoder().encode(value),
+                    let response = try? JSONDecoder().decode(InputResponse.self, from: data)
+                else { continue }
+                readable[key] = response
+            }
+            inputResponses = readable.isEmpty ? nil : readable
+        }
     }
 
     /// An empty acknowledgement.
