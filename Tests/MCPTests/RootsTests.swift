@@ -454,7 +454,7 @@ struct RootsTests {
             version: "1.0.0"
         )
 
-        // Justification: written by the notification handler and read after it, with an await between them
+        // Justification: incremented by the roots handler and read after the awaited call that triggers it
         nonisolated(unsafe) var count = 0
 
         let client = Client(

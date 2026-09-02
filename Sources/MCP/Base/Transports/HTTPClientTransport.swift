@@ -690,6 +690,12 @@ public actor HTTPClientTransport: Transport {
                 }
             }
 
+            // Why the loop ended matters to the caller, which reads the return value to decide
+            // whether to reconnect. A cancelled stream would otherwise report `false` — the same
+            // answer as a stream that ran to completion having produced nothing — and a
+            // transport that is shutting down would be redialled.
+            try Task.checkCancellation()
+
             logger.debug("✓ SSE event stream completed", metadata: ["eventsProcessed": "\(eventCount)", "hadData": "\(hadDataEvent)"])
             return hadDataEvent
         }

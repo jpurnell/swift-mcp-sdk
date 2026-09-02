@@ -389,7 +389,7 @@ private final class HTTPHandler: ChannelInboundHandler, @unchecked Sendable {
         version: HTTPVersion,
         context: ChannelHandlerContext
     ) async {
-        // Justification: a NIO ChannelHandlerContext is confined to its EventLoop and is used here only to hand the response back to it
+        // Justification: the same EventLoop-confined context, captured here to close the response once the handler has produced it
         nonisolated(unsafe) let ctx = context
         let eventLoop = ctx.eventLoop
 

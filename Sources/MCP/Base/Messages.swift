@@ -438,7 +438,7 @@ class NotificationHandlerBox: @unchecked Sendable {
 }
 
 /// A typed notification handler that can be used to handle notifications of a specific type
-// Justification: holds one immutable @Sendable closure and no mutable state
+// Justification: holds one immutable @Sendable notification closure and no mutable state
 final class TypedNotificationHandler<N: Notification>: NotificationHandlerBox,
     @unchecked Sendable
 {

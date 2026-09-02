@@ -9,7 +9,7 @@ import Testing
 
 // MARK: - Mock Implementations
 
-// Justification: a test double whose state is written and read on one task, sequentially, within a single test
+// Justification: records which URLs a test asked it to validate, one call at a time
 final class MockURLValidator: OAuthURLValidating, @unchecked Sendable {
     var validateHTTPSOrLoopbackCallCount = 0
     var validateAuthorizationServerCallCount = 0
@@ -34,7 +34,7 @@ final class MockURLValidator: OAuthURLValidating, @unchecked Sendable {
     func isPrivateIPHost(_ host: String) -> Bool { false }
 }
 
-// Justification: a test double whose state is written and read on one task, sequentially, within a single test
+// Justification: records discovery call counts for one test at a time; no concurrent fetches
 final class MockDiscoveryClient: OAuthDiscoveryFetching, @unchecked Sendable {
     var fetchProtectedResourceMetadataCallCount = 0
     var fetchAuthorizationServerMetadataCallCount = 0
@@ -76,7 +76,7 @@ final class MockDiscoveryClient: OAuthDiscoveryFetching, @unchecked Sendable {
     }
 }
 
-// Justification: a test double whose state is written and read on one task, sequentially, within a single test
+// Justification: captures the parameters of a single token request per test
 final class MockTokenClient: OAuthTokenRequesting, @unchecked Sendable {
     var requestCallCount = 0
     var capturedParameters: [String: String]?
@@ -100,7 +100,7 @@ final class MockTokenClient: OAuthTokenRequesting, @unchecked Sendable {
     }
 }
 
-// Justification: a test double whose state is written and read on one task, sequentially, within a single test
+// Justification: records one registration per test and returns a canned result
 final class MockClientRegistrar: OAuthClientRegistering, @unchecked Sendable {
     var registerCallCount = 0
     var registrationResult: (
@@ -121,7 +121,7 @@ final class MockClientRegistrar: OAuthClientRegistering, @unchecked Sendable {
     }
 }
 
-// Justification: a test double whose state is written and read on one task, sequentially, within a single test
+// Justification: counts the two flow steps a test drives in order, never in parallel
 final class MockAuthCodeFlow: OAuthAuthorizationCodeFlowing, @unchecked Sendable {
     var buildURLCallCount = 0
     var performCallCount = 0
