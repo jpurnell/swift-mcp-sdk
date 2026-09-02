@@ -79,3 +79,21 @@ struct StructuredErrorDataTests {
         #expect(MCPError.invalidParams("bad").structuredData == nil)
     }
 }
+
+extension StructuredErrorDataTests {
+    /// SEP-2663 names an extension under `extensions`, where a client declares it — not at the
+    /// top level, which would produce an object the client cannot merge into what it sends.
+    @Test("A missing-extension error nests it the way capabilities are declared")
+    func testMissingExtensionIsNested() throws {
+        let error = MCPError.missingRequiredClientCapability(
+            requiringExtensions: ["io.modelcontextprotocol/tasks"])
+        #expect(error.code == -32021)
+
+        let json = try encoded(error)
+        let data = try #require(json["data"] as? [String: Any])
+        let required = try #require(data["requiredCapabilities"] as? [String: Any])
+        let extensions = try #require(required["extensions"] as? [String: Any])
+        #expect(Array(extensions.keys) == ["io.modelcontextprotocol/tasks"])
+        #expect(extensions["io.modelcontextprotocol/tasks"] as? [String: Any] != nil)
+    }
+}

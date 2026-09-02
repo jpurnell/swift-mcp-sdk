@@ -879,6 +879,13 @@ public actor Server {
             case .object(var fields) = result
         else { return response }
 
+        // An empty object is a *specified* result for `ping`, `resources/subscribe` and the
+        // acknowledgement shapes — the specification's examples show `{}` and conformance checks
+        // read it literally. Stamping identity into one changes a shape the protocol pins, which
+        // is a higher cost than the SHOULD this satisfies. Results that already carry fields are
+        // stamped, and those are the ones a client is reading anyway.
+        guard !fields.isEmpty else { return response }
+
         var meta: [String: Value]
         if case .object(let existing) = fields["_meta"] {
             guard existing[Metadata.Keys.serverInfo] == nil else { return response }

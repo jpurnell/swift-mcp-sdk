@@ -137,6 +137,28 @@ public enum MCPError: Swift.Error, Sendable {
         )
     }
 
+    /// A `-32021` naming the *extensions* the request needed.
+    ///
+    /// `requiredCapabilities` mirrors the shape of `ClientCapabilities`, so an extension is
+    /// named under an `extensions` key rather than at the top level — the same place the client
+    /// would declare it. Flattening it would hand the client an object it cannot merge into what
+    /// it already sends, which is the whole point of answering with a capability object rather
+    /// than a list of names.
+    ///
+    /// - Parameter extensions: The extension identifiers the request could not proceed without.
+    public static func missingRequiredClientCapability(
+        requiringExtensions extensions: [String]
+    ) -> MCPError {
+        var required: [String: Value] = [:]
+        for identifier in extensions { required[identifier] = .object([:]) }
+        let names = extensions.joined(separator: ", ")
+        return .structured(
+            code: -32021,
+            message: "Missing required client extension: \(names)",
+            data: ["requiredCapabilities": .object(["extensions": .object(required)])]
+        )
+    }
+
     /// A `-32602` naming the URI that was not found (SEP-2164).
     ///
     /// A client reading several resources at once cannot tell which read was refused from the

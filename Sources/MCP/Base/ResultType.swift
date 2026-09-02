@@ -14,6 +14,9 @@ public enum ResultType: String, Hashable, Codable, Sendable {
     /// The request needs more input; the result holds an input-required object describing what
     /// the client must supply before retrying.
     case inputRequired = "input_required"
+    /// The request created a task; the result is a `CreateTaskResult` carrying its identifier
+    /// and status, and the outcome arrives through `tasks/get` rather than here (SEP-2663).
+    case task
 
     /// Resolves an optional tag to the value the specification says it means.
     ///

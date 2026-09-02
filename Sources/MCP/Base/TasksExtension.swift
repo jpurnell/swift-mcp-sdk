@@ -126,49 +126,31 @@ public enum GetTask: Method {
     public struct Parameters: Hashable, Codable, Sendable {
         /// The task to poll.
         public var taskId: String
-
-        /// Creates the parameters.
-        public init(taskId: String) { self.taskId = taskId }
-    }
-
-    /// The task's state, and anything it is waiting for.
-    public struct Result: Hashable, Codable, Sendable {
-        /// The task.
-        public var task: MCPTask
-        /// Outstanding input the server needs, when the status is `input_required`.
+        /// Metadata for this request.
         ///
-        /// The same shape MRTR uses, so a client that already fulfils input requests needs no
-        /// second mechanism for tasks.
-        public var inputRequests: [String: InputRequest]?
-        /// The final result, when the task has completed.
-        public var result: Value?
-        /// Tells the client how to parse this result.
-        public var resultType: ResultType?
-        /// Optional metadata about this result.
+        /// Carried because a `2026-07-28` request declares its protocol version and client
+        /// capabilities here (SEP-2575) — including whether the tasks extension is negotiated,
+        /// which is what a server gates this method on. Without it a stateless client polling a
+        /// task it legitimately created would be refused for not having declared the extension.
         public var _meta: Metadata?
 
-        /// Creates the result.
+        /// Creates the parameters.
         ///
         /// - Parameters:
-        ///   - task: The task state.
-        ///   - inputRequests: Outstanding input requests, if any.
-        ///   - result: The final result, if the task completed.
-        ///   - resultType: How to parse this result.
-        ///   - _meta: Optional metadata.
-        public init(
-            task: MCPTask,
-            inputRequests: [String: InputRequest]? = nil,
-            result: Value? = nil,
-            resultType: ResultType? = nil,
-            _meta: Metadata? = nil
-        ) {
-            self.task = task
-            self.inputRequests = inputRequests
-            self.result = result
-            self.resultType = resultType
+        ///   - taskId: The task to poll.
+        ///   - _meta: Optional request metadata.
+        public init(taskId: String, _meta: Metadata? = nil) {
+            self.taskId = taskId
             self._meta = _meta
         }
     }
+
+    /// The task's state, and anything it is waiting for.
+    ///
+    /// Flat by specification (SEP-2663 v2): see ``DetailedTask``. The v1 shape nested the task
+    /// under a `task` key, which put ``ResultType`` and the thing it discriminates at different
+    /// depths.
+    public typealias Result = DetailedTask
 }
 
 /// Supplies input a task is waiting on.
@@ -202,21 +184,12 @@ public enum UpdateTask: Method {
         }
     }
 
-    /// The task's state after the update.
-    public struct Result: Hashable, Codable, Sendable {
-        /// The task.
-        public var task: MCPTask
-        /// Tells the client how to parse this result.
-        public var resultType: ResultType?
-
-        /// Creates the result.
-        ///
-        /// - Parameters:
-        ///   - task: The updated task state.
-        ///   - resultType: How to parse this result.
-        public init(task: MCPTask, resultType: ResultType? = nil) {
-            self.task = task
-            self.resultType = resultType
-        }
-    }
+    /// An empty acknowledgement.
+    ///
+    /// SEP-2663 v2: supplying input is acknowledged with `{resultType:"complete"}` and nothing
+    /// else. The task's new state is observed through ``GetTask`` — which is the same rule
+    /// cancellation follows, and for the same reason: the answer to "did you take this" is not
+    /// the answer to "what happened next".
+    public typealias Result = CancelTask.Result
 }
+
