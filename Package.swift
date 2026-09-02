@@ -4,7 +4,7 @@
 import PackageDescription
 
 let package = Package(
-    name: "mcp-swift-sdk",
+    name: "swift-mcp-sdk",
     platforms: [
         .macOS("13.0"),
         .macCatalyst("16.0"),

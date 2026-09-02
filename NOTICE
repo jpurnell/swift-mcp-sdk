@@ -1,0 +1,33 @@
+swift-mcp-sdk
+=============
+
+This product is a **fork** of the Model Context Protocol Swift SDK:
+
+    https://github.com/modelcontextprotocol/swift-sdk
+
+It is not the official SDK, and it is not endorsed by or affiliated with
+Anthropic, PBC or the Model Context Protocol project.
+
+Original work
+-------------
+
+Copyright Anthropic, PBC and the Model Context Protocol contributors.
+
+Licensed under the terms recorded in LICENSE, which the project is transitioning
+from the MIT License to the Apache License, Version 2.0. That file is preserved
+here unchanged and governs the original work.
+
+Modifications
+-------------
+
+Copyright 2026 Justin Purnell.
+
+Licensed under the same terms as the original work.
+
+The modifications add support for MCP revision `2026-07-28` — per-request
+protocol carriage, `server/discover`, `subscriptions/listen`, Multi Round-Trip
+Requests (SEP-2322), the `io.modelcontextprotocol/tasks` extension (SEP-2663),
+`x-mcp-header` routing (SEP-2243), cacheable results (SEP-2549), and the
+`-32020`/`-32021`/`-32022` error allocation (SEP-2575) — together with fixes to
+the existing transports. CHANGELOG.md records them in full, and the git history
+preserves the authorship of the upstream pull requests adopted along the way.

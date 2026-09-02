@@ -1,14 +1,52 @@
-# MCP Swift SDK
+# swift-mcp-sdk
 
-Official Swift SDK for the [Model Context Protocol][mcp] (MCP).
+A **fork** of the [Model Context Protocol][mcp] Swift SDK, carrying support for
+specification revision `2026-07-28`.
+
+> **This is not the official SDK.** The official one is
+> [modelcontextprotocol/swift-sdk][upstream], and it is the right choice unless you
+> specifically need what is listed below. This fork is not endorsed by or affiliated with
+> Anthropic, PBC or the Model Context Protocol project. See [NOTICE](NOTICE).
 
 ## Overview
 
-The Model Context Protocol (MCP) defines a standardized way
-for applications to communicate with AI and ML models.
-This Swift SDK implements both client and server components
-according to the [2025-11-25][mcp-spec-2025-11-25] (latest) version
-of the MCP specification.
+The Model Context Protocol (MCP) defines a standardized way for applications to communicate
+with AI and ML models. This SDK implements both client and server components.
+
+It serves **`2026-07-28` alongside the earlier revisions**, from one implementation: a client
+that sends no per-request protocol metadata is answered by the rules of the revision it is
+actually on, which is what lets a server upgrade without stranding the clients it already has.
+
+### What this fork adds
+
+| Area | |
+| :--- | :--- |
+| **Stateless operation** (SEP-2575) | `server/discover`, per-request protocol version and client capabilities in `_meta`, and the `-32020` / `-32021` / `-32022` error allocation |
+| **Multi Round-Trip Requests** (SEP-2322) | `resultType: "input_required"`, `inputRequests`, `requestState` — a server asks for what it needs and the client retries, with no callback channel required |
+| **Tasks extension** (SEP-2663) | The flat `CreateTaskResult`, `tasks/get` / `update` / `cancel`, and capability gating |
+| **Subscriptions** (SEP-2575) | `subscriptions/listen`, replacing the standalone `GET` stream |
+| **Routing headers** (SEP-2243) | `Mcp-Method`, `Mcp-Name`, and `x-mcp-header` parameter mirroring |
+| **Cacheable results** (SEP-2549) | `ttlMs` and `cacheScope` on list and read results |
+
+Along the way it also fixes defects in the existing transports — a heartbeat that wrote
+host-endian bytes onto the wire and read them back through an unaligned `load`, pending
+responses registered from deferred tasks that could run after the response had already arrived,
+and a cancelled SSE stream reporting the same result as one that produced nothing. CHANGELOG.md
+records them.
+
+### Conformance
+
+Measured, not asserted, against
+[`@modelcontextprotocol/conformance`][conformance] `0.2.0-alpha.11`:
+
+- **`--requirements 2026-07-28`: 195 of 195**, across all 50 scenarios the revision requires.
+- **`--suite all`: 227 of 227.** One scenario, `tasks-status-notifications`, is skipped by the
+  harness itself, which reports that it needs a rewrite against the `subscriptions/listen`
+  channel.
+- **All 129 specification decode examples**, across 91 definitions.
+
+Those numbers are for the harness build named above. A later build tests different things;
+quote the version alongside the figure or the claim cannot be checked.
 
 ## Table of contents
 
@@ -74,7 +112,7 @@ Add the following to your `Package.swift` file:
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/modelcontextprotocol/swift-sdk.git", from: "0.11.0")
+    .package(url: "https://github.com/jpurnell/swift-mcp-sdk.git", from: "fork/2026.07.28-1")
 ]
 ```
 
@@ -1616,7 +1654,8 @@ let transport = StdioTransport(logger: logger)
 
 - [MCP Specification](https://modelcontextprotocol.io/specification/2025-11-25)
 - [Protocol Documentation](https://modelcontextprotocol.io)
-- [GitHub Repository](https://github.com/modelcontextprotocol/swift-sdk)
+- [This fork](https://github.com/jpurnell/swift-mcp-sdk)
+- [Upstream repository](https://github.com/modelcontextprotocol/swift-sdk)
 
 ## Changelog
 
@@ -1625,11 +1664,13 @@ For pre-1.0 releases,
 minor version increments (0.X.0) may contain breaking changes.
 
 For details about changes in each release,
-see the [GitHub Releases page](https://github.com/modelcontextprotocol/swift-sdk/releases).
+see the [releases page for this fork](https://github.com/jpurnell/swift-mcp-sdk/releases).
 
 ## License
 
 This project is licensed under Apache 2.0 for new contributions, with existing code under MIT. See the [LICENSE](LICENSE) file for details.
 
 [mcp]: https://modelcontextprotocol.io
+[upstream]: https://github.com/modelcontextprotocol/swift-sdk
+[conformance]: https://github.com/modelcontextprotocol/conformance
 [mcp-spec-2025-11-25]: https://modelcontextprotocol.io/specification/2025-11-25
