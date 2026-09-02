@@ -54,6 +54,8 @@ public struct Root: Hashable, Codable, Sendable {
 
 /// To discover available roots, servers send a `roots/list` request to the client.
 /// - SeeAlso: https://modelcontextprotocol.io/specification/2025-11-25/client/roots
+/// - Warning: The Roots feature is deprecated by MCP `2026-07-28`. Pass directories or files
+///   as tool parameters, resource URIs, or server configuration instead. See ``Deprecations``.
 public enum ListRoots: Method {
     public static let name: String = "roots/list"
 

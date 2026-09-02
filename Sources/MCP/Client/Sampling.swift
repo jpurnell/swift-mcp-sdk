@@ -142,9 +142,13 @@ public enum Sampling {
     public enum ContextInclusion: String, Hashable, Codable, Sendable {
         /// No additional context
         case none
-        /// Include context from the requesting server
+        /// Include context from the requesting server.
+        ///
+        /// - Warning: Deprecated by MCP `2026-07-28`. Omit `includeContext` or use ``none``.
         case thisServer
-        /// Include context from all connected MCP servers
+        /// Include context from all connected MCP servers.
+        ///
+        /// - Warning: Deprecated by MCP `2026-07-28`. Omit `includeContext` or use ``none``.
         case allServers
     }
 
@@ -458,6 +462,8 @@ extension Sampling.ToolResultContent.ContentBlock: Codable {
 
 /// To request sampling from a client, servers send a `sampling/createMessage` request.
 /// - SeeAlso: https://modelcontextprotocol.io/docs/concepts/sampling#how-sampling-works
+/// - Warning: The Sampling feature is deprecated by MCP `2026-07-28`. Integrate directly with
+///   an LLM provider's API instead. See ``Deprecations``.
 public enum CreateSamplingMessage: Method {
     public static let name = "sampling/createMessage"
 

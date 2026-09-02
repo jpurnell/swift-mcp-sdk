@@ -36,6 +36,18 @@ extension Metadata {
         public static let logLevel = "io.modelcontextprotocol/logLevel"
         /// The subscription a notification belongs to.
         public static let subscriptionId = "io.modelcontextprotocol/subscriptionId"
+
+        // W3C trace context. Carried verbatim rather than under the
+        // `io.modelcontextprotocol/` namespace, because these are the names every other
+        // participant in a distributed trace already uses — renaming them at an MCP boundary
+        // would break the propagation they exist for.
+
+        /// The W3C `traceparent` of the span this request belongs to.
+        public static let traceparent = "traceparent"
+        /// Vendor-specific W3C `tracestate` accompanying ``traceparent``.
+        public static let tracestate = "tracestate"
+        /// W3C `baggage` carried alongside the trace.
+        public static let baggage = "baggage"
     }
 
     /// Round-trips a `Codable` value through ``Value`` so it can live in ``fields``.
@@ -109,6 +121,37 @@ extension Metadata {
             } else {
                 fields.removeValue(forKey: Keys.logLevel)
             }
+        }
+    }
+
+    /// The W3C `traceparent` of the span this request belongs to.
+    ///
+    /// Documented by MCP `2026-07-28` for OpenTelemetry propagation. Without it a span crossing
+    /// an MCP boundary starts a new trace at every hop, so a request's history stops at the
+    /// server it entered.
+    public var traceparent: String? {
+        get { fields[Keys.traceparent]?.stringValue }
+        set { setStringField(Keys.traceparent, newValue) }
+    }
+
+    /// Vendor-specific W3C `tracestate` accompanying ``traceparent``.
+    public var tracestate: String? {
+        get { fields[Keys.tracestate]?.stringValue }
+        set { setStringField(Keys.tracestate, newValue) }
+    }
+
+    /// W3C `baggage` carried alongside the trace.
+    public var baggage: String? {
+        get { fields[Keys.baggage]?.stringValue }
+        set { setStringField(Keys.baggage, newValue) }
+    }
+
+    /// Writes a string field, removing the key entirely when the value is `nil`.
+    private mutating func setStringField(_ key: String, _ newValue: String?) {
+        if let newValue {
+            fields[key] = .string(newValue)
+        } else {
+            fields.removeValue(forKey: key)
         }
     }
 

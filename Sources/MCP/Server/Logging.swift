@@ -29,6 +29,9 @@ public enum LogLevel: String, Hashable, Codable, Sendable, CaseIterable {
 
 /// To configure the minimum log level, clients MAY send a `logging/setLevel` request.
 /// - SeeAlso: https://modelcontextprotocol.io/specification/2025-11-25/server/utilities/logging/
+/// - Warning: `logging/setLevel` is REMOVED by MCP `2026-07-28`; the log level for a single
+///   request travels in `_meta` as ``Metadata/logLevel``. The Logging feature as a whole is
+///   deprecated — log to stderr or use OpenTelemetry. See ``Deprecations``.
 public enum SetLoggingLevel: Method {
     public static let name = "logging/setLevel"
 
