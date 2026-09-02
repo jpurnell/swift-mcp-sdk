@@ -319,9 +319,14 @@ public actor Server {
     /// handlers can observe the originating HTTP request (headers, auth, path,
     /// body) without changing the `withMethodHandler` signature.
     public struct HandlerContext: Sendable {
-        /// The JSON-RPC request id of the in-flight request. SDK-internal use
-        /// (e.g. transports closing an SSE stream mid-call per SEP-1699).
-        package let id: ID
+        /// The JSON-RPC request id of the in-flight request.
+        ///
+        /// Transports need this to attribute a server-initiated message to the request that
+        /// provoked it — the outgoing bytes carry a fresh id of their own and say nothing about
+        /// what caused them. That was already its stated purpose; it was `package`, which meant
+        /// only a transport shipped inside this package could do it, and the transports that
+        /// need it most are the ones written elsewhere.
+        public let id: ID
 
         /// The originating HTTP request, if the active transport conforms to
         /// ``HTTPContextProviding``. `nil` for transports that don't carry HTTP
@@ -329,7 +334,7 @@ public actor Server {
         /// path.
         public let httpContext: HTTPRequest?
 
-        package init(id: ID, httpContext: HTTPRequest?) {
+        public init(id: ID, httpContext: HTTPRequest?) {
             self.id = id
             self.httpContext = httpContext
         }

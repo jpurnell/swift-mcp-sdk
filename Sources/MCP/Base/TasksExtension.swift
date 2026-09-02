@@ -201,14 +201,14 @@ public enum UpdateTask: Method {
             taskId = try container.decode(String.self, forKey: .taskId)
             _meta = try container.decodeIfPresent(Metadata.self, forKey: ._meta)
 
-            guard let raw = try? container.decodeIfPresent(
-                [String: Value].self, forKey: .inputResponses)
+            guard let raw = (try? container.decodeIfPresent(
+                [String: Value].self, forKey: .inputResponses)) ?? nil
             else {
                 inputResponses = nil
                 return
             }
             var readable: [String: InputResponse] = [:]
-            for (key, value) in raw ?? [:] {
+            for (key, value) in raw {
                 guard let data = try? JSONEncoder().encode(value),
                     let response = try? JSONDecoder().decode(InputResponse.self, from: data)
                 else { continue }
