@@ -1,4 +1,4 @@
-// swift-tools-version:6.1
+// swift-tools-version:6.2
 // The swift-tools-version declares the minimum version of Swift required to build this package.
 
 import PackageDescription
@@ -42,6 +42,10 @@ let package = Package(
                     name: "EventSource", package: "eventsource",
                     condition: .when(platforms: [.macOS, .iOS, .tvOS, .visionOS, .watchOS, .macCatalyst])),
             ],
+            // `.copy`, not `.exclude`: swift-docc-plugin discovers a catalogue through
+            // `target.sourceFiles`, so excluding it silences the unhandled-file warning and
+            // silently produces empty documentation.
+            resources: [.copy("MCP.docc")],
             swiftSettings: [
                 .enableUpcomingFeature("StrictConcurrency")
             ]

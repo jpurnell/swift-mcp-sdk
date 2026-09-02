@@ -241,7 +241,13 @@ public actor HTTPClientTransport: Transport {
         var attempts = 0
         let operationKey = jsonRPCOperationKey(from: data)
 
-        while true {
+        // Bounded by the authorizer's attempt limit, which the retry path below also checks
+        // before continuing. Stated here as well because a `while true` whose only bound is a
+        // `continue` fifty lines down reads as unbounded, and one edit to that branch would
+        // make it so. With no authorizer there is nothing to retry and the body returns on its
+        // first pass.
+        let maximumAttempts = authorizer?.maxAuthorizationAttempts ?? 1
+        while attempts < maximumAttempts {
             var request = URLRequest(url: endpoint)
             request.httpMethod = "POST"
             request.addValue(
@@ -302,6 +308,11 @@ public actor HTTPClientTransport: Transport {
                 throw mapAuthenticationChallengeError(authError)
             }
         }
+
+        // Reachable only if the attempt budget is exhausted without the retry path throwing,
+        // which the branch above does not currently allow. Left explicit rather than trusting
+        // that to stay true.
+        throw MCPError.internalError("Authorization retries exhausted after \(attempts) attempts")
     }
 
     #if os(Linux)

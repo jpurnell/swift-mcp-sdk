@@ -383,7 +383,11 @@ struct ProgressTests {
         let context: RequestContext<CallTool.Result> = try await client.callTool(name: "random", meta: Metadata(progressToken: token))
         let result = try await context.value
 
-        #expect(progresses == [20, 40, 60, 80, 100])
+        // Elementwise bit-identity: these are the values the server reported, carried, not
+        // computed, so anything short of unchanged is a defect rather than drift.
+        let expectedProgresses: [Double] = [20, 40, 60, 80, 100]
+        #expect(progresses.count == expectedProgresses.count)
+        #expect(zip(progresses, expectedProgresses).allSatisfy(isBitIdentical))
         #expect(result.content == expectedToolCallResult.content)
         #expect(result.isError == nil)
     }

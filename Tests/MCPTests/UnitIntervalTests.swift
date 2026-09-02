@@ -11,16 +11,16 @@ struct UnitIntervalTests {
     @Test("Valid literal initialization")
     func testValidLiteralInitialization() throws {
         let zero: UnitInterval = 0.0
-        #expect(zero.doubleValue == 0.0)
+        #expect(isBitIdentical(zero.doubleValue, 0.0))
 
         let half: UnitInterval = 0.5
-        #expect(half.doubleValue == 0.5)
+        #expect(isBitIdentical(half.doubleValue, 0.5))
 
         let one: UnitInterval = 1.0
-        #expect(one.doubleValue == 1.0)
+        #expect(isBitIdentical(one.doubleValue, 1.0))
 
         let quarter: UnitInterval = 0.25
-        #expect(quarter.doubleValue == 0.25)
+        #expect(isBitIdentical(quarter.doubleValue, 0.25))
     }
 
     @Test("Valid failable initialization with runtime values")
@@ -31,8 +31,7 @@ struct UnitIntervalTests {
         for value in values {
             let computed = value * 1.0  // Force runtime computation
             let interval = UnitInterval(computed)
-            #expect(interval != nil)
-            #expect(interval!.doubleValue == value)
+            #expect(isBitIdentical(interval?.doubleValue, value))
         }
     }
 
@@ -71,38 +70,36 @@ struct UnitIntervalTests {
         // Test very small positive value
         let tinyValue = 1e-10 * 1.0
         let tiny = UnitInterval(tinyValue)
-        #expect(tiny != nil)
-        #expect(tiny!.doubleValue == 1e-10)
+        #expect(isBitIdentical(tiny?.doubleValue, 1e-10))
 
         // Test value very close to 1
         let almostOneValue = 0.9999999999 * 1.0
         let almostOne = UnitInterval(almostOneValue)
-        #expect(almostOne != nil)
-        #expect(almostOne!.doubleValue == 0.9999999999)
+        #expect(isBitIdentical(almostOne?.doubleValue, 0.9999999999))
     }
 
     @Test("Float literal initialization")
     func testFloatLiteralInitialization() throws {
         let zero: UnitInterval = 0.0
-        #expect(zero.doubleValue == 0.0)
+        #expect(isBitIdentical(zero.doubleValue, 0.0))
 
         let half: UnitInterval = 0.5
-        #expect(half.doubleValue == 0.5)
+        #expect(isBitIdentical(half.doubleValue, 0.5))
 
         let one: UnitInterval = 1.0
-        #expect(one.doubleValue == 1.0)
+        #expect(isBitIdentical(one.doubleValue, 1.0))
 
         let quarter: UnitInterval = 0.25
-        #expect(quarter.doubleValue == 0.25)
+        #expect(isBitIdentical(quarter.doubleValue, 0.25))
     }
 
     @Test("Integer literal initialization")
     func testIntegerLiteralInitialization() throws {
         let zero: UnitInterval = 0
-        #expect(zero.doubleValue == 0.0)
+        #expect(isBitIdentical(zero.doubleValue, 0.0))
 
         let one: UnitInterval = 1
-        #expect(one.doubleValue == 1.0)
+        #expect(isBitIdentical(one.doubleValue, 1.0))
     }
 
     @Test("Comparable conformance")
@@ -142,8 +139,8 @@ struct UnitIntervalTests {
         let half2: UnitInterval = 0.5
         let quarter: UnitInterval = 0.25
 
-        #expect(half1 == half2)
-        #expect(half1 != quarter)
+        #expect(isBitIdentical(half1.doubleValue, half2.doubleValue))
+        #expect(!isBitIdentical(half1.doubleValue, quarter.doubleValue))
         #expect(half1.hashValue == half2.hashValue)
     }
 
@@ -172,8 +169,8 @@ struct UnitIntervalTests {
         let data = try encoder.encode(original)
         let decoded = try decoder.decode(UnitInterval.self, from: data)
 
-        #expect(decoded == original)
-        #expect(decoded.doubleValue == 0.75)
+        #expect(isBitIdentical(decoded.doubleValue, original.doubleValue))
+        #expect(isBitIdentical(decoded.doubleValue, 0.75))
     }
 
     @Test("JSON decoding with invalid values")

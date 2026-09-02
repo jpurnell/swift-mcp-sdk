@@ -345,7 +345,9 @@ struct ClientTests {
 
         let request1 = Ping.request()
         let request2 = Ping.request()
+        // Justification: written and read on one task within a single test, sequentially
         nonisolated(unsafe) var resultTask1: Task<Ping.Result, Swift.Error>?
+        // Justification: written and read on one task within a single test, sequentially
         nonisolated(unsafe) var resultTask2: Task<Ping.Result, Swift.Error>?
 
         try await client.withBatch { batch in
@@ -426,6 +428,7 @@ struct ClientTests {
         let request1 = Ping.request()  // Success
         let request2 = Ping.request()  // Error
 
+        // Justification: written and read on one task within a single test, sequentially
         nonisolated(unsafe) var resultTasks: [Task<Ping.Result, Swift.Error>] = []
 
         try await client.withBatch { batch in

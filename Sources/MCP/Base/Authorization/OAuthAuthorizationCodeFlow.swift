@@ -30,6 +30,7 @@ protocol OAuthAuthorizationCodeFlowing: Sendable {
 
 // MARK: - No-Redirect Session Delegate
 
+// Justification: stateless — the delegate only answers redirect callbacks and stores nothing
 final class OAuthNoRedirectSessionDelegate: NSObject, URLSessionTaskDelegate,
     @unchecked Sendable
 {

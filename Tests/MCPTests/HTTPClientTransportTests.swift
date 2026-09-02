@@ -97,6 +97,7 @@ import Testing
 
     // MARK: - Mock URL Protocol
 
+    // Justification: URLProtocol is instantiated by URLSession per request; all shared state is held in the static RequestHandlerStorage actor
     final class MockURLProtocol: URLProtocol, @unchecked Sendable {
         static let requestHandlerStorage = RequestHandlerStorage()
 

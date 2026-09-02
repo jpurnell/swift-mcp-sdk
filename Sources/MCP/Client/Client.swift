@@ -479,7 +479,13 @@ public actor Client {
     /// Objects of this type are passed as an argument to the closure
     /// of the ``Client/withBatch(body:)`` method.
     public actor Batch {
-        unowned let client: Client
+        /// The client this batch will be sent through.
+        ///
+        /// Weak rather than `unowned`: `addRequest` registers its pending request from a
+        /// detached `Task`, which can outlive the `withBatch` scope, and `unowned` turns a
+        /// client released in that window into a crash. Held weakly, the same window resumes
+        /// the caller's continuation with an error it can act on.
+        weak var client: Client?
         var requests: [AnyRequest] = []
 
         init(client: Client) {
@@ -500,7 +506,11 @@ public actor Client {
                 try await withCheckedThrowingContinuation { continuation in
                     // We are already inside a Task, but need another Task
                     // to bridge to the client actor's context.
-                    Task {
+                    Task { [weak client] in
+                        guard let client else {
+                            continuation.resume(throwing: MCPError.connectionClosed)
+                            return
+                        }
                         await client.addPendingRequest(
                             id: request.id,
                             continuation: continuation,

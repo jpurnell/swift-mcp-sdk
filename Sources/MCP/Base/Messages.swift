@@ -179,6 +179,7 @@ extension AnyRequest {
 }
 
 /// A box for request handlers that can be type-erased
+// Justification: an abstract box with no stored state; concrete subclasses hold only an immutable handler closure
 class RequestHandlerBox: @unchecked Sendable {
     func callAsFunction(_ request: AnyRequest) async throws -> AnyResponse {
         fatalError("Must override")
@@ -186,6 +187,7 @@ class RequestHandlerBox: @unchecked Sendable {
 }
 
 /// A typed request handler that can be used to handle requests of a specific type
+// Justification: holds one immutable @Sendable closure and no mutable state
 final class TypedRequestHandler<M: Method>: RequestHandlerBox, @unchecked Sendable {
     private let _handle: @Sendable (Request<M>) async throws -> Response<M>
 
@@ -430,11 +432,13 @@ extension Notification {
 }
 
 /// A box for notification handlers that can be type-erased
+// Justification: an abstract box with no stored state; concrete subclasses hold only an immutable notification closure
 class NotificationHandlerBox: @unchecked Sendable {
     func callAsFunction(_ notification: Message<AnyNotification>) async throws {}
 }
 
 /// A typed notification handler that can be used to handle notifications of a specific type
+// Justification: holds one immutable @Sendable closure and no mutable state
 final class TypedNotificationHandler<N: Notification>: NotificationHandlerBox,
     @unchecked Sendable
 {

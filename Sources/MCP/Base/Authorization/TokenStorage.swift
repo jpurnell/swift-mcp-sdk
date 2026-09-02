@@ -18,6 +18,7 @@ public protocol TokenStorage: AnyObject, Sendable {
 ///
 /// The token is lost when the process exits. For persistent storage
 /// (e.g., system Keychain), implement ``TokenStorage`` directly.
+// Justification: the stored token is read and written only through the actor-isolated TokenStorage requirements
 public final class InMemoryTokenStorage: TokenStorage, @unchecked Sendable {
     private var token: OAuthAccessToken?
 

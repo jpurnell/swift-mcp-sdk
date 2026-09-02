@@ -659,6 +659,7 @@ func runDefaultScenario(_ args: [String]) async throws {
 
 // MARK: - Scenario Registry
 
+// Justification: set once during argument parsing, before any task that reads it is started
 nonisolated(unsafe) let scenarioHandlers: [String: ScenarioHandler] = [
     "initialize": runInitializeScenario,
     "tools_call": runToolsCallScenario,
@@ -687,17 +688,15 @@ struct ConformanceClient {
         do {
             // Get scenario from environment
             guard let scenario = ProcessInfo.processInfo.environment["MCP_CONFORMANCE_SCENARIO"] else {
-                var stderr = StandardError()
-                print("Error: MCP_CONFORMANCE_SCENARIO environment variable not set", to: &stderr)
+                reportToStandardError("Error: MCP_CONFORMANCE_SCENARIO environment variable not set")
                 Foundation.exit(1)
             }
 
             // Get server URL from arguments (last argument)
             let args = Array(CommandLine.arguments.dropFirst())
             guard !args.isEmpty else {
-                var stderr = StandardError()
-                print("Usage: mcp-everything-client <server-url>", to: &stderr)
-                print("Error: Server URL is required", to: &stderr)
+                reportToStandardError("Usage: mcp-everything-client <server-url>")
+                reportToStandardError("Error: Server URL is required")
                 Foundation.exit(1)
             }
 
@@ -711,16 +710,14 @@ struct ConformanceClient {
                 }
             } else {
                 handler = runDefaultScenario
-                var stderr = StandardError()
-                print("⚠️  Scenario '\(scenario)' not fully implemented - using default handler", to: &stderr)
+                reportToStandardError("⚠️  Scenario '\(scenario)' not fully implemented - using default handler")
             }
 
             // Run the scenario
             try await handler(args)
             Foundation.exit(0)
         } catch {
-            var stderr = StandardError()
-            print("Error: \(error)", to: &stderr)
+            reportToStandardError("Error: \(error)")
             Foundation.exit(1)
         }
     }
@@ -728,10 +725,16 @@ struct ConformanceClient {
 
 // MARK: - Helpers
 
-struct StandardError: TextOutputStream {
-    mutating func write(_ string: String) {
-        FileHandle.standardError.write(Data(string.utf8))
-    }
+/// Writes a diagnostic line to standard error.
+///
+/// A command-line tool's diagnostics belong on stderr — that is its contract with whatever is
+/// running it, and `os.Logger` would send them somewhere a shell pipeline cannot read. Written
+/// through `FileHandle` rather than `print(to:)` so there is one place that decides where
+/// diagnostics go.
+///
+/// - Parameter message: The line to write. A newline is appended.
+func reportToStandardError(_ message: String) {
+    FileHandle.standardError.write(Data((message + "\n").utf8))
 }
 
 await ConformanceClient.run()

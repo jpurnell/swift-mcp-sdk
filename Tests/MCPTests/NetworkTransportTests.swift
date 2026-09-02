@@ -8,6 +8,7 @@ import Testing
     import Network
 
     /// A mock implementation of NetworkConnectionProtocol for testing
+    // Justification: mutable state is guarded by the internal lock this mock takes on every accessor
     final class MockNetworkConnection: NetworkConnectionProtocol, @unchecked Sendable {
         /// Current state of the connection
         private var mockState: NWConnection.State = .setup
@@ -148,9 +149,8 @@ import Testing
             let magicBytes: [UInt8] = [0xF0, 0x9F, 0x92, 0x93]  // Magic bytes for heartbeat
             var data = Data(magicBytes)
             let timestamp = UInt64(Date().timeIntervalSinceReferenceDate * 1000)
-            withUnsafeBytes(of: timestamp) { buffer in
-                data.append(contentsOf: buffer)
-            }
+            // Little-endian, matching NetworkTransport.Heartbeat's rawValue.
+            data.append(contentsOf: (0..<8).map { UInt8(truncatingIfNeeded: timestamp >> (8 * $0)) })
             queueDataForReceiving(data)
         }
 
@@ -208,7 +208,7 @@ import Testing
 
             #expect(config.enabled == true)
             #expect(config.maxAttempts == 3)
-            #expect(config.backoffMultiplier == 2.0)
+            #expect(isBitIdentical(config.backoffMultiplier, 2.0))
 
             // Test backoff delay calculation
             let firstDelay = config.backoffDelay(for: 1)
@@ -234,12 +234,12 @@ import Testing
             )
 
             #expect(config.enabled == true)
-            #expect(config.interval == 5.0)
+            #expect(isBitIdentical(config.interval, 5.0))
 
             // Test default config
             let defaultConfig = NetworkTransport.HeartbeatConfiguration.default
             #expect(defaultConfig.enabled == true)
-            #expect(defaultConfig.interval == 15.0)
+            #expect(isBitIdentical(defaultConfig.interval, 15.0))
 
             // Test disabled config
             let disabledConfig = NetworkTransport.HeartbeatConfiguration.disabled

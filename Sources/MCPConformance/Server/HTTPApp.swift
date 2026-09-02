@@ -250,7 +250,7 @@ actor HTTPApp {
     }
 
     private func sessionCleanupLoop() async {
-        while true {
+        while !Task.isCancelled {
             try? await Task.sleep(for: .seconds(60))
 
             let now = Date()
@@ -270,6 +270,7 @@ actor HTTPApp {
 
 /// Thin NIO adapter that converts between NIO HTTP types and the framework-agnostic
 /// `HTTPRequest`/`HTTPResponse` types, delegating all logic to the `HTTPApp`.
+// Justification: a NIO ChannelHandler is confined to its EventLoop, which serialises every access to its state
 private final class HTTPHandler: ChannelInboundHandler, @unchecked Sendable {
     typealias InboundIn = HTTPServerRequestPart
     typealias OutboundOut = HTTPServerResponsePart
@@ -302,6 +303,7 @@ private final class HTTPHandler: ChannelInboundHandler, @unchecked Sendable {
             guard let state = requestState else { return }
             requestState = nil
 
+            // Justification: a NIO ChannelHandlerContext is confined to its EventLoop and is used here only to hand the response back to it
             nonisolated(unsafe) let ctx = context
             Task { @MainActor in
                 await self.handleRequest(state: state, context: ctx)
@@ -367,6 +369,7 @@ private final class HTTPHandler: ChannelInboundHandler, @unchecked Sendable {
         version: HTTPVersion,
         context: ChannelHandlerContext
     ) async {
+        // Justification: a NIO ChannelHandlerContext is confined to its EventLoop and is used here only to hand the response back to it
         nonisolated(unsafe) let ctx = context
         let eventLoop = ctx.eventLoop
 

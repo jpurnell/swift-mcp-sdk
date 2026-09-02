@@ -140,8 +140,12 @@ import struct Foundation.Data
 
             while isConnected && !Task.isCancelled {
                 do {
-                    let bytesRead = try buffer.withUnsafeMutableBufferPointer { pointer in
-                        try input.read(into: UnsafeMutableRawBufferPointer(pointer))
+                    // `withUnsafeMutableBytes` hands over the raw buffer directly. Building
+                    // an `UnsafeMutableRawBufferPointer` inside the block instead put a second
+                    // pointer to the same memory in scope, which is the shape that goes wrong
+                    // when someone later returns it.
+                    let bytesRead = try buffer.withUnsafeMutableBytes { raw in
+                        try input.read(into: raw)
                     }
 
                     if bytesRead == 0 {
@@ -206,8 +210,10 @@ import struct Foundation.Data
             var remaining = messageWithNewline
             while !remaining.isEmpty {
                 do {
+                    // The block's own argument is already an `UnsafeRawBufferPointer`; the
+                    // conversion only made a second pointer to the same bytes.
                     let written = try remaining.withUnsafeBytes { buffer in
-                        try output.write(UnsafeRawBufferPointer(buffer))
+                        try output.write(buffer)
                     }
                     if written > 0 {
                         remaining = remaining.dropFirst(written)

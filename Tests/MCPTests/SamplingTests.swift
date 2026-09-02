@@ -63,9 +63,9 @@ struct SamplingTests {
         #expect(decoded.hints?.count == 2)
         #expect(decoded.hints?[0].name == "claude-4")
         #expect(decoded.hints?[1].name == "gpt-4.1")
-        #expect(decoded.costPriority?.doubleValue == 0.8)
-        #expect(decoded.speedPriority?.doubleValue == 0.3)
-        #expect(decoded.intelligencePriority?.doubleValue == 0.9)
+        #expect(isBitIdentical(decoded.costPriority?.doubleValue, 0.8))
+        #expect(isBitIdentical(decoded.speedPriority?.doubleValue, 0.3))
+        #expect(isBitIdentical(decoded.intelligencePriority?.doubleValue, 0.9))
     }
 
     @Test("ContextInclusion encoding and decoding")
@@ -131,7 +131,7 @@ struct SamplingTests {
         #expect(decoded.messages[0].role == .user)
         #expect(decoded.systemPrompt == "You are a helpful weather assistant.")
         #expect(decoded.includeContext == .thisServer)
-        #expect(decoded.temperature == 0.7)
+        #expect(isBitIdentical(decoded.temperature, 0.7))
         #expect(decoded.maxTokens == 150)
         #expect(decoded.stopSequences?.count == 2)
         #expect(decoded.stopSequences?[0] == "END")
@@ -252,9 +252,9 @@ struct SamplingTests {
             intelligencePriority: 0.0
         )
 
-        #expect(validPreferences.costPriority?.doubleValue == 0.5)
-        #expect(validPreferences.speedPriority?.doubleValue == 1.0)
-        #expect(validPreferences.intelligencePriority?.doubleValue == 0.0)
+        #expect(isBitIdentical(validPreferences.costPriority?.doubleValue, 0.5))
+        #expect(isBitIdentical(validPreferences.speedPriority?.doubleValue, 1.0))
+        #expect(isBitIdentical(validPreferences.intelligencePriority?.doubleValue, 0.0))
 
         // Test JSON encoding/decoding preserves UnitInterval constraints
         let encoder = JSONEncoder()
@@ -263,9 +263,9 @@ struct SamplingTests {
         let data = try encoder.encode(validPreferences)
         let decoded = try decoder.decode(Sampling.ModelPreferences.self, from: data)
 
-        #expect(decoded.costPriority?.doubleValue == 0.5)
-        #expect(decoded.speedPriority?.doubleValue == 1.0)
-        #expect(decoded.intelligencePriority?.doubleValue == 0.0)
+        #expect(isBitIdentical(decoded.costPriority?.doubleValue, 0.5))
+        #expect(isBitIdentical(decoded.speedPriority?.doubleValue, 1.0))
+        #expect(isBitIdentical(decoded.intelligencePriority?.doubleValue, 0.0))
     }
 
     @Test("Message factory methods")
@@ -439,10 +439,10 @@ struct SamplingTests {
 
         let salesConversation: [Sampling.Message] = [
             .user("Tell me about the \(productName)"),
-            .assistant("The \(productName) is priced at $\(String(format: "%.2f", price))"),
+            .assistant("The \(productName) is priced at $\(currency(price))"),
             .user("Do you have any discounts?"),
             .assistant(
-                "Yes! We currently have a \(discount)% discount, bringing the price to $\(String(format: "%.2f", price * (1.0 - Double(discount)/100.0)))"
+                "Yes! We currently have a \(discount)% discount, bringing the price to $\(currency(price * (1.0 - Double(discount) / 100.0)))"
             ),
         ]
         #expect(salesConversation.count == 4)
@@ -498,6 +498,7 @@ struct SamplingIntegrationTests {
             version: "1.0"
         )
 
+        // Justification: written and read on one task within a single test, sequentially
         nonisolated(unsafe) var handlerCalled = false
 
         // Register sampling handler
@@ -550,7 +551,7 @@ struct SamplingIntegrationTests {
             #expect(parameters.messages.count == 3)
             #expect(parameters.systemPrompt == "You are a business analyst expert.")
             #expect(parameters.includeContext == .thisServer)
-            #expect(parameters.temperature == 0.7)
+            #expect(isBitIdentical(parameters.temperature, 0.7))
             #expect(parameters.maxTokens == 500)
             #expect(parameters.stopSequences?.count == 2)
             #expect(parameters._meta?["requestId"]?.stringValue == "test-123")
@@ -898,7 +899,7 @@ struct SamplingIntegrationTests {
         #expect(comprehensiveParams.modelPreferences?.hints?.count == 1)
         #expect(comprehensiveParams.systemPrompt == "You are a helpful assistant.")
         #expect(comprehensiveParams.includeContext == .allServers)
-        #expect(comprehensiveParams.temperature == 0.7)
+        #expect(isBitIdentical(comprehensiveParams.temperature, 0.7))
         #expect(comprehensiveParams.maxTokens == 500)
         #expect(comprehensiveParams.stopSequences?.count == 2)
         #expect(comprehensiveParams._meta?.fields.count == 2)

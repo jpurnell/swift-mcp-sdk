@@ -95,10 +95,17 @@ import Logging
                     return nil
                 }
 
-                // Extract the timestamp
-                let timestampData = Data(rawValue[4..<12])
-                let timestamp = timestampData.withUnsafeBytes {
-                    $0.load(as: UInt64.self)
+                // Read the timestamp a byte at a time, little-endian.
+                //
+                // This was `withUnsafeBytes { $0.load(as: UInt64.self) }`, which had two
+                // problems that only a hostile platform would have shown: `load(as:)` requires
+                // the memory to be aligned for the type and a `Data` slice offers no such
+                // guarantee, and it takes the host's byte order for a wire format's. Shifting
+                // makes the order part of the format rather than a property of the machine —
+                // and little-endian is what every platform this has run on was already
+                // producing, so nothing on the wire changes.
+                let timestamp = rawValue[4..<12].enumerated().reduce(UInt64(0)) { value, byte in
+                    value | (UInt64(byte.element) << (8 * byte.offset))
                 }
 
                 self.timestamp = Date(
@@ -109,11 +116,11 @@ import Logging
             public var rawValue: [UInt8] {
                 var result = Data(Self.magicBytes)
 
-                // Add timestamp (milliseconds since reference date)
+                // Add timestamp (milliseconds since reference date), little-endian, written
+                // out explicitly so the format does not depend on the host. See the decoder.
                 let timestamp = UInt64(self.timestamp.timeIntervalSinceReferenceDate * 1000)
-                withUnsafeBytes(of: timestamp) { buffer in
-                    result.append(contentsOf: buffer)
-                }
+                result.append(
+                    contentsOf: (0..<8).map { UInt8(truncatingIfNeeded: timestamp >> (8 * $0)) })
 
                 return Array(result)
             }
@@ -242,7 +249,9 @@ import Logging
         private let messageStream: AsyncThrowingStream<Data, Swift.Error>
         private let messageContinuation: AsyncThrowingStream<Data, Swift.Error>.Continuation
 
+        // Justification: reassigned only during connect/disconnect on the transport actor; the closures that read it run on the connection's own queue
         // Connection is marked nonisolated(unsafe) to allow access from closures
+        // Justification: reassigned only during connect/disconnect on the transport actor; the closures that read it run on the connection's own queue
         private nonisolated(unsafe) var connection: NetworkConnectionProtocol
 
         /// Logger instance for transport-related events

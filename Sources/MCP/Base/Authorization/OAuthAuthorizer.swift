@@ -110,6 +110,7 @@ extension HTTPClientAuthorizer {
 ///   exclusively through the `HTTPClientTransport` actor, which serializes every call.
 ///   Do **not** share a single `OAuthAuthorizer` instance across multiple transports —
 ///   doing so would violate the isolation contract and risk concurrent mutation.
+// Justification: mutable state is confined to the single transport that owns this instance, which the documentation above requires
 public final class OAuthAuthorizer: HTTPClientAuthorizer, @unchecked Sendable {
 
     // MARK: - Mutable State

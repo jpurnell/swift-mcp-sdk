@@ -514,6 +514,7 @@ struct MCPHTTPServer {
 do {
     try await MCPHTTPServer.run()
 } catch {
-    print(error)
+    // stderr, not stdout: a conformance harness reads this process's stdout as protocol output.
+    FileHandle.standardError.write(Data("\(error)\n".utf8))
     exit(1)
 }

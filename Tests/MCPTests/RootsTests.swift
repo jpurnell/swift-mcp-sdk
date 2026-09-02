@@ -381,6 +381,7 @@ struct RootsTests {
         )
 
         // Register notification handler on server
+        // Justification: written by the notification handler and read after it, with an await between them
         nonisolated(unsafe) var didReceive = false
         await server.onNotification(RootsListChangedNotification.self) { _ in
             didReceive = true
@@ -453,6 +454,7 @@ struct RootsTests {
             version: "1.0.0"
         )
 
+        // Justification: written by the notification handler and read after it, with an await between them
         nonisolated(unsafe) var count = 0
 
         let client = Client(

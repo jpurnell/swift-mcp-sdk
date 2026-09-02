@@ -417,15 +417,18 @@ public actor Server {
 
         let requestTask = Task<M.Result, Error> {
             try await withCheckedThrowingContinuation { continuation in
-                Task {
-                    // Add pending response before sending
-                    self.addPendingResponse(
-                        id: request.id,
-                        continuation: continuation,
-                        type: M.Result.self
-                    )
+                // Registered here rather than inside the Task below. The comment on this line
+                // used to say "before sending" while doing it from a task that the scheduler
+                // was free to run after the send had completed and the response had already
+                // arrived — at which point the response has nowhere to go. This body runs
+                // synchronously on the actor, so "before" is now true.
+                self.addPendingResponse(
+                    id: request.id,
+                    continuation: continuation,
+                    type: M.Result.self
+                )
 
-                    // Send the request
+                Task {
                     do {
                         try await connection.send(requestData)
                     } catch {

@@ -107,3 +107,65 @@ func testJSONBody(
         return Data()
     }
 }
+
+// MARK: - Floating-point claims
+
+/// Whether two `Double`s are the same value, bit for bit.
+///
+/// `==` on floating point hides three different claims: *these were computed the same way*,
+/// *these are close enough for the purpose*, and *this value came through unchanged*. Only the
+/// third one is ever meant when a test round-trips a literal through a wrapper, an encoder or a
+/// transport, and it is stronger than any tolerance — a tolerance would pass on a value that had
+/// been quietly rounded.
+///
+/// Comparing bit patterns says exactly that. It also makes the two `NaN` and `±0` cases
+/// deliberate rather than accidental: `NaN` matches itself here and `-0` does not match `+0`,
+/// which is what "came through unchanged" means.
+///
+/// - Parameters:
+///   - actual: The value under test.
+///   - expected: The value it should still be.
+/// - Returns: `true` when the two are bitwise identical.
+func isBitIdentical(_ actual: Double, _ expected: Double) -> Bool {
+    actual.bitPattern == expected.bitPattern
+}
+
+/// Whether two `Double`s agree to within `tolerance`.
+///
+/// The other claim `==` hides — *close enough* — said where it is actually the claim, which is
+/// after arithmetic rather than after carriage.
+///
+/// - Parameters:
+///   - actual: The computed value.
+///   - expected: The value it should approximate.
+///   - tolerance: The largest difference that still counts as agreement.
+/// - Returns: `true` when the difference is within `tolerance`.
+func isApproximately(_ actual: Double, _ expected: Double, within tolerance: Double) -> Bool {
+    abs(actual - expected) <= tolerance
+}
+
+/// Whether an optional `Double` is present and the same value, bit for bit.
+///
+/// `optional == literal` is `false` for `nil`, so this overload carries the same meaning while
+/// keeping the two claims — *present* and *unchanged* — visible.
+///
+/// - Parameters:
+///   - actual: The value under test, which may be absent.
+///   - expected: The value it should still be.
+/// - Returns: `true` when the value is present and bitwise identical.
+func isBitIdentical(_ actual: Double?, _ expected: Double) -> Bool {
+    guard let actual else { return false }
+    return actual.bitPattern == expected.bitPattern
+}
+
+/// A price formatted to two decimal places.
+///
+/// `String(format: "%.2f", …)` bridges to the C `printf` ABI, where the format string and the
+/// argument types are checked by nothing — a mismatch is undefined behaviour rather than a
+/// compile error. `FormatStyle` knows the type it is formatting.
+///
+/// - Parameter amount: The amount to render.
+/// - Returns: The amount with exactly two fractional digits.
+func currency(_ amount: Double) -> String {
+    amount.formatted(.number.precision(.fractionLength(2)).grouping(.never))
+}

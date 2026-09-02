@@ -33,6 +33,7 @@
         }
     }
 
+    // Justification: URLProtocol is instantiated by URLSession per request; all shared state is held in the static actor-isolated storage below
     final class IsolatedMockURLProtocol: URLProtocol, @unchecked Sendable {
         static let sessionKeyHeader = "X-Mock-Key"
 
