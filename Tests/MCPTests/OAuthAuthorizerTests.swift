@@ -42,8 +42,8 @@ final class MockDiscoveryClient: OAuthDiscoveryFetching, @unchecked Sendable {
     var authorizationServerMetadataResult: (server: URL, metadata: OAuthAuthorizationServerMetadata)
 
     init(
-        authorizationServer: URL = URL(string: "https://auth.example.com")!,
-        tokenEndpoint: URL = URL(string: "https://auth.example.com/token")!
+        authorizationServer: URL = testURL("https://auth.example.com"),
+        tokenEndpoint: URL = testURL("https://auth.example.com/token")
     ) {
         self.protectedResourceMetadataResult = OAuthProtectedResourceMetadata(
             resource: nil,
@@ -134,7 +134,7 @@ final class MockAuthCodeFlow: OAuthAuthorizationCodeFlowing, @unchecked Sendable
         scopeSerializer: any OAuthScopeSelecting
     ) throws -> URL {
         buildURLCallCount += 1
-        return URL(string: "https://auth.example.com/authorize?code=stub")!
+        return testURL("https://auth.example.com/authorize?code=stub")
     }
 
     func perform(
@@ -154,7 +154,7 @@ final class MockAuthCodeFlow: OAuthAuthorizationCodeFlowing, @unchecked Sendable
 @Suite("OAuthAuthorizer dependency invocations")
 struct OAuthAuthorizerTests {
 
-    let endpoint = URL(string: "https://mcp.example.com/mcp")!
+    let endpoint = testURL("https://mcp.example.com/mcp")
     let headers401 = [
         "WWW-Authenticate":
             "Bearer resource_metadata=\"https://mcp.example.com/.well-known/oauth-protected-resource\""
@@ -275,7 +275,7 @@ struct OAuthAuthorizerTests {
         let config = OAuthConfiguration(
             grantType: .authorizationCode,
             authentication: .none(clientID: "my-client"),
-            authorizationRedirectURI: URL(string: "https://app.example.com/callback")!
+            authorizationRedirectURI: testURL("https://app.example.com/callback")
         )
         let authorizer = OAuthAuthorizer(
             configuration: config,

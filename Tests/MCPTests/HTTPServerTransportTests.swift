@@ -117,8 +117,8 @@ private func makeStatefulTransport(
 }
 
 private let authResourceMetadataURL =
-    URL(string: "https://mcp.example.com/.well-known/oauth-protected-resource/mcp")!
-private let authResourceIdentifier = URL(string: "https://mcp.example.com/mcp")!
+    testURL("https://mcp.example.com/.well-known/oauth-protected-resource/mcp")
+private let authResourceIdentifier = testURL("https://mcp.example.com/mcp")
 
 private func makeAuthenticatedStatefulTransport(
     challengeScopes: Set<String>? = nil,

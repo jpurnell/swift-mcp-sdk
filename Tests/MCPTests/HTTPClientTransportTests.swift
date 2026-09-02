@@ -154,7 +154,7 @@ import Testing
 
     @Suite("HTTP Client Transport Tests", .serialized)
     struct HTTPClientTransportTests {
-        let testEndpoint = URL(string: "https://localhost:8080/test")!
+        let testEndpoint = testURL("https://localhost:8080/test")
 
         @Test("Connect and Disconnect", .httpClientTransportSetup)
         func testConnectAndDisconnect() async throws {
@@ -185,8 +185,8 @@ import Testing
             )
             try await transport.connect()
 
-            let messageData = #"{"jsonrpc":"2.0","method":"initialize","id":1}"#.data(using: .utf8)!
-            let responseData = #"{"jsonrpc":"2.0","result":{},"id":1}"#.data(using: .utf8)!
+            let messageData = Data(#"{"jsonrpc":"2.0","method":"initialize","id":1}"#.utf8)
+            let responseData = Data(#"{"jsonrpc":"2.0","result":{},"id":1}"#.utf8)
 
             await MockURLProtocol.requestHandlerStorage.setHandler {
                 [testEndpoint] (request: URLRequest) in
@@ -227,7 +227,7 @@ import Testing
             )
             try await transport.connect()
 
-            let messageData = #"{"jsonrpc":"2.0","method":"initialize","id":1}"#.data(using: .utf8)!
+            let messageData = Data(#"{"jsonrpc":"2.0","method":"initialize","id":1}"#.utf8)
             let newSessionID = "session-12345"
 
             await MockURLProtocol.requestHandlerStorage.setHandler {
@@ -262,10 +262,8 @@ import Testing
             try await transport.connect()
 
             let initialSessionID = "existing-session-abc"
-            let firstMessageData = #"{"jsonrpc":"2.0","method":"initialize","id":1}"#.data(
-                using: .utf8)!
-            let secondMessageData = #"{"jsonrpc":"2.0","method":"ping","id":2}"#.data(
-                using: .utf8)!
+            let firstMessageData = Data(#"{"jsonrpc":"2.0","method":"initialize","id":1}"#.utf8)
+            let secondMessageData = Data(#"{"jsonrpc":"2.0","method":"ping","id":2}"#.utf8)
 
             await MockURLProtocol.requestHandlerStorage.setHandler {
                 [testEndpoint] (request: URLRequest) in
@@ -302,7 +300,7 @@ import Testing
             let configuration = URLSessionConfiguration.ephemeral
             configuration.protocolClasses = [MockURLProtocol.self]
 
-            let messageData = #"{"jsonrpc":"2.0","method":"test","id":3}"#.data(using: .utf8)!
+            let messageData = Data(#"{"jsonrpc":"2.0","method":"test","id":3}"#.utf8)
 
             // Set up the handler BEFORE creating the transport
             await MockURLProtocol.requestHandlerStorage.setHandler {
@@ -340,7 +338,7 @@ import Testing
             let configuration = URLSessionConfiguration.ephemeral
             configuration.protocolClasses = [MockURLProtocol.self]
 
-            let messageData = #"{"jsonrpc":"2.0","method":"test","id":4}"#.data(using: .utf8)!
+            let messageData = Data(#"{"jsonrpc":"2.0","method":"test","id":4}"#.utf8)
 
             // Set up the handler BEFORE creating the transport
             await MockURLProtocol.requestHandlerStorage.setHandler {
@@ -378,7 +376,7 @@ import Testing
             let configuration = URLSessionConfiguration.ephemeral
             configuration.protocolClasses = [MockURLProtocol.self]
 
-            let messageData = #"{"jsonrpc":"2.0","method":"test","id":40}"#.data(using: .utf8)!
+            let messageData = Data(#"{"jsonrpc":"2.0","method":"test","id":40}"#.utf8)
 
             await MockURLProtocol.requestHandlerStorage.setHandler {
                 [testEndpoint] (_: URLRequest) in
@@ -415,7 +413,7 @@ import Testing
             let configuration = URLSessionConfiguration.ephemeral
             configuration.protocolClasses = [MockURLProtocol.self]
 
-            let messageData = #"{"jsonrpc":"2.0","method":"test","id":41}"#.data(using: .utf8)!
+            let messageData = Data(#"{"jsonrpc":"2.0","method":"test","id":41}"#.utf8)
 
             await MockURLProtocol.requestHandlerStorage.setHandler {
                 [testEndpoint] (_: URLRequest) in
@@ -457,7 +455,7 @@ import Testing
             let configuration = URLSessionConfiguration.ephemeral
             configuration.protocolClasses = [MockURLProtocol.self]
 
-            let messageData = #"{"jsonrpc":"2.0","method":"test","id":42}"#.data(using: .utf8)!
+            let messageData = Data(#"{"jsonrpc":"2.0","method":"test","id":42}"#.utf8)
 
             await MockURLProtocol.requestHandlerStorage.setHandler {
                 [testEndpoint] (_: URLRequest) in
@@ -500,14 +498,11 @@ import Testing
             let configuration = URLSessionConfiguration.ephemeral
             configuration.protocolClasses = [MockURLProtocol.self]
 
-            let testEndpoint = URL(string: "https://localhost:8080/step-up")!
-            let resourceMetadataURL = URL(
-                string: "https://localhost:8080/.well-known/oauth-protected-resource/step-up")!
-            let asMetadataURL = URL(
-                string: "https://localhost:8080/.well-known/oauth-authorization-server/auth")!
-            let tokenEndpointURL = URL(string: "https://localhost:8080/oauth/token")!
-            let finalResponseData = #"{"jsonrpc":"2.0","result":{"ok":true},"id":43}"#.data(
-                using: .utf8)!
+            let testEndpoint = testURL("https://localhost:8080/step-up")
+            let resourceMetadataURL = testURL("https://localhost:8080/.well-known/oauth-protected-resource/step-up")
+            let asMetadataURL = testURL("https://localhost:8080/.well-known/oauth-authorization-server/auth")
+            let tokenEndpointURL = testURL("https://localhost:8080/oauth/token")
+            let finalResponseData = Data(#"{"jsonrpc":"2.0","result":{"ok":true},"id":43}"#.utf8)
 
             actor CallTracker {
                 var tokenCalls = 0
@@ -573,8 +568,7 @@ import Testing
 
                 case resourceMetadataURL:
                     let metadata =
-                        #"{ "authorization_servers": ["https://localhost:8080/auth"], "scopes_supported": ["files:read","files:write"] }"#
-                        .data(using: .utf8)!
+                        Data(#"{ "authorization_servers": ["https://localhost:8080/auth"], "scopes_supported": ["files:read","files:write"] }"#.utf8)
                     let response = HTTPURLResponse(
                         url: url,
                         statusCode: 200,
@@ -583,8 +577,7 @@ import Testing
                     return (response, metadata)
 
                 case asMetadataURL:
-                    let metadata = #"{ "issuer": "https://localhost:8080/auth", "token_endpoint": "https://localhost:8080/oauth/token" }"#
-                        .data(using: .utf8)!
+                    let metadata = Data(#"{ "issuer": "https://localhost:8080/auth", "token_endpoint": "https://localhost:8080/oauth/token" }"#.utf8)
                     let response = HTTPURLResponse(
                         url: url,
                         statusCode: 200,
@@ -602,8 +595,7 @@ import Testing
                     if tokenCall == 1 {
                         #expect(body.contains("scope=files%3Aread"))
                         let tokenResponse =
-                            #"{ "access_token": "access-token-read", "token_type": "Bearer", "expires_in": 3600 }"#
-                            .data(using: .utf8)!
+                            Data(#"{ "access_token": "access-token-read", "token_type": "Bearer", "expires_in": 3600 }"#.utf8)
                         let response = HTTPURLResponse(
                             url: url,
                             statusCode: 200,
@@ -615,8 +607,7 @@ import Testing
                     #expect(tokenCall == 2)
                     #expect(body.contains("scope=files%3Aread%20files%3Awrite"))
                     let tokenResponse =
-                        #"{ "access_token": "access-token-read-write", "token_type": "Bearer", "expires_in": 3600 }"#
-                        .data(using: .utf8)!
+                        Data(#"{ "access_token": "access-token-read-write", "token_type": "Bearer", "expires_in": 3600 }"#.utf8)
                     let response = HTTPURLResponse(
                         url: url,
                         statusCode: 200,
@@ -644,7 +635,7 @@ import Testing
             )
 
             try await transport.connect()
-            let messageData = #"{"jsonrpc":"2.0","method":"ping","id":43}"#.data(using: .utf8)!
+            let messageData = Data(#"{"jsonrpc":"2.0","method":"ping","id":43}"#.utf8)
             try await transport.send(messageData)
 
             let stream = await transport.receive()
@@ -661,14 +652,11 @@ import Testing
             let configuration = URLSessionConfiguration.ephemeral
             configuration.protocolClasses = [MockURLProtocol.self]
 
-            let testEndpoint = URL(string: "https://localhost:8080/operation-tracking")!
-            let resourceMetadataURL = URL(
-                string: "https://localhost:8080/.well-known/oauth-protected-resource/operation-tracking")!
-            let asMetadataURL = URL(
-                string: "https://localhost:8080/.well-known/oauth-authorization-server/auth")!
-            let tokenEndpointURL = URL(string: "https://localhost:8080/oauth/token")!
-            let finalResponseData = #"{"jsonrpc":"2.0","result":{"ok":true},"id":62}"#.data(
-                using: .utf8)!
+            let testEndpoint = testURL("https://localhost:8080/operation-tracking")
+            let resourceMetadataURL = testURL("https://localhost:8080/.well-known/oauth-protected-resource/operation-tracking")
+            let asMetadataURL = testURL("https://localhost:8080/.well-known/oauth-authorization-server/auth")
+            let tokenEndpointURL = testURL("https://localhost:8080/oauth/token")
+            let finalResponseData = Data(#"{"jsonrpc":"2.0","result":{"ok":true},"id":62}"#.utf8)
 
             actor CallTracker {
                 var tokenCalls = 0
@@ -785,8 +773,7 @@ import Testing
 
                 case resourceMetadataURL:
                     let metadata =
-                        #"{ "authorization_servers": ["https://localhost:8080/auth"], "scopes_supported": ["files:read","files:write"] }"#
-                        .data(using: .utf8)!
+                        Data(#"{ "authorization_servers": ["https://localhost:8080/auth"], "scopes_supported": ["files:read","files:write"] }"#.utf8)
                     let response = HTTPURLResponse(
                         url: url,
                         statusCode: 200,
@@ -795,8 +782,7 @@ import Testing
                     return (response, metadata)
 
                 case asMetadataURL:
-                    let metadata = #"{ "issuer": "https://localhost:8080/auth", "token_endpoint": "https://localhost:8080/oauth/token" }"#
-                        .data(using: .utf8)!
+                    let metadata = Data(#"{ "issuer": "https://localhost:8080/auth", "token_endpoint": "https://localhost:8080/oauth/token" }"#.utf8)
                     let response = HTTPURLResponse(
                         url: url,
                         statusCode: 200,
@@ -818,8 +804,7 @@ import Testing
                     case 1:
                         #expect(body.contains("scope=files%3Aread"))
                         let tokenResponse =
-                            #"{ "access_token": "access-token-read", "token_type": "Bearer", "expires_in": 3600 }"#
-                            .data(using: .utf8)!
+                            Data(#"{ "access_token": "access-token-read", "token_type": "Bearer", "expires_in": 3600 }"#.utf8)
                         let response = HTTPURLResponse(
                             url: url,
                             statusCode: 200,
@@ -830,8 +815,7 @@ import Testing
                     case 2:
                         #expect(body.contains("scope=files%3Aread%20files%3Awrite"))
                         let tokenResponse =
-                            #"{ "access_token": "access-token-read-write", "token_type": "Bearer", "expires_in": 3600 }"#
-                            .data(using: .utf8)!
+                            Data(#"{ "access_token": "access-token-read-write", "token_type": "Bearer", "expires_in": 3600 }"#.utf8)
                         let response = HTTPURLResponse(
                             url: url,
                             statusCode: 200,
@@ -842,8 +826,7 @@ import Testing
                     case 3:
                         #expect(body.contains("scope=files%3Aread%20files%3Awrite"))
                         let tokenResponse =
-                            #"{ "access_token": "access-token-opb", "token_type": "Bearer", "expires_in": 3600 }"#
-                            .data(using: .utf8)!
+                            Data(#"{ "access_token": "access-token-opb", "token_type": "Bearer", "expires_in": 3600 }"#.utf8)
                         let response = HTTPURLResponse(
                             url: url,
                             statusCode: 200,
@@ -888,8 +871,7 @@ import Testing
             let stream = await transport.receive()
             var iterator = stream.makeAsyncIterator()
 
-            let operationAData = #"{"jsonrpc":"2.0","method":"tools/callA","id":61}"#.data(
-                using: .utf8)!
+            let operationAData = Data(#"{"jsonrpc":"2.0","method":"tools/callA","id":61}"#.utf8)
             do {
                 try await transport.send(operationAData)
                 Issue.record("Expected operation A to fail after scope-upgrade retry limit")
@@ -904,8 +886,7 @@ import Testing
                 throw error
             }
 
-            let operationBData = #"{"jsonrpc":"2.0","method":"tools/callB","id":62}"#.data(
-                using: .utf8)!
+            let operationBData = Data(#"{"jsonrpc":"2.0","method":"tools/callB","id":62}"#.utf8)
             try await transport.send(operationBData)
 
             let received = try await iterator.next()
@@ -924,10 +905,8 @@ import Testing
             configuration.protocolClasses = [MockURLProtocol.self]
 
             let initialSessionID = "expired-session-xyz"
-            let firstMessageData = #"{"jsonrpc":"2.0","method":"initialize","id":1}"#.data(
-                using: .utf8)!
-            let secondMessageData = #"{"jsonrpc":"2.0","method":"ping","id":2}"#.data(
-                using: .utf8)!
+            let firstMessageData = Data(#"{"jsonrpc":"2.0","method":"initialize","id":1}"#.utf8)
+            let secondMessageData = Data(#"{"jsonrpc":"2.0","method":"ping","id":2}"#.utf8)
 
             // Set up the first handler BEFORE creating the transport
             await MockURLProtocol.requestHandlerStorage.setHandler {
@@ -993,7 +972,7 @@ import Testing
                 )
 
                 let eventString = "id: event1\ndata: {\"key\":\"value\"}\n\n"
-                let sseEventData = eventString.data(using: .utf8)!
+                let sseEventData = Data(eventString.utf8)
 
                 // First, set up a handler for the initial POST that will provide a session ID
                 await MockURLProtocol.requestHandlerStorage.setHandler {
@@ -1032,7 +1011,7 @@ import Testing
                 let stream = await transport.receive()
                 var iterator = stream.makeAsyncIterator()
 
-                let expectedData = #"{"key":"value"}"#.data(using: .utf8)!
+                let expectedData = Data(#"{"key":"value"}"#.utf8)
                 let receivedData = try await iterator.next()
 
                 #expect(receivedData == expectedData)
@@ -1054,7 +1033,7 @@ import Testing
                 )
 
                 let eventString = "id: event1\r\ndata: {\"key\":\"value\"}\r\n\n"
-                let sseEventData = eventString.data(using: .utf8)!
+                let sseEventData = Data(eventString.utf8)
 
                 // First, set up a handler for the initial POST that will provide a session ID
                 // Use text/plain to prevent its (empty) body from being yielded to messageStream
@@ -1094,7 +1073,7 @@ import Testing
                 let stream = await transport.receive()
                 var iterator = stream.makeAsyncIterator()
 
-                let expectedData = #"{"key":"value"}"#.data(using: .utf8)!
+                let expectedData = Data(#"{"key":"value"}"#.utf8)
                 let receivedData = try await iterator.next()
 
                 #expect(receivedData == expectedData)
@@ -1252,7 +1231,7 @@ import Testing
 
             @Test("Request modifier functionality", .httpClientTransportSetup)
             func testRequestModifier() async throws {
-                let testEndpoint = URL(string: "https://api.example.com/mcp")!
+                let testEndpoint = testURL("https://api.example.com/mcp")
                 let testToken = "test-bearer-token-12345"
 
                 let configuration = URLSessionConfiguration.ephemeral
@@ -1287,7 +1266,7 @@ import Testing
 
                 try await transport.connect()
 
-                let messageData = #"{"jsonrpc":"2.0","method":"test","id":5}"#.data(using: .utf8)!
+                let messageData = Data(#"{"jsonrpc":"2.0","method":"test","id":5}"#.utf8)
 
                 try await transport.send(messageData)
                 await transport.disconnect()
@@ -1829,10 +1808,8 @@ import Testing
                 #expect(received == scenario.expectedResponseData)
 
                 let metadataRequests = await tracker.requests
-                let fallbackPathMetadataURL = URL(
-                    string: "https://localhost:8080/.well-known/oauth-protected-resource/public/mcp")!
-                let fallbackRootMetadataURL = URL(
-                    string: "https://localhost:8080/.well-known/oauth-protected-resource")!
+                let fallbackPathMetadataURL = testURL("https://localhost:8080/.well-known/oauth-protected-resource/public/mcp")
+                let fallbackRootMetadataURL = testURL("https://localhost:8080/.well-known/oauth-protected-resource")
                 #expect(metadataRequests == [fallbackPathMetadataURL, fallbackRootMetadataURL])
 
                 await transport.disconnect()
@@ -1868,10 +1845,8 @@ import Testing
                 }
 
                 let protectedResourceMetadataRequests = await tracker.requests
-                let fallbackPathMetadataURL = URL(
-                    string: "https://localhost:8080/.well-known/oauth-protected-resource/public/mcp")!
-                let fallbackRootMetadataURL = URL(
-                    string: "https://localhost:8080/.well-known/oauth-protected-resource")!
+                let fallbackPathMetadataURL = testURL("https://localhost:8080/.well-known/oauth-protected-resource/public/mcp")
+                let fallbackRootMetadataURL = testURL("https://localhost:8080/.well-known/oauth-protected-resource")
                 #expect(protectedResourceMetadataRequests == [fallbackPathMetadataURL, fallbackRootMetadataURL])
 
                 await transport.disconnect()
@@ -1899,12 +1874,9 @@ import Testing
                 #expect(received == scenario.expectedResponseData)
 
                 let requests = await tracker.requests
-                let asMetadataOAuthInsertedURL = URL(
-                    string: "https://localhost:8080/.well-known/oauth-authorization-server/tenant1")!
-                let asMetadataOIDCInsertedURL = URL(
-                    string: "https://localhost:8080/.well-known/openid-configuration/tenant1")!
-                let asMetadataOIDCAppendedURL = URL(
-                    string: "https://localhost:8080/tenant1/.well-known/openid-configuration")!
+                let asMetadataOAuthInsertedURL = testURL("https://localhost:8080/.well-known/oauth-authorization-server/tenant1")
+                let asMetadataOIDCInsertedURL = testURL("https://localhost:8080/.well-known/openid-configuration/tenant1")
+                let asMetadataOIDCAppendedURL = testURL("https://localhost:8080/tenant1/.well-known/openid-configuration")
                 #expect(requests == [asMetadataOAuthInsertedURL, asMetadataOIDCInsertedURL, asMetadataOIDCAppendedURL])
 
                 await transport.disconnect()
@@ -1932,10 +1904,8 @@ import Testing
                 #expect(received == scenario.expectedResponseData)
 
                 let requests = await tracker.requests
-                let asMetadataOAuthURL = URL(
-                    string: "https://localhost:8080/.well-known/oauth-authorization-server")!
-                let asMetadataOIDCURL = URL(
-                    string: "https://localhost:8080/.well-known/openid-configuration")!
+                let asMetadataOAuthURL = testURL("https://localhost:8080/.well-known/oauth-authorization-server")
+                let asMetadataOIDCURL = testURL("https://localhost:8080/.well-known/openid-configuration")
                 #expect(requests == [asMetadataOAuthURL, asMetadataOIDCURL])
 
                 await transport.disconnect()
@@ -2375,7 +2345,7 @@ import Testing
                 )
                 try await transport.connect()
 
-                let messageData = #"{"jsonrpc":"2.0","method":"test","id":6}"#.data(using: .utf8)!
+                let messageData = Data(#"{"jsonrpc":"2.0","method":"test","id":6}"#.utf8)
 
                 await MockURLProtocol.requestHandlerStorage.setHandler {
                     [testEndpoint, protocolVersion] (request: URLRequest) in

@@ -123,7 +123,7 @@ struct ToolTests {
         #expect(decoded.annotations.destructiveHint == annotations.destructiveHint)
 
         // Verify that the annotations field is properly included in the JSON
-        let jsonString = String(data: data, encoding: .utf8)!
+        let jsonString = String(decoding: data, as: UTF8.self)
         #expect(jsonString.contains("\"annotations\""))
         #expect(jsonString.contains("\"title\":\"Calculator\""))
     }
@@ -143,7 +143,7 @@ struct ToolTests {
             let data = try encoder.encode(tool)
 
             // Verify that empty annotations are not included in the JSON
-            let jsonString = String(data: data, encoding: .utf8)!
+            let jsonString = String(decoding: data, as: UTF8.self)
             #expect(!jsonString.contains("\"annotations\""))
         }
 
@@ -156,7 +156,7 @@ struct ToolTests {
             let data = try encoder.encode(tool)
 
             // Verify that empty annotations are not included in the JSON
-            let jsonString = String(data: data, encoding: .utf8)!
+            let jsonString = String(decoding: data, as: UTF8.self)
             #expect(jsonString.contains("\"annotations\""))
         }
     }
@@ -176,7 +176,7 @@ struct ToolTests {
         let data = try encoder.encode(tool)
 
         // Verify that nil literal annotations are not included in the JSON
-        let jsonString = String(data: data, encoding: .utf8)!
+        let jsonString = String(decoding: data, as: UTF8.self)
         #expect(!jsonString.contains("\"annotations\""))
     }
 
@@ -434,7 +434,7 @@ struct ToolTests {
         let jsonString = """
             {"jsonrpc":"2.0","id":"test-id","method":"tools/list"}
             """
-        let data = jsonString.data(using: .utf8)!
+        let data = Data(jsonString.utf8)
 
         let decoder = JSONDecoder()
         let decoded = try decoder.decode(Request<ListTools>.self, from: data)
@@ -449,7 +449,7 @@ struct ToolTests {
         let jsonString = """
             {"jsonrpc":"2.0","id":"test-id","method":"tools/list","params":null}
             """
-        let data = jsonString.data(using: .utf8)!
+        let data = Data(jsonString.utf8)
 
         let decoder = JSONDecoder()
         let decoded = try decoder.decode(Request<ListTools>.self, from: data)
@@ -527,7 +527,7 @@ struct ToolTests {
         let jsonString = """
             {"jsonrpc":"2.0","id":1,"method":"tools/list"}
             """
-        let jsonData = jsonString.data(using: .utf8)!
+        let jsonData = Data(jsonString.utf8)
 
         let anyRequest = try JSONDecoder().decode(AnyRequest.self, from: jsonData)
 
@@ -567,7 +567,7 @@ struct ToolTests {
                 "inputSchema": {}
             }
             """
-        let jsonData = jsonString.data(using: .utf8)!
+        let jsonData = Data(jsonString.utf8)
 
         let tool = try JSONDecoder().decode(Tool.self, from: jsonData)
 

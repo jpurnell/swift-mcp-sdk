@@ -83,7 +83,7 @@ struct CompletionTests {
         """
 
         let decoder = JSONDecoder()
-        let ref = try decoder.decode(CompletionReference.self, from: json.data(using: .utf8)!)
+        let ref = try decoder.decode(CompletionReference.self, from: Data(json.utf8))
 
         if case .prompt(let promptRef) = ref {
             #expect(promptRef.name == "code_review")
@@ -102,7 +102,7 @@ struct CompletionTests {
         """
 
         let decoder = JSONDecoder()
-        let ref = try decoder.decode(CompletionReference.self, from: json.data(using: .utf8)!)
+        let ref = try decoder.decode(CompletionReference.self, from: Data(json.utf8))
 
         if case .resource(let resourceRef) = ref {
             #expect(resourceRef.uri == "file:///path")
@@ -191,7 +191,7 @@ struct CompletionTests {
         """
 
         let decoder = JSONDecoder()
-        let request = try decoder.decode(Request<Complete>.self, from: json.data(using: .utf8)!)
+        let request = try decoder.decode(Request<Complete>.self, from: Data(json.utf8))
 
         #expect(request.method == "completion/complete")
         #expect(request.params.argument.name == "language")
@@ -256,7 +256,7 @@ struct CompletionTests {
         """
 
         let decoder = JSONDecoder()
-        let result = try decoder.decode(Complete.Result.self, from: json.data(using: .utf8)!)
+        let result = try decoder.decode(Complete.Result.self, from: Data(json.utf8))
 
         #expect(result.completion.values.count == 3)
         #expect(result.completion.values == ["python", "pytorch", "pyside"])

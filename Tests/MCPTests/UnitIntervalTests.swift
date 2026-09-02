@@ -1,5 +1,6 @@
 import Testing
 
+import struct Foundation.Data
 import class Foundation.JSONDecoder
 import class Foundation.JSONEncoder
 
@@ -180,13 +181,13 @@ struct UnitIntervalTests {
         let decoder = JSONDecoder()
 
         // Test negative value
-        let negativeJSON = "-0.5".data(using: .utf8)!
+        let negativeJSON = Data("-0.5".utf8)
         #expect(throws: DecodingError.self) {
             try decoder.decode(UnitInterval.self, from: negativeJSON)
         }
 
         // Test value greater than 1
-        let tooLargeJSON = "1.5".data(using: .utf8)!
+        let tooLargeJSON = Data("1.5".utf8)
         #expect(throws: DecodingError.self) {
             try decoder.decode(UnitInterval.self, from: tooLargeJSON)
         }

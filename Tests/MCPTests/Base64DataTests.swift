@@ -107,7 +107,7 @@ struct Base64DataTests {
 
     @Test("Test data URL encoding")
     func testDataURLEncoding() {
-        let testData = "Hello, world!".data(using: .utf8)!
+        let testData = Data("Hello, world!".utf8)
 
         // Default mime type (text/plain)
         let url1 = testData.dataURLEncoded()

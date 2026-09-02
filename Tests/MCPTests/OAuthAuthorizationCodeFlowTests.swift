@@ -11,9 +11,9 @@ import Testing
 struct OAuthAuthorizationCodeFlowTests {
 
     let flow = OAuthAuthorizationCodeFlow()
-    let authEndpoint = URL(string: "https://auth.example.com/authorize")!
-    let resource = URL(string: "https://api.example.com")!
-    let redirectURI = URL(string: "https://app.example.com/callback")!
+    let authEndpoint = testURL("https://auth.example.com/authorize")
+    let resource = testURL("https://api.example.com")
+    let redirectURI = testURL("https://app.example.com/callback")
     let scopeSelector = DefaultOAuthScopeSelector()
 
     // MARK: - buildURL
@@ -102,8 +102,7 @@ struct OAuthAuthorizationCodeFlowTests {
 
     @Test("extractCode returns code from valid redirect URL")
     func testExtractCodeSuccess() throws {
-        let redirectURL = URL(string:
-            "https://app.example.com/callback?code=auth-code-123&state=my-state")!
+        let redirectURL = testURL("https://app.example.com/callback?code=auth-code-123&state=my-state")
         let code = try flow.extractCode(
             from: redirectURL,
             expectedRedirectURI: redirectURI,
@@ -114,8 +113,7 @@ struct OAuthAuthorizationCodeFlowTests {
 
     @Test("extractCode throws state mismatch")
     func testExtractCodeThrowsStateMismatch() {
-        let redirectURL = URL(string:
-            "https://app.example.com/callback?code=auth-code-123&state=wrong-state")!
+        let redirectURL = testURL("https://app.example.com/callback?code=auth-code-123&state=wrong-state")
         #expect(throws: OAuthAuthorizationError.self) {
             try flow.extractCode(
                 from: redirectURL,
@@ -127,8 +125,7 @@ struct OAuthAuthorizationCodeFlowTests {
 
     @Test("extractCode throws missing state")
     func testExtractCodeThrowsMissingState() {
-        let redirectURL = URL(string:
-            "https://app.example.com/callback?code=auth-code-123")!
+        let redirectURL = testURL("https://app.example.com/callback?code=auth-code-123")
         #expect(throws: OAuthAuthorizationError.self) {
             try flow.extractCode(
                 from: redirectURL,
@@ -140,8 +137,7 @@ struct OAuthAuthorizationCodeFlowTests {
 
     @Test("extractCode throws missing code")
     func testExtractCodeThrowsMissingCode() {
-        let redirectURL = URL(string:
-            "https://app.example.com/callback?state=my-state")!
+        let redirectURL = testURL("https://app.example.com/callback?state=my-state")
         #expect(throws: OAuthAuthorizationError.self) {
             try flow.extractCode(
                 from: redirectURL,
@@ -153,8 +149,7 @@ struct OAuthAuthorizationCodeFlowTests {
 
     @Test("extractCode throws redirect URI mismatch")
     func testExtractCodeThrowsRedirectMismatch() {
-        let redirectURL = URL(string:
-            "https://evil.example.com/callback?code=auth-code-123&state=my-state")!
+        let redirectURL = testURL("https://evil.example.com/callback?code=auth-code-123&state=my-state")
         #expect(throws: OAuthAuthorizationError.self) {
             try flow.extractCode(
                 from: redirectURL,
@@ -166,8 +161,7 @@ struct OAuthAuthorizationCodeFlowTests {
 
     @Test("extractCode normalizes host case in redirect URI comparison")
     func testExtractCodeCaseInsensitiveHost() throws {
-        let redirectURL = URL(string:
-            "https://APP.EXAMPLE.COM/callback?code=auth-code-123&state=my-state")!
+        let redirectURL = testURL("https://APP.EXAMPLE.COM/callback?code=auth-code-123&state=my-state")
         let code = try flow.extractCode(
             from: redirectURL,
             expectedRedirectURI: redirectURI,

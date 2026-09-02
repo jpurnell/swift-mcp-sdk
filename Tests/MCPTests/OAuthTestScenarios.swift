@@ -103,12 +103,10 @@ import Testing
             // MARK: 1 - Client Credentials Retry After 401
 
             func configureOAuthClientCredentialsRetryAfter401() -> OAuthScenarioContext {
-                let testEndpoint = URL(string: "https://localhost:8080/test")!
-                let resourceMetadataURL = URL(
-                    string: "https://localhost:8080/.well-known/oauth-protected-resource/test")!
-                let asMetadataURL = URL(
-                    string: "https://localhost:8080/.well-known/oauth-authorization-server/auth")!
-                let tokenEndpointURL = URL(string: "https://localhost:8080/oauth/token")!
+                let testEndpoint = testURL("https://localhost:8080/test")
+                let resourceMetadataURL = testURL("https://localhost:8080/.well-known/oauth-protected-resource/test")
+                let asMetadataURL = testURL("https://localhost:8080/.well-known/oauth-authorization-server/auth")
+                let tokenEndpointURL = testURL("https://localhost:8080/oauth/token")
                 let finalResponseData = MockResponses.jsonRPCResult(id: 1)
 
                 requestHandler = MockResponses.routingHandler(routes: [
@@ -148,7 +146,7 @@ import Testing
                 return OAuthScenarioContext(
                     testEndpoint: testEndpoint,
                     oauthConfiguration: .init(authentication: .none(clientID: "test-client")),
-                    messageData: #"{"jsonrpc":"2.0","method":"ping","id":1}"#.data(using: .utf8)!,
+                    messageData: Data(#"{"jsonrpc":"2.0","method":"ping","id":1}"#.utf8),
                     expectedResponseData: finalResponseData,
                     expectedCallCounts: [
                         testEndpoint: 2, resourceMetadataURL: 1, asMetadataURL: 1,
@@ -160,14 +158,10 @@ import Testing
             // MARK: 2 - Scope Fallback to scopes_supported
 
             func configureOAuthScopeSelectionFallsBackToScopesSupported() -> OAuthScenarioContext {
-                let testEndpoint = URL(string: "https://localhost:8080/fallback-scope")!
-                let resourceMetadataURL = URL(
-                    string:
-                        "https://localhost:8080/.well-known/oauth-protected-resource/fallback-scope"
-                )!
-                let asMetadataURL = URL(
-                    string: "https://localhost:8080/.well-known/oauth-authorization-server/auth")!
-                let tokenEndpointURL = URL(string: "https://localhost:8080/oauth/token")!
+                let testEndpoint = testURL("https://localhost:8080/fallback-scope")
+                let resourceMetadataURL = testURL("https://localhost:8080/.well-known/oauth-protected-resource/fallback-scope")
+                let asMetadataURL = testURL("https://localhost:8080/.well-known/oauth-authorization-server/auth")
+                let tokenEndpointURL = testURL("https://localhost:8080/oauth/token")
                 let finalResponseData = MockResponses.jsonRPCResult(id: 21)
 
                 requestHandler = MockResponses.routingHandler(routes: [
@@ -207,7 +201,7 @@ import Testing
                 return OAuthScenarioContext(
                     testEndpoint: testEndpoint,
                     oauthConfiguration: .init(authentication: .none(clientID: "test-client")),
-                    messageData: #"{"jsonrpc":"2.0","method":"ping","id":21}"#.data(using: .utf8)!,
+                    messageData: Data(#"{"jsonrpc":"2.0","method":"ping","id":21}"#.utf8),
                     expectedResponseData: finalResponseData,
                     expectedCallCounts: [
                         testEndpoint: 2, resourceMetadataURL: 1, asMetadataURL: 1,
@@ -219,14 +213,10 @@ import Testing
             // MARK: 3 - Scope Omitted When No Hints
 
             func configureOAuthScopeOmittedWhenNoHints() -> OAuthScenarioContext {
-                let testEndpoint = URL(string: "https://localhost:8080/no-scope-hints")!
-                let resourceMetadataURL = URL(
-                    string:
-                        "https://localhost:8080/.well-known/oauth-protected-resource/no-scope-hints"
-                )!
-                let asMetadataURL = URL(
-                    string: "https://localhost:8080/.well-known/oauth-authorization-server/auth")!
-                let tokenEndpointURL = URL(string: "https://localhost:8080/oauth/token")!
+                let testEndpoint = testURL("https://localhost:8080/no-scope-hints")
+                let resourceMetadataURL = testURL("https://localhost:8080/.well-known/oauth-protected-resource/no-scope-hints")
+                let asMetadataURL = testURL("https://localhost:8080/.well-known/oauth-authorization-server/auth")
+                let tokenEndpointURL = testURL("https://localhost:8080/oauth/token")
                 let finalResponseData = MockResponses.jsonRPCResult(id: 22)
 
                 requestHandler = MockResponses.routingHandler(routes: [
@@ -265,7 +255,7 @@ import Testing
                 return OAuthScenarioContext(
                     testEndpoint: testEndpoint,
                     oauthConfiguration: .init(authentication: .none(clientID: "test-client")),
-                    messageData: #"{"jsonrpc":"2.0","method":"ping","id":22}"#.data(using: .utf8)!,
+                    messageData: Data(#"{"jsonrpc":"2.0","method":"ping","id":22}"#.utf8),
                     expectedResponseData: finalResponseData,
                     expectedCallCounts: [
                         testEndpoint: 2, resourceMetadataURL: 1, asMetadataURL: 1,
@@ -277,16 +267,12 @@ import Testing
             // MARK: 4 - Resource Parameter in Authorization Code Flow
 
             func configureOAuthResourceParameterInAuthorizationAndToken() -> OAuthScenarioContext {
-                let testEndpoint = URL(string: "https://localhost:8080/public/mcp?foo=bar")!
+                let testEndpoint = testURL("https://localhost:8080/public/mcp?foo=bar")
                 let canonicalResource = "https://localhost:8080/public/mcp"
-                let resourceMetadataURL = URL(
-                    string:
-                        "https://localhost:8080/.well-known/oauth-protected-resource/public/mcp")!
-                let asMetadataURL = URL(
-                    string: "https://localhost:8080/.well-known/oauth-authorization-server/auth")!
-                let authorizationEndpointURL = URL(
-                    string: "https://localhost:8080/oauth/authorize")!
-                let tokenEndpointURL = URL(string: "https://localhost:8080/oauth/token")!
+                let resourceMetadataURL = testURL("https://localhost:8080/.well-known/oauth-protected-resource/public/mcp")
+                let asMetadataURL = testURL("https://localhost:8080/.well-known/oauth-authorization-server/auth")
+                let authorizationEndpointURL = testURL("https://localhost:8080/oauth/authorize")
+                let tokenEndpointURL = testURL("https://localhost:8080/oauth/token")
                 let finalResponseData = MockResponses.jsonRPCResult(id: 23)
 
                 requestHandler = {
@@ -394,7 +380,7 @@ import Testing
                         grantType: .authorizationCode,
                         authentication: .none(clientID: "test-client")
                     ),
-                    messageData: #"{"jsonrpc":"2.0","method":"ping","id":23}"#.data(using: .utf8)!,
+                    messageData: Data(#"{"jsonrpc":"2.0","method":"ping","id":23}"#.utf8),
                     expectedResponseData: finalResponseData,
                     expectedCallCounts: [
                         testEndpoint: 2, resourceMetadataURL: 1, asMetadataURL: 1,
@@ -406,16 +392,11 @@ import Testing
             // MARK: 5 - Rejects Authorization Without PKCE Metadata
 
             func configureOAuthRejectsAuthorizationWithoutPKCEMetadata() -> OAuthScenarioContext {
-                let testEndpoint = URL(string: "https://localhost:8080/pkce-metadata-missing")!
-                let resourceMetadataURL = URL(
-                    string:
-                        "https://localhost:8080/.well-known/oauth-protected-resource/pkce-metadata-missing"
-                )!
-                let asMetadataURL = URL(
-                    string: "https://localhost:8080/.well-known/oauth-authorization-server/auth")!
-                let authorizationEndpointURL = URL(
-                    string: "https://localhost:8080/oauth/authorize")!
-                let tokenEndpointURL = URL(string: "https://localhost:8080/oauth/token")!
+                let testEndpoint = testURL("https://localhost:8080/pkce-metadata-missing")
+                let resourceMetadataURL = testURL("https://localhost:8080/.well-known/oauth-protected-resource/pkce-metadata-missing")
+                let asMetadataURL = testURL("https://localhost:8080/.well-known/oauth-authorization-server/auth")
+                let authorizationEndpointURL = testURL("https://localhost:8080/oauth/authorize")
+                let tokenEndpointURL = testURL("https://localhost:8080/oauth/token")
 
                 requestHandler = {
                     [testEndpoint, resourceMetadataURL, asMetadataURL, authorizationEndpointURL, tokenEndpointURL]
@@ -471,7 +452,7 @@ import Testing
                         grantType: .authorizationCode,
                         authentication: .none(clientID: "test-client")
                     ),
-                    messageData: #"{"jsonrpc":"2.0","method":"ping","id":24}"#.data(using: .utf8)!,
+                    messageData: Data(#"{"jsonrpc":"2.0","method":"ping","id":24}"#.utf8),
                     expectedCallCounts: [tokenEndpointURL: 0],
                     expectedErrorSubstring: "code_challenge_methods_supported"
                 )
@@ -480,16 +461,11 @@ import Testing
             // MARK: 6 - Rejects Authorization Without S256 PKCE
 
             func configureOAuthRejectsAuthorizationWithoutS256PKCE() -> OAuthScenarioContext {
-                let testEndpoint = URL(string: "https://localhost:8080/pkce-s256-missing")!
-                let resourceMetadataURL = URL(
-                    string:
-                        "https://localhost:8080/.well-known/oauth-protected-resource/pkce-s256-missing"
-                )!
-                let asMetadataURL = URL(
-                    string: "https://localhost:8080/.well-known/oauth-authorization-server/auth")!
-                let authorizationEndpointURL = URL(
-                    string: "https://localhost:8080/oauth/authorize")!
-                let tokenEndpointURL = URL(string: "https://localhost:8080/oauth/token")!
+                let testEndpoint = testURL("https://localhost:8080/pkce-s256-missing")
+                let resourceMetadataURL = testURL("https://localhost:8080/.well-known/oauth-protected-resource/pkce-s256-missing")
+                let asMetadataURL = testURL("https://localhost:8080/.well-known/oauth-authorization-server/auth")
+                let authorizationEndpointURL = testURL("https://localhost:8080/oauth/authorize")
+                let tokenEndpointURL = testURL("https://localhost:8080/oauth/token")
 
                 requestHandler = {
                     [testEndpoint, resourceMetadataURL, asMetadataURL, authorizationEndpointURL, tokenEndpointURL]
@@ -546,7 +522,7 @@ import Testing
                         grantType: .authorizationCode,
                         authentication: .none(clientID: "test-client")
                     ),
-                    messageData: #"{"jsonrpc":"2.0","method":"ping","id":25}"#.data(using: .utf8)!,
+                    messageData: Data(#"{"jsonrpc":"2.0","method":"ping","id":25}"#.utf8),
                     expectedCallCounts: [tokenEndpointURL: 0],
                     expectedErrorSubstring: "must support PKCE S256"
                 )
@@ -557,17 +533,11 @@ import Testing
             func configureOAuthRejectsAuthorizationResponseRedirectMismatch()
                 -> OAuthScenarioContext
             {
-                let testEndpoint = URL(
-                    string: "https://localhost:8080/authorization-redirect-mismatch")!
-                let resourceMetadataURL = URL(
-                    string:
-                        "https://localhost:8080/.well-known/oauth-protected-resource/authorization-redirect-mismatch"
-                )!
-                let asMetadataURL = URL(
-                    string: "https://localhost:8080/.well-known/oauth-authorization-server/auth")!
-                let authorizationEndpointURL = URL(
-                    string: "https://localhost:8080/oauth/authorize")!
-                let tokenEndpointURL = URL(string: "https://localhost:8080/oauth/token")!
+                let testEndpoint = testURL("https://localhost:8080/authorization-redirect-mismatch")
+                let resourceMetadataURL = testURL("https://localhost:8080/.well-known/oauth-protected-resource/authorization-redirect-mismatch")
+                let asMetadataURL = testURL("https://localhost:8080/.well-known/oauth-authorization-server/auth")
+                let authorizationEndpointURL = testURL("https://localhost:8080/oauth/authorize")
+                let tokenEndpointURL = testURL("https://localhost:8080/oauth/token")
 
                 requestHandler = {
                     [testEndpoint, resourceMetadataURL, asMetadataURL, authorizationEndpointURL, tokenEndpointURL]
@@ -629,7 +599,7 @@ import Testing
                         grantType: .authorizationCode,
                         authentication: .none(clientID: "test-client")
                     ),
-                    messageData: #"{"jsonrpc":"2.0","method":"ping","id":26}"#.data(using: .utf8)!,
+                    messageData: Data(#"{"jsonrpc":"2.0","method":"ping","id":26}"#.utf8),
                     expectedCallCounts: [tokenEndpointURL: 0],
                     expectedErrorSubstring: "redirect URI mismatch"
                 )
@@ -640,17 +610,11 @@ import Testing
             func configureOAuthRejectsAuthorizationResponseStateMismatch()
                 -> OAuthScenarioContext
             {
-                let testEndpoint = URL(
-                    string: "https://localhost:8080/authorization-state-mismatch")!
-                let resourceMetadataURL = URL(
-                    string:
-                        "https://localhost:8080/.well-known/oauth-protected-resource/authorization-state-mismatch"
-                )!
-                let asMetadataURL = URL(
-                    string: "https://localhost:8080/.well-known/oauth-authorization-server/auth")!
-                let authorizationEndpointURL = URL(
-                    string: "https://localhost:8080/oauth/authorize")!
-                let tokenEndpointURL = URL(string: "https://localhost:8080/oauth/token")!
+                let testEndpoint = testURL("https://localhost:8080/authorization-state-mismatch")
+                let resourceMetadataURL = testURL("https://localhost:8080/.well-known/oauth-protected-resource/authorization-state-mismatch")
+                let asMetadataURL = testURL("https://localhost:8080/.well-known/oauth-authorization-server/auth")
+                let authorizationEndpointURL = testURL("https://localhost:8080/oauth/authorize")
+                let tokenEndpointURL = testURL("https://localhost:8080/oauth/token")
 
                 requestHandler = {
                     [testEndpoint, resourceMetadataURL, asMetadataURL, authorizationEndpointURL, tokenEndpointURL]
@@ -719,7 +683,7 @@ import Testing
                         grantType: .authorizationCode,
                         authentication: .none(clientID: "test-client")
                     ),
-                    messageData: #"{"jsonrpc":"2.0","method":"ping","id":27}"#.data(using: .utf8)!,
+                    messageData: Data(#"{"jsonrpc":"2.0","method":"ping","id":27}"#.utf8),
                     expectedCallCounts: [tokenEndpointURL: 0],
                     expectedErrorSubstring: "state mismatch"
                 )
@@ -728,12 +692,10 @@ import Testing
             // MARK: 9 - Access Token Only Via Authorization Header
 
             func configureOAuthAccessTokenOnlyViaAuthorizationHeader() -> OAuthScenarioContext {
-                let testEndpoint = URL(string: "https://localhost:8080/test?foo=bar")!
-                let resourceMetadataURL = URL(
-                    string: "https://localhost:8080/.well-known/oauth-protected-resource/test")!
-                let asMetadataURL = URL(
-                    string: "https://localhost:8080/.well-known/oauth-authorization-server/auth")!
-                let tokenEndpointURL = URL(string: "https://localhost:8080/oauth/token")!
+                let testEndpoint = testURL("https://localhost:8080/test?foo=bar")
+                let resourceMetadataURL = testURL("https://localhost:8080/.well-known/oauth-protected-resource/test")
+                let asMetadataURL = testURL("https://localhost:8080/.well-known/oauth-authorization-server/auth")
+                let tokenEndpointURL = testURL("https://localhost:8080/oauth/token")
                 let finalResponseData = MockResponses.jsonRPCResult(id: 12)
 
                 requestHandler = MockResponses.routingHandler(routes: [
@@ -773,7 +735,7 @@ import Testing
                 return OAuthScenarioContext(
                     testEndpoint: testEndpoint,
                     oauthConfiguration: .init(authentication: .none(clientID: "test-client")),
-                    messageData: #"{"jsonrpc":"2.0","method":"ping","id":12}"#.data(using: .utf8)!,
+                    messageData: Data(#"{"jsonrpc":"2.0","method":"ping","id":12}"#.utf8),
                     expectedResponseData: finalResponseData,
                     expectedCallCounts: [
                         testEndpoint: 2, resourceMetadataURL: 1, asMetadataURL: 1,
@@ -787,17 +749,12 @@ import Testing
             func configureOAuthAuthorizationHeaderForEveryRequestInSession()
                 -> OAuthScenarioContext
             {
-                let testEndpoint = URL(string: "https://localhost:8080/session-auth")!
-                let resourceMetadataURL = URL(
-                    string:
-                        "https://localhost:8080/.well-known/oauth-protected-resource/session-auth")!
-                let asMetadataURL = URL(
-                    string: "https://localhost:8080/.well-known/oauth-authorization-server/auth")!
-                let tokenEndpointURL = URL(string: "https://localhost:8080/oauth/token")!
-                let firstResponseData = #"{"jsonrpc":"2.0","result":{"ok":true},"id":31}"#.data(
-                    using: .utf8)!
-                let secondResponseData = #"{"jsonrpc":"2.0","result":{"ok":true},"id":32}"#.data(
-                    using: .utf8)!
+                let testEndpoint = testURL("https://localhost:8080/session-auth")
+                let resourceMetadataURL = testURL("https://localhost:8080/.well-known/oauth-protected-resource/session-auth")
+                let asMetadataURL = testURL("https://localhost:8080/.well-known/oauth-authorization-server/auth")
+                let tokenEndpointURL = testURL("https://localhost:8080/oauth/token")
+                let firstResponseData = Data(#"{"jsonrpc":"2.0","result":{"ok":true},"id":31}"#.utf8)
+                let secondResponseData = Data(#"{"jsonrpc":"2.0","result":{"ok":true},"id":32}"#.utf8)
 
                 requestHandler = MockResponses.routingHandler(routes: [
                     testEndpoint: {
@@ -827,7 +784,7 @@ import Testing
                         }
 
                         let response = HTTPURLResponse(
-                            url: request.url!, statusCode: 200, httpVersion: "HTTP/1.1",
+                            url: testRequestURL(request), statusCode: 200, httpVersion: "HTTP/1.1",
                             headerFields: [
                                 "Content-Type": "application/json",
                                 "MCP-Session-Id": "session-123",
@@ -858,14 +815,13 @@ import Testing
                 return OAuthScenarioContext(
                     testEndpoint: testEndpoint,
                     oauthConfiguration: .init(authentication: .none(clientID: "test-client")),
-                    messageData: #"{"jsonrpc":"2.0","method":"ping","id":31}"#.data(using: .utf8)!,
+                    messageData: Data(#"{"jsonrpc":"2.0","method":"ping","id":31}"#.utf8),
                     expectedResponseData: firstResponseData,
                     expectedCallCounts: [
                         testEndpoint: 3, resourceMetadataURL: 1, asMetadataURL: 1,
                         tokenEndpointURL: 1,
                     ],
-                    secondMessageData: #"{"jsonrpc":"2.0","method":"ping","id":32}"#.data(
-                        using: .utf8)!,
+                    secondMessageData: Data(#"{"jsonrpc":"2.0","method":"ping","id":32}"#.utf8),
                     secondExpectedResponseData: secondResponseData
                 )
             }
@@ -873,14 +829,11 @@ import Testing
             // MARK: 11 - Streaming GET Uses Authorization Header Only
 
             func configureOAuthStreamingGETUsesAuthorizationHeaderOnly() -> OAuthScenarioContext {
-                let testEndpoint = URL(string: "https://localhost:8080/stream-auth?foo=bar")!
-                let resourceMetadataURL = URL(
-                    string:
-                        "https://localhost:8080/.well-known/oauth-protected-resource/stream-auth")!
-                let asMetadataURL = URL(
-                    string: "https://localhost:8080/.well-known/oauth-authorization-server/auth")!
-                let tokenEndpointURL = URL(string: "https://localhost:8080/oauth/token")!
-                let sseEventData = "id: evt-1\ndata: {\"stream\":\"ok\"}\n\n".data(using: .utf8)!
+                let testEndpoint = testURL("https://localhost:8080/stream-auth?foo=bar")
+                let resourceMetadataURL = testURL("https://localhost:8080/.well-known/oauth-protected-resource/stream-auth")
+                let asMetadataURL = testURL("https://localhost:8080/.well-known/oauth-authorization-server/auth")
+                let tokenEndpointURL = testURL("https://localhost:8080/oauth/token")
+                let sseEventData = Data("id: evt-1\ndata: {\"stream\":\"ok\"}\n\n".utf8)
 
                 requestHandler = MockResponses.routingHandler(routes: [
                     testEndpoint: { [sseEventData] request in
@@ -895,7 +848,7 @@ import Testing
                                 request.value(forHTTPHeaderField: "MCP-Session-Id")
                                     == "stream-session-id")
                             let response = HTTPURLResponse(
-                                url: request.url!, statusCode: 200, httpVersion: "HTTP/1.1",
+                                url: testRequestURL(request), statusCode: 200, httpVersion: "HTTP/1.1",
                                 headerFields: ["Content-Type": "text/event-stream"])!
                             return (response, sseEventData)
                         }
@@ -916,7 +869,7 @@ import Testing
                         #expect(!requestBody.contains("access_token="))
 
                         let response = HTTPURLResponse(
-                            url: request.url!, statusCode: 200, httpVersion: "HTTP/1.1",
+                            url: testRequestURL(request), statusCode: 200, httpVersion: "HTTP/1.1",
                             headerFields: [
                                 "Content-Type": "text/plain",
                                 "MCP-Session-Id": "stream-session-id",
@@ -944,12 +897,11 @@ import Testing
                     },
                 ])
 
-                let expectedEventPayload = #"{"stream":"ok"}"#.data(using: .utf8)!
+                let expectedEventPayload = Data(#"{"stream":"ok"}"#.utf8)
                 return OAuthScenarioContext(
                     testEndpoint: testEndpoint,
                     oauthConfiguration: .init(authentication: .none(clientID: "test-client")),
-                    messageData: #"{"jsonrpc":"2.0","method":"ping","id":41}"#.data(
-                        using: .utf8)!,
+                    messageData: Data(#"{"jsonrpc":"2.0","method":"ping","id":41}"#.utf8),
                     expectedResponseData: expectedEventPayload,
                     streaming: true,
                     sseInitializationTimeout: 1
@@ -959,15 +911,10 @@ import Testing
             // MARK: 12 - Rejects Non-Bearer Token Type
 
             func configureOAuthRejectsNonBearerTokenType() -> OAuthScenarioContext {
-                let testEndpoint = URL(
-                    string: "https://localhost:8080/non-bearer-token-type")!
-                let resourceMetadataURL = URL(
-                    string:
-                        "https://localhost:8080/.well-known/oauth-protected-resource/non-bearer-token-type"
-                )!
-                let asMetadataURL = URL(
-                    string: "https://localhost:8080/.well-known/oauth-authorization-server/auth")!
-                let tokenEndpointURL = URL(string: "https://localhost:8080/oauth/token")!
+                let testEndpoint = testURL("https://localhost:8080/non-bearer-token-type")
+                let resourceMetadataURL = testURL("https://localhost:8080/.well-known/oauth-protected-resource/non-bearer-token-type")
+                let asMetadataURL = testURL("https://localhost:8080/.well-known/oauth-authorization-server/auth")
+                let tokenEndpointURL = testURL("https://localhost:8080/oauth/token")
 
                 requestHandler = MockResponses.routingHandler(routes: [
                     testEndpoint: { request in
@@ -990,8 +937,7 @@ import Testing
                 return OAuthScenarioContext(
                     testEndpoint: testEndpoint,
                     oauthConfiguration: .init(authentication: .none(clientID: "test-client")),
-                    messageData: #"{"jsonrpc":"2.0","method":"ping","id":51}"#.data(
-                        using: .utf8)!,
+                    messageData: Data(#"{"jsonrpc":"2.0","method":"ping","id":51}"#.utf8),
                     expectedErrorSubstring: "Token response is invalid"
                 )
             }
@@ -999,15 +945,10 @@ import Testing
             // MARK: 13 - Token Endpoint Failure Redacts Response Body
 
             func configureOAuthTokenEndpointFailureRedactsResponseBody() -> OAuthScenarioContext {
-                let testEndpoint = URL(
-                    string: "https://localhost:8080/token-error-redaction")!
-                let resourceMetadataURL = URL(
-                    string:
-                        "https://localhost:8080/.well-known/oauth-protected-resource/token-error-redaction"
-                )!
-                let asMetadataURL = URL(
-                    string: "https://localhost:8080/.well-known/oauth-authorization-server/auth")!
-                let tokenEndpointURL = URL(string: "https://localhost:8080/oauth/token")!
+                let testEndpoint = testURL("https://localhost:8080/token-error-redaction")
+                let resourceMetadataURL = testURL("https://localhost:8080/.well-known/oauth-protected-resource/token-error-redaction")
+                let asMetadataURL = testURL("https://localhost:8080/.well-known/oauth-authorization-server/auth")
+                let tokenEndpointURL = testURL("https://localhost:8080/oauth/token")
 
                 requestHandler = MockResponses.routingHandler(routes: [
                     testEndpoint: { request in
@@ -1033,8 +974,7 @@ import Testing
                 return OAuthScenarioContext(
                     testEndpoint: testEndpoint,
                     oauthConfiguration: .init(authentication: .none(clientID: "test-client")),
-                    messageData: #"{"jsonrpc":"2.0","method":"ping","id":52}"#.data(
-                        using: .utf8)!,
+                    messageData: Data(#"{"jsonrpc":"2.0","method":"ping","id":52}"#.utf8),
                     expectedErrorSubstring: "oauth_error: invalid_client",
                     unexpectedErrorSubstrings: ["leaked-secret-value", "should-not-leak"]
                 )
@@ -1043,14 +983,9 @@ import Testing
             // MARK: 14 - Rejects Non-HTTPS Token Endpoint
 
             func configureOAuthRejectsNonHTTPSTokenEndpoint() -> OAuthScenarioContext {
-                let testEndpoint = URL(
-                    string: "https://localhost:8080/non-https-token-endpoint")!
-                let resourceMetadataURL = URL(
-                    string:
-                        "https://localhost:8080/.well-known/oauth-protected-resource/non-https-token-endpoint"
-                )!
-                let asMetadataURL = URL(
-                    string: "https://localhost:8080/.well-known/oauth-authorization-server/auth")!
+                let testEndpoint = testURL("https://localhost:8080/non-https-token-endpoint")
+                let resourceMetadataURL = testURL("https://localhost:8080/.well-known/oauth-protected-resource/non-https-token-endpoint")
+                let asMetadataURL = testURL("https://localhost:8080/.well-known/oauth-authorization-server/auth")
 
                 requestHandler = MockResponses.routingHandler(routes: [
                     testEndpoint: { request in
@@ -1075,8 +1010,7 @@ import Testing
                 return OAuthScenarioContext(
                     testEndpoint: testEndpoint,
                     oauthConfiguration: oauth,
-                    messageData: #"{"jsonrpc":"2.0","method":"ping","id":53}"#.data(
-                        using: .utf8)!,
+                    messageData: Data(#"{"jsonrpc":"2.0","method":"ping","id":53}"#.utf8),
                     expectedErrorSubstring: "Token endpoint must use https"
                 )
             }
@@ -1086,15 +1020,10 @@ import Testing
             func configureOAuthAllowsLoopbackHTTPAuthorizationServerEndpoints()
                 -> OAuthScenarioContext
             {
-                let testEndpoint = URL(
-                    string: "https://localhost:8080/loopback-http-auth-server-enabled")!
-                let resourceMetadataURL = URL(
-                    string:
-                        "https://localhost:8080/.well-known/oauth-protected-resource/loopback-http-auth-server-enabled"
-                )!
-                let asMetadataURL = URL(
-                    string: "http://localhost:8080/.well-known/oauth-authorization-server/auth")!
-                let tokenEndpointURL = URL(string: "http://localhost:8080/oauth/token")!
+                let testEndpoint = testURL("https://localhost:8080/loopback-http-auth-server-enabled")
+                let resourceMetadataURL = testURL("https://localhost:8080/.well-known/oauth-protected-resource/loopback-http-auth-server-enabled")
+                let asMetadataURL = testURL("http://localhost:8080/.well-known/oauth-authorization-server/auth")
+                let tokenEndpointURL = testURL("http://localhost:8080/oauth/token")
                 let finalResponseData = MockResponses.jsonRPCResult(id: 54)
 
                 requestHandler = MockResponses.routingHandler(routes: [
@@ -1131,8 +1060,7 @@ import Testing
                 return OAuthScenarioContext(
                     testEndpoint: testEndpoint,
                     oauthConfiguration: oauth,
-                    messageData: #"{"jsonrpc":"2.0","method":"ping","id":54}"#.data(
-                        using: .utf8)!,
+                    messageData: Data(#"{"jsonrpc":"2.0","method":"ping","id":54}"#.utf8),
                     expectedResponseData: finalResponseData,
                     expectedCallCounts: [tokenEndpointURL: 1]
                 )
@@ -1143,12 +1071,10 @@ import Testing
             func configureOAuthAccessTokenProviderReceivesDiscoveryContext()
                 -> (OAuthScenarioContext, ProviderTracker)
             {
-                let testEndpoint = URL(string: "https://localhost:8080/test")!
-                let resourceMetadataURL = URL(
-                    string: "https://localhost:8080/.well-known/oauth-protected-resource/test")!
-                let asMetadataURL = URL(
-                    string: "https://localhost:8080/.well-known/oauth-authorization-server/auth")!
-                let tokenEndpointURL = URL(string: "https://localhost:8080/oauth/token")!
+                let testEndpoint = testURL("https://localhost:8080/test")
+                let resourceMetadataURL = testURL("https://localhost:8080/.well-known/oauth-protected-resource/test")
+                let asMetadataURL = testURL("https://localhost:8080/.well-known/oauth-authorization-server/auth")
+                let tokenEndpointURL = testURL("https://localhost:8080/oauth/token")
                 let finalResponseData = MockResponses.jsonRPCResult(id: 2)
                 let providerTracker = ProviderTracker()
 
@@ -1178,7 +1104,7 @@ import Testing
                     ),
                     tokenEndpointURL: { request in
                         let response = HTTPURLResponse(
-                            url: request.url!, statusCode: 200, httpVersion: "HTTP/1.1",
+                            url: testRequestURL(request), statusCode: 200, httpVersion: "HTTP/1.1",
                             headerFields: ["Content-Type": "application/json"])!
                         return (response, Data())
                     },
@@ -1195,7 +1121,7 @@ import Testing
                 let context = OAuthScenarioContext(
                     testEndpoint: testEndpoint,
                     oauthConfiguration: oauthConfiguration,
-                    messageData: #"{"jsonrpc":"2.0","method":"ping","id":2}"#.data(using: .utf8)!,
+                    messageData: Data(#"{"jsonrpc":"2.0","method":"ping","id":2}"#.utf8),
                     expectedResponseData: finalResponseData,
                     expectedCallCounts: [
                         testEndpoint: 2, resourceMetadataURL: 1, asMetadataURL: 1,
@@ -1208,17 +1134,12 @@ import Testing
             // MARK: 17 - Discovery Uses Header Resource Metadata
 
             func configureOAuthDiscoveryUsesHeaderResourceMetadata() -> OAuthScenarioContext {
-                let testEndpoint = URL(string: "https://localhost:8080/public/mcp")!
-                let headerMetadataURL = URL(
-                    string: "https://localhost:8080/custom-metadata")!
-                let fallbackPathMetadataURL = URL(
-                    string:
-                        "https://localhost:8080/.well-known/oauth-protected-resource/public/mcp")!
-                let fallbackRootMetadataURL = URL(
-                    string: "https://localhost:8080/.well-known/oauth-protected-resource")!
-                let asMetadataURL = URL(
-                    string: "https://localhost:8080/.well-known/oauth-authorization-server/auth")!
-                let tokenEndpointURL = URL(string: "https://localhost:8080/oauth/token")!
+                let testEndpoint = testURL("https://localhost:8080/public/mcp")
+                let headerMetadataURL = testURL("https://localhost:8080/custom-metadata")
+                let fallbackPathMetadataURL = testURL("https://localhost:8080/.well-known/oauth-protected-resource/public/mcp")
+                let fallbackRootMetadataURL = testURL("https://localhost:8080/.well-known/oauth-protected-resource")
+                let asMetadataURL = testURL("https://localhost:8080/.well-known/oauth-authorization-server/auth")
+                let tokenEndpointURL = testURL("https://localhost:8080/oauth/token")
                 let finalResponseData = MockResponses.jsonRPCResult(id: 3)
 
                 requestHandler = MockResponses.routingHandler(routes: [
@@ -1251,7 +1172,7 @@ import Testing
                 return OAuthScenarioContext(
                     testEndpoint: testEndpoint,
                     oauthConfiguration: .init(authentication: .none(clientID: "test-client")),
-                    messageData: #"{"jsonrpc":"2.0","method":"ping","id":3}"#.data(using: .utf8)!,
+                    messageData: Data(#"{"jsonrpc":"2.0","method":"ping","id":3}"#.utf8),
                     expectedResponseData: finalResponseData,
                     expectedCallCounts: [
                         testEndpoint: 2, headerMetadataURL: 1,
@@ -1265,15 +1186,11 @@ import Testing
             func configureOAuthDiscoveryFallbackWellKnownOrder()
                 -> (OAuthScenarioContext, OrderTracker)
             {
-                let testEndpoint = URL(string: "https://localhost:8080/public/mcp")!
-                let fallbackPathMetadataURL = URL(
-                    string:
-                        "https://localhost:8080/.well-known/oauth-protected-resource/public/mcp")!
-                let fallbackRootMetadataURL = URL(
-                    string: "https://localhost:8080/.well-known/oauth-protected-resource")!
-                let asMetadataURL = URL(
-                    string: "https://localhost:8080/.well-known/oauth-authorization-server/auth")!
-                let tokenEndpointURL = URL(string: "https://localhost:8080/oauth/token")!
+                let testEndpoint = testURL("https://localhost:8080/public/mcp")
+                let fallbackPathMetadataURL = testURL("https://localhost:8080/.well-known/oauth-protected-resource/public/mcp")
+                let fallbackRootMetadataURL = testURL("https://localhost:8080/.well-known/oauth-protected-resource")
+                let asMetadataURL = testURL("https://localhost:8080/.well-known/oauth-authorization-server/auth")
+                let tokenEndpointURL = testURL("https://localhost:8080/oauth/token")
                 let finalResponseData = MockResponses.jsonRPCResult(id: 4)
                 let tracker = OrderTracker()
 
@@ -1290,11 +1207,11 @@ import Testing
                             request)
                     },
                     fallbackPathMetadataURL: { [tracker] request in
-                        await tracker.append(request.url!)
+                        await tracker.append(testRequestURL(request))
                         return try await MockResponses.httpError(statusCode: 404)(request)
                     },
                     fallbackRootMetadataURL: { [tracker] request in
-                        await tracker.append(request.url!)
+                        await tracker.append(testRequestURL(request))
                         return try await MockResponses.resourceMetadata(
                             authorizationServers: ["https://localhost:8080/auth"],
                             scopesSupported: ["files:read"]
@@ -1311,7 +1228,7 @@ import Testing
                 let context = OAuthScenarioContext(
                     testEndpoint: testEndpoint,
                     oauthConfiguration: .init(authentication: .none(clientID: "test-client")),
-                    messageData: #"{"jsonrpc":"2.0","method":"ping","id":4}"#.data(using: .utf8)!,
+                    messageData: Data(#"{"jsonrpc":"2.0","method":"ping","id":4}"#.utf8),
                     expectedResponseData: finalResponseData
                 )
                 return (context, tracker)
@@ -1322,12 +1239,9 @@ import Testing
             func configureOAuthDiscoveryFailsWhenMetadataUnavailable()
                 -> (OAuthScenarioContext, OrderTracker)
             {
-                let testEndpoint = URL(string: "https://localhost:8080/public/mcp")!
-                let fallbackPathMetadataURL = URL(
-                    string:
-                        "https://localhost:8080/.well-known/oauth-protected-resource/public/mcp")!
-                let fallbackRootMetadataURL = URL(
-                    string: "https://localhost:8080/.well-known/oauth-protected-resource")!
+                let testEndpoint = testURL("https://localhost:8080/public/mcp")
+                let fallbackPathMetadataURL = testURL("https://localhost:8080/.well-known/oauth-protected-resource/public/mcp")
+                let fallbackRootMetadataURL = testURL("https://localhost:8080/.well-known/oauth-protected-resource")
                 let tracker = OrderTracker()
 
                 requestHandler = MockResponses.routingHandler(routes: [
@@ -1336,11 +1250,11 @@ import Testing
                             scope: "files:read")(request)
                     },
                     fallbackPathMetadataURL: { [tracker] request in
-                        await tracker.append(request.url!)
+                        await tracker.append(testRequestURL(request))
                         return try await MockResponses.httpError(statusCode: 404)(request)
                     },
                     fallbackRootMetadataURL: { [tracker] request in
-                        await tracker.append(request.url!)
+                        await tracker.append(testRequestURL(request))
                         return try await MockResponses.httpError(statusCode: 404)(request)
                     },
                 ])
@@ -1348,7 +1262,7 @@ import Testing
                 let context = OAuthScenarioContext(
                     testEndpoint: testEndpoint,
                     oauthConfiguration: .init(authentication: .none(clientID: "test-client")),
-                    messageData: #"{"jsonrpc":"2.0","method":"ping","id":7}"#.data(using: .utf8)!,
+                    messageData: Data(#"{"jsonrpc":"2.0","method":"ping","id":7}"#.utf8),
                     expectedErrorSubstring: "metadata"
                 )
                 return (context, tracker)
@@ -1359,19 +1273,13 @@ import Testing
             func configureOAuthASMetadataDiscoveryOrderForPathIssuer()
                 -> (OAuthScenarioContext, OrderTracker)
             {
-                let testEndpoint = URL(string: "https://localhost:8080/public/mcp")!
-                let resourceMetadataURL = URL(
-                    string:
-                        "https://localhost:8080/.well-known/oauth-protected-resource/public/mcp")!
-                let authorizationServer = URL(string: "https://localhost:8080/tenant1")!
-                let asMetadataOAuthInsertedURL = URL(
-                    string:
-                        "https://localhost:8080/.well-known/oauth-authorization-server/tenant1")!
-                let asMetadataOIDCInsertedURL = URL(
-                    string: "https://localhost:8080/.well-known/openid-configuration/tenant1")!
-                let asMetadataOIDCAppendedURL = URL(
-                    string: "https://localhost:8080/tenant1/.well-known/openid-configuration")!
-                let tokenEndpointURL = URL(string: "https://localhost:8080/oauth/token")!
+                let testEndpoint = testURL("https://localhost:8080/public/mcp")
+                let resourceMetadataURL = testURL("https://localhost:8080/.well-known/oauth-protected-resource/public/mcp")
+                let authorizationServer = testURL("https://localhost:8080/tenant1")
+                let asMetadataOAuthInsertedURL = testURL("https://localhost:8080/.well-known/oauth-authorization-server/tenant1")
+                let asMetadataOIDCInsertedURL = testURL("https://localhost:8080/.well-known/openid-configuration/tenant1")
+                let asMetadataOIDCAppendedURL = testURL("https://localhost:8080/tenant1/.well-known/openid-configuration")
+                let tokenEndpointURL = testURL("https://localhost:8080/oauth/token")
                 let finalResponseData = MockResponses.jsonRPCResult(id: 5)
                 let tracker = OrderTracker()
 
@@ -1393,15 +1301,15 @@ import Testing
                         scopesSupported: ["files:read"]
                     ),
                     asMetadataOAuthInsertedURL: { [tracker] request in
-                        await tracker.append(request.url!)
+                        await tracker.append(testRequestURL(request))
                         return try await MockResponses.httpError(statusCode: 404)(request)
                     },
                     asMetadataOIDCInsertedURL: { [tracker] request in
-                        await tracker.append(request.url!)
+                        await tracker.append(testRequestURL(request))
                         return try await MockResponses.httpError(statusCode: 404)(request)
                     },
                     asMetadataOIDCAppendedURL: { [tracker] request in
-                        await tracker.append(request.url!)
+                        await tracker.append(testRequestURL(request))
                         return try await MockResponses.asMetadata(
                             issuer: "https://localhost:8080/tenant1",
                             tokenEndpoint: "https://localhost:8080/oauth/token"
@@ -1424,7 +1332,7 @@ import Testing
                 let context = OAuthScenarioContext(
                     testEndpoint: testEndpoint,
                     oauthConfiguration: .init(authentication: .none(clientID: "test-client")),
-                    messageData: #"{"jsonrpc":"2.0","method":"ping","id":5}"#.data(using: .utf8)!,
+                    messageData: Data(#"{"jsonrpc":"2.0","method":"ping","id":5}"#.utf8),
                     expectedResponseData: finalResponseData
                 )
                 return (context, tracker)
@@ -1435,16 +1343,12 @@ import Testing
             func configureOAuthASMetadataDiscoveryOrderForRootIssuer()
                 -> (OAuthScenarioContext, OrderTracker)
             {
-                let testEndpoint = URL(string: "https://localhost:8080/public/mcp")!
-                let resourceMetadataURL = URL(
-                    string:
-                        "https://localhost:8080/.well-known/oauth-protected-resource/public/mcp")!
-                let authorizationServer = URL(string: "https://localhost:8080")!
-                let asMetadataOAuthURL = URL(
-                    string: "https://localhost:8080/.well-known/oauth-authorization-server")!
-                let asMetadataOIDCURL = URL(
-                    string: "https://localhost:8080/.well-known/openid-configuration")!
-                let tokenEndpointURL = URL(string: "https://localhost:8080/oauth/token")!
+                let testEndpoint = testURL("https://localhost:8080/public/mcp")
+                let resourceMetadataURL = testURL("https://localhost:8080/.well-known/oauth-protected-resource/public/mcp")
+                let authorizationServer = testURL("https://localhost:8080")
+                let asMetadataOAuthURL = testURL("https://localhost:8080/.well-known/oauth-authorization-server")
+                let asMetadataOIDCURL = testURL("https://localhost:8080/.well-known/openid-configuration")
+                let tokenEndpointURL = testURL("https://localhost:8080/oauth/token")
                 let finalResponseData = MockResponses.jsonRPCResult(id: 6)
                 let tracker = OrderTracker()
 
@@ -1466,11 +1370,11 @@ import Testing
                         scopesSupported: ["files:read"]
                     ),
                     asMetadataOAuthURL: { [tracker] request in
-                        await tracker.append(request.url!)
+                        await tracker.append(testRequestURL(request))
                         return try await MockResponses.httpError(statusCode: 404)(request)
                     },
                     asMetadataOIDCURL: { [tracker] request in
-                        await tracker.append(request.url!)
+                        await tracker.append(testRequestURL(request))
                         return try await MockResponses.asMetadata(
                             issuer: "https://localhost:8080",
                             tokenEndpoint: "https://localhost:8080/oauth/token"
@@ -1487,7 +1391,7 @@ import Testing
                 let context = OAuthScenarioContext(
                     testEndpoint: testEndpoint,
                     oauthConfiguration: .init(authentication: .none(clientID: "test-client")),
-                    messageData: #"{"jsonrpc":"2.0","method":"ping","id":6}"#.data(using: .utf8)!,
+                    messageData: Data(#"{"jsonrpc":"2.0","method":"ping","id":6}"#.utf8),
                     expectedResponseData: finalResponseData
                 )
                 return (context, tracker)
@@ -1496,15 +1400,11 @@ import Testing
             // MARK: 22 - Registration Prefers CIMD When Advertised
 
             func configureOAuthRegistrationPrefersCIMDWhenAdvertised() -> OAuthScenarioContext {
-                let testEndpoint = URL(string: "https://localhost:8080/public/mcp")!
-                let resourceMetadataURL = URL(
-                    string:
-                        "https://localhost:8080/.well-known/oauth-protected-resource/public/mcp")!
-                let asMetadataURL = URL(
-                    string: "https://localhost:8080/.well-known/oauth-authorization-server/auth")!
-                let registrationEndpointURL = URL(
-                    string: "https://localhost:8080/register")!
-                let tokenEndpointURL = URL(string: "https://localhost:8080/oauth/token")!
+                let testEndpoint = testURL("https://localhost:8080/public/mcp")
+                let resourceMetadataURL = testURL("https://localhost:8080/.well-known/oauth-protected-resource/public/mcp")
+                let asMetadataURL = testURL("https://localhost:8080/.well-known/oauth-authorization-server/auth")
+                let registrationEndpointURL = testURL("https://localhost:8080/register")
+                let tokenEndpointURL = testURL("https://localhost:8080/oauth/token")
                 let clientMetadataDocumentID = "https://client.example.com/metadata.json"
                 let finalResponseData = MockResponses.jsonRPCResult(id: 8)
 
@@ -1548,7 +1448,7 @@ import Testing
                     testEndpoint: testEndpoint,
                     oauthConfiguration: .init(
                         authentication: .none(clientID: clientMetadataDocumentID)),
-                    messageData: #"{"jsonrpc":"2.0","method":"ping","id":8}"#.data(using: .utf8)!,
+                    messageData: Data(#"{"jsonrpc":"2.0","method":"ping","id":8}"#.utf8),
                     expectedResponseData: finalResponseData,
                     expectedCallCounts: [registrationEndpointURL: 0]
                 )
@@ -1557,15 +1457,11 @@ import Testing
             // MARK: 23 - Pre-Registration Uses Static Credentials
 
             func configureOAuthPreRegistrationUsesStaticCredentials() -> OAuthScenarioContext {
-                let testEndpoint = URL(string: "https://localhost:8080/public/mcp")!
-                let resourceMetadataURL = URL(
-                    string:
-                        "https://localhost:8080/.well-known/oauth-protected-resource/public/mcp")!
-                let asMetadataURL = URL(
-                    string: "https://localhost:8080/.well-known/oauth-authorization-server/auth")!
-                let registrationEndpointURL = URL(
-                    string: "https://localhost:8080/register")!
-                let tokenEndpointURL = URL(string: "https://localhost:8080/oauth/token")!
+                let testEndpoint = testURL("https://localhost:8080/public/mcp")
+                let resourceMetadataURL = testURL("https://localhost:8080/.well-known/oauth-protected-resource/public/mcp")
+                let asMetadataURL = testURL("https://localhost:8080/.well-known/oauth-authorization-server/auth")
+                let registrationEndpointURL = testURL("https://localhost:8080/register")
+                let tokenEndpointURL = testURL("https://localhost:8080/oauth/token")
                 let finalResponseData = MockResponses.jsonRPCResult(id: 13)
 
                 let expectedClientID = "pre-registered-client"
@@ -1623,8 +1519,7 @@ import Testing
                             clientID: expectedClientID,
                             clientSecret: expectedClientSecret
                         )),
-                    messageData: #"{"jsonrpc":"2.0","method":"ping","id":13}"#.data(
-                        using: .utf8)!,
+                    messageData: Data(#"{"jsonrpc":"2.0","method":"ping","id":13}"#.utf8),
                     expectedResponseData: finalResponseData,
                     expectedCallCounts: [registrationEndpointURL: 0]
                 )
@@ -1635,15 +1530,11 @@ import Testing
             func configureOAuthRegistrationFallsBackToDynamicRegistrationCIMDNotAdvertised()
                 -> OAuthScenarioContext
             {
-                let testEndpoint = URL(string: "https://localhost:8080/public/mcp")!
-                let resourceMetadataURL = URL(
-                    string:
-                        "https://localhost:8080/.well-known/oauth-protected-resource/public/mcp")!
-                let asMetadataURL = URL(
-                    string: "https://localhost:8080/.well-known/oauth-authorization-server/auth")!
-                let registrationEndpointURL = URL(
-                    string: "https://localhost:8080/register")!
-                let tokenEndpointURL = URL(string: "https://localhost:8080/oauth/token")!
+                let testEndpoint = testURL("https://localhost:8080/public/mcp")
+                let resourceMetadataURL = testURL("https://localhost:8080/.well-known/oauth-protected-resource/public/mcp")
+                let asMetadataURL = testURL("https://localhost:8080/.well-known/oauth-authorization-server/auth")
+                let registrationEndpointURL = testURL("https://localhost:8080/register")
+                let tokenEndpointURL = testURL("https://localhost:8080/oauth/token")
                 let clientMetadataDocumentID = "https://client.example.com/metadata.json"
                 let finalResponseData = MockResponses.jsonRPCResult(id: 9)
 
@@ -1698,7 +1589,7 @@ import Testing
                     testEndpoint: testEndpoint,
                     oauthConfiguration: .init(
                         authentication: .none(clientID: clientMetadataDocumentID)),
-                    messageData: #"{"jsonrpc":"2.0","method":"ping","id":9}"#.data(using: .utf8)!,
+                    messageData: Data(#"{"jsonrpc":"2.0","method":"ping","id":9}"#.utf8),
                     expectedResponseData: finalResponseData,
                     expectedCallCounts: [registrationEndpointURL: 1]
                 )
@@ -1709,15 +1600,11 @@ import Testing
             func configureOAuthRegistrationFallsBackToDynamicRegistrationCIMDCapabilityMissing()
                 -> OAuthScenarioContext
             {
-                let testEndpoint = URL(string: "https://localhost:8080/public/mcp")!
-                let resourceMetadataURL = URL(
-                    string:
-                        "https://localhost:8080/.well-known/oauth-protected-resource/public/mcp")!
-                let asMetadataURL = URL(
-                    string: "https://localhost:8080/.well-known/oauth-authorization-server/auth")!
-                let registrationEndpointURL = URL(
-                    string: "https://localhost:8080/register")!
-                let tokenEndpointURL = URL(string: "https://localhost:8080/oauth/token")!
+                let testEndpoint = testURL("https://localhost:8080/public/mcp")
+                let resourceMetadataURL = testURL("https://localhost:8080/.well-known/oauth-protected-resource/public/mcp")
+                let asMetadataURL = testURL("https://localhost:8080/.well-known/oauth-authorization-server/auth")
+                let registrationEndpointURL = testURL("https://localhost:8080/register")
+                let tokenEndpointURL = testURL("https://localhost:8080/oauth/token")
                 let clientMetadataDocumentID = "https://client.example.com/metadata.json"
                 let finalResponseData = MockResponses.jsonRPCResult(id: 14)
 
@@ -1766,8 +1653,7 @@ import Testing
                     testEndpoint: testEndpoint,
                     oauthConfiguration: .init(
                         authentication: .none(clientID: clientMetadataDocumentID)),
-                    messageData: #"{"jsonrpc":"2.0","method":"ping","id":14}"#.data(
-                        using: .utf8)!,
+                    messageData: Data(#"{"jsonrpc":"2.0","method":"ping","id":14}"#.utf8),
                     expectedResponseData: finalResponseData,
                     expectedCallCounts: [registrationEndpointURL: 1]
                 )
@@ -1778,13 +1664,10 @@ import Testing
             func configureOAuthRegistrationMissingMechanismReturnsActionableError()
                 -> OAuthScenarioContext
             {
-                let testEndpoint = URL(string: "https://localhost:8080/public/mcp")!
-                let resourceMetadataURL = URL(
-                    string:
-                        "https://localhost:8080/.well-known/oauth-protected-resource/public/mcp")!
-                let asMetadataURL = URL(
-                    string: "https://localhost:8080/.well-known/oauth-authorization-server/auth")!
-                let tokenEndpointURL = URL(string: "https://localhost:8080/oauth/token")!
+                let testEndpoint = testURL("https://localhost:8080/public/mcp")
+                let resourceMetadataURL = testURL("https://localhost:8080/.well-known/oauth-protected-resource/public/mcp")
+                let asMetadataURL = testURL("https://localhost:8080/.well-known/oauth-authorization-server/auth")
+                let tokenEndpointURL = testURL("https://localhost:8080/oauth/token")
                 let clientMetadataDocumentID = "https://client.example.com/metadata.json"
 
                 requestHandler = MockResponses.routingHandler(routes: [
@@ -1809,8 +1692,7 @@ import Testing
                     testEndpoint: testEndpoint,
                     oauthConfiguration: .init(
                         authentication: .none(clientID: clientMetadataDocumentID)),
-                    messageData: #"{"jsonrpc":"2.0","method":"ping","id":10}"#.data(
-                        using: .utf8)!,
+                    messageData: Data(#"{"jsonrpc":"2.0","method":"ping","id":10}"#.utf8),
                     expectedErrorSubstring:
                         "Authorization server does not support Client ID Metadata Documents"
                 )
@@ -1819,12 +1701,9 @@ import Testing
             // MARK: 27 - CIMD Rejects Non-HTTPS Client ID URL
 
             func configureOAuthCIMDRejectsNonHTTPSClientIDURL() -> OAuthScenarioContext {
-                let testEndpoint = URL(string: "https://localhost:8080/public/mcp")!
-                let resourceMetadataURL = URL(
-                    string:
-                        "https://localhost:8080/.well-known/oauth-protected-resource/public/mcp")!
-                let asMetadataURL = URL(
-                    string: "https://localhost:8080/.well-known/oauth-authorization-server/auth")!
+                let testEndpoint = testURL("https://localhost:8080/public/mcp")
+                let resourceMetadataURL = testURL("https://localhost:8080/.well-known/oauth-protected-resource/public/mcp")
+                let asMetadataURL = testURL("https://localhost:8080/.well-known/oauth-authorization-server/auth")
                 let invalidClientID = "http://client.example.com/metadata.json"
 
                 requestHandler = MockResponses.routingHandler(routes: [
@@ -1848,8 +1727,7 @@ import Testing
                     testEndpoint: testEndpoint,
                     oauthConfiguration: .init(
                         authentication: .none(clientID: invalidClientID)),
-                    messageData: #"{"jsonrpc":"2.0","method":"ping","id":11}"#.data(
-                        using: .utf8)!,
+                    messageData: Data(#"{"jsonrpc":"2.0","method":"ping","id":11}"#.utf8),
                     expectedErrorSubstring:
                         "Client ID metadata document URL must use https and include a path"
                 )
@@ -1858,13 +1736,12 @@ import Testing
             // MARK: 28 - Rejects Insecure MCP Endpoint URL
 
             func configureOAuthRejectsInsecureMCPEndpointURL() -> OAuthScenarioContext {
-                let insecureEndpoint = URL(string: "http://example.com/public/mcp")!
+                let insecureEndpoint = testURL("http://example.com/public/mcp")
 
                 return OAuthScenarioContext(
                     testEndpoint: insecureEndpoint,
                     oauthConfiguration: .init(authentication: .none(clientID: "test-client")),
-                    messageData: #"{"jsonrpc":"2.0","method":"ping","id":12}"#.data(
-                        using: .utf8)!,
+                    messageData: Data(#"{"jsonrpc":"2.0","method":"ping","id":12}"#.utf8),
                     expectedErrorSubstring:
                         "MCP endpoint must use https or loopback http"
                 )
@@ -1875,23 +1752,13 @@ import Testing
             func configureOAuthPRMCacheInvalidatedOnResourceMetadataURLChange()
                 -> OAuthScenarioContext
             {
-                let testEndpoint = URL(string: "https://localhost:8080/cache-invalidation")!
-                let resourceMetadataURL_A = URL(
-                    string:
-                        "https://localhost:8080/.well-known/oauth-protected-resource/cache-a")!
-                let resourceMetadataURL_B = URL(
-                    string:
-                        "https://localhost:8080/.well-known/oauth-protected-resource/cache-b")!
-                let asMetadataURL_A = URL(
-                    string:
-                        "https://localhost:8080/.well-known/oauth-authorization-server/auth-a")!
-                let asMetadataURL_B = URL(
-                    string:
-                        "https://localhost:8080/.well-known/oauth-authorization-server/auth-b")!
-                let tokenEndpointURL_A = URL(
-                    string: "https://localhost:8080/oauth/token-a")!
-                let tokenEndpointURL_B = URL(
-                    string: "https://localhost:8080/oauth/token-b")!
+                let testEndpoint = testURL("https://localhost:8080/cache-invalidation")
+                let resourceMetadataURL_A = testURL("https://localhost:8080/.well-known/oauth-protected-resource/cache-a")
+                let resourceMetadataURL_B = testURL("https://localhost:8080/.well-known/oauth-protected-resource/cache-b")
+                let asMetadataURL_A = testURL("https://localhost:8080/.well-known/oauth-authorization-server/auth-a")
+                let asMetadataURL_B = testURL("https://localhost:8080/.well-known/oauth-authorization-server/auth-b")
+                let tokenEndpointURL_A = testURL("https://localhost:8080/oauth/token-a")
+                let tokenEndpointURL_B = testURL("https://localhost:8080/oauth/token-b")
                 let firstResponseData = MockResponses.jsonRPCResult(id: 71)
                 let secondResponseData = MockResponses.jsonRPCResult(id: 72)
 
@@ -1944,7 +1811,7 @@ import Testing
                 return OAuthScenarioContext(
                     testEndpoint: testEndpoint,
                     oauthConfiguration: .init(authentication: .none(clientID: "test-client")),
-                    messageData: #"{"jsonrpc":"2.0","method":"ping","id":71}"#.data(using: .utf8)!,
+                    messageData: Data(#"{"jsonrpc":"2.0","method":"ping","id":71}"#.utf8),
                     expectedResponseData: firstResponseData,
                     expectedCallCounts: [
                         resourceMetadataURL_A: 1,
@@ -1952,8 +1819,7 @@ import Testing
                         tokenEndpointURL_A: 1,
                         tokenEndpointURL_B: 1,
                     ],
-                    secondMessageData: #"{"jsonrpc":"2.0","method":"ping","id":72}"#.data(
-                        using: .utf8)!,
+                    secondMessageData: Data(#"{"jsonrpc":"2.0","method":"ping","id":72}"#.utf8),
                     secondExpectedResponseData: secondResponseData
                 )
             }
@@ -1961,12 +1827,9 @@ import Testing
             // MARK: 29 - Rejects Non-Loopback HTTP Redirect URI
 
             func configureOAuthRejectsNonLoopbackHTTPRedirectURI() -> OAuthScenarioContext {
-                let testEndpoint = URL(string: "https://localhost:8080/public/mcp")!
-                let resourceMetadataURL = URL(
-                    string:
-                        "https://localhost:8080/.well-known/oauth-protected-resource/public/mcp")!
-                let asMetadataURL = URL(
-                    string: "https://localhost:8080/.well-known/oauth-authorization-server/auth")!
+                let testEndpoint = testURL("https://localhost:8080/public/mcp")
+                let resourceMetadataURL = testURL("https://localhost:8080/.well-known/oauth-protected-resource/public/mcp")
+                let asMetadataURL = testURL("https://localhost:8080/.well-known/oauth-authorization-server/auth")
 
                 requestHandler = MockResponses.routingHandler(routes: [
                     testEndpoint: { request in
@@ -1991,11 +1854,9 @@ import Testing
                     oauthConfiguration: .init(
                         grantType: .authorizationCode,
                         authentication: .none(clientID: "test-client"),
-                        authorizationRedirectURI: URL(
-                            string: "http://evil.example.com/callback")!
+                        authorizationRedirectURI: testURL("http://evil.example.com/callback")
                     ),
-                    messageData: #"{"jsonrpc":"2.0","method":"ping","id":13}"#.data(
-                        using: .utf8)!,
+                    messageData: Data(#"{"jsonrpc":"2.0","method":"ping","id":13}"#.utf8),
                     expectedErrorSubstring:
                         "Redirect URI must use https or loopback http and must not include fragments"
                 )
@@ -2004,13 +1865,10 @@ import Testing
             // MARK: 31 - Resource Uses PRM Resource Field (Gap 1)
 
             func configureOAuthResourceUsesPRMResourceField() -> OAuthScenarioContext {
-                let testEndpoint = URL(string: "https://localhost:8080/mcp/tools")!
-                let resourceMetadataURL = URL(
-                    string:
-                        "https://localhost:8080/.well-known/oauth-protected-resource/mcp/tools")!
-                let asMetadataURL = URL(
-                    string: "https://localhost:8080/.well-known/oauth-authorization-server/auth")!
-                let tokenEndpointURL = URL(string: "https://localhost:8080/oauth/token")!
+                let testEndpoint = testURL("https://localhost:8080/mcp/tools")
+                let resourceMetadataURL = testURL("https://localhost:8080/.well-known/oauth-protected-resource/mcp/tools")
+                let asMetadataURL = testURL("https://localhost:8080/.well-known/oauth-authorization-server/auth")
+                let tokenEndpointURL = testURL("https://localhost:8080/oauth/token")
                 let finalResponseData = MockResponses.jsonRPCResult(id: 91)
 
                 requestHandler = MockResponses.routingHandler(routes: [
@@ -2044,7 +1902,7 @@ import Testing
                 return OAuthScenarioContext(
                     testEndpoint: testEndpoint,
                     oauthConfiguration: .init(authentication: .none(clientID: "test-client")),
-                    messageData: #"{"jsonrpc":"2.0","method":"ping","id":91}"#.data(using: .utf8)!,
+                    messageData: Data(#"{"jsonrpc":"2.0","method":"ping","id":91}"#.utf8),
                     expectedResponseData: finalResponseData,
                     expectedCallCounts: [
                         testEndpoint: 2, resourceMetadataURL: 1, asMetadataURL: 1,
@@ -2057,22 +1915,15 @@ import Testing
 
             func configureOAuthSecondAuthorizationServerTriedWhenFirstFails() -> OAuthScenarioContext
             {
-                let testEndpoint = URL(string: "https://localhost:8080/test-as-fallback")!
-                let resourceMetadataURL = URL(
-                    string:
-                        "https://localhost:8080/.well-known/oauth-protected-resource/test-as-fallback"
-                )!
+                let testEndpoint = testURL("https://localhost:8080/test-as-fallback")
+                let resourceMetadataURL = testURL("https://localhost:8080/.well-known/oauth-protected-resource/test-as-fallback")
                 // AS1 discovery URLs — all return 404
-                let as1MetadataURL1 = URL(
-                    string: "https://localhost:8080/.well-known/oauth-authorization-server/as1")!
-                let as1MetadataURL2 = URL(
-                    string: "https://localhost:8080/.well-known/openid-configuration/as1")!
-                let as1MetadataURL3 = URL(
-                    string: "https://localhost:8080/as1/.well-known/openid-configuration")!
+                let as1MetadataURL1 = testURL("https://localhost:8080/.well-known/oauth-authorization-server/as1")
+                let as1MetadataURL2 = testURL("https://localhost:8080/.well-known/openid-configuration/as1")
+                let as1MetadataURL3 = testURL("https://localhost:8080/as1/.well-known/openid-configuration")
                 // AS2 first discovery URL — returns valid metadata
-                let as2MetadataURL = URL(
-                    string: "https://localhost:8080/.well-known/oauth-authorization-server/as2")!
-                let tokenEndpointURL = URL(string: "https://localhost:8080/oauth/token-as2")!
+                let as2MetadataURL = testURL("https://localhost:8080/.well-known/oauth-authorization-server/as2")
+                let tokenEndpointURL = testURL("https://localhost:8080/oauth/token-as2")
                 let finalResponseData = MockResponses.jsonRPCResult(id: 92)
 
                 requestHandler = MockResponses.routingHandler(routes: [
@@ -2105,7 +1956,7 @@ import Testing
                 return OAuthScenarioContext(
                     testEndpoint: testEndpoint,
                     oauthConfiguration: .init(authentication: .none(clientID: "test-client")),
-                    messageData: #"{"jsonrpc":"2.0","method":"ping","id":92}"#.data(using: .utf8)!,
+                    messageData: Data(#"{"jsonrpc":"2.0","method":"ping","id":92}"#.utf8),
                     expectedResponseData: finalResponseData,
                     expectedCallCounts: [
                         testEndpoint: 2,
@@ -2122,15 +1973,11 @@ import Testing
             // MARK: 33 - Re-Registration After Client Secret Expiry (Gap 3)
 
             func configureOAuthReRegistersAfterClientSecretExpiry() -> OAuthScenarioContext {
-                let testEndpoint = URL(string: "https://localhost:8080/test-secret-expiry")!
-                let resourceMetadataURL = URL(
-                    string:
-                        "https://localhost:8080/.well-known/oauth-protected-resource/test-secret-expiry"
-                )!
-                let asMetadataURL = URL(
-                    string: "https://localhost:8080/.well-known/oauth-authorization-server/auth")!
-                let registrationEndpointURL = URL(string: "https://localhost:8080/register")!
-                let tokenEndpointURL = URL(string: "https://localhost:8080/oauth/token")!
+                let testEndpoint = testURL("https://localhost:8080/test-secret-expiry")
+                let resourceMetadataURL = testURL("https://localhost:8080/.well-known/oauth-protected-resource/test-secret-expiry")
+                let asMetadataURL = testURL("https://localhost:8080/.well-known/oauth-authorization-server/auth")
+                let registrationEndpointURL = testURL("https://localhost:8080/register")
+                let tokenEndpointURL = testURL("https://localhost:8080/oauth/token")
                 let firstResponseData = MockResponses.jsonRPCResult(id: 93)
                 let secondResponseData = MockResponses.jsonRPCResult(id: 94)
                 let regTracker = OrderTracker()
@@ -2168,7 +2015,7 @@ import Testing
                         registrationEndpoint: "https://localhost:8080/register"
                     ),
                     registrationEndpointURL: { [regTracker] request in
-                        await regTracker.append(request.url!)
+                        await regTracker.append(testRequestURL(request))
                         let count = await regTracker.count()
                         // Return different client IDs per registration call
                         let clientID = count == 1 ? "client-v1" : "client-v2"
@@ -2179,7 +2026,7 @@ import Testing
                         ]
                         let data = try JSONSerialization.data(withJSONObject: dict)
                         let response = HTTPURLResponse(
-                            url: request.url!, statusCode: 201, httpVersion: "HTTP/1.1",
+                            url: testRequestURL(request), statusCode: 201, httpVersion: "HTTP/1.1",
                             headerFields: ["Content-Type": "application/json"])!
                         return (response, data)
                     },
@@ -2201,14 +2048,13 @@ import Testing
                 return OAuthScenarioContext(
                     testEndpoint: testEndpoint,
                     oauthConfiguration: .init(authentication: .none(clientID: "anon")),
-                    messageData: #"{"jsonrpc":"2.0","method":"ping","id":93}"#.data(using: .utf8)!,
+                    messageData: Data(#"{"jsonrpc":"2.0","method":"ping","id":93}"#.utf8),
                     expectedResponseData: firstResponseData,
                     expectedCallCounts: [
                         registrationEndpointURL: 2,
                         tokenEndpointURL: 2,
                     ],
-                    secondMessageData: #"{"jsonrpc":"2.0","method":"ping","id":94}"#.data(
-                        using: .utf8)!,
+                    secondMessageData: Data(#"{"jsonrpc":"2.0","method":"ping","id":94}"#.utf8),
                     secondExpectedResponseData: secondResponseData
                 )
             }
@@ -2216,18 +2062,13 @@ import Testing
             // MARK: 34 - Issuer Mismatch Causes Next Discovery URL Variant to Be Tried (Gap 4)
 
             func configureOAuthIssuerMismatchTriesNextURLVariant() -> OAuthScenarioContext {
-                let testEndpoint = URL(string: "https://localhost:8080/test-issuer-check")!
-                let resourceMetadataURL = URL(
-                    string:
-                        "https://localhost:8080/.well-known/oauth-protected-resource/test-issuer-check"
-                )!
+                let testEndpoint = testURL("https://localhost:8080/test-issuer-check")
+                let resourceMetadataURL = testURL("https://localhost:8080/.well-known/oauth-protected-resource/test-issuer-check")
                 // Discovery URL 1 returns wrong issuer → skipped
-                let wrongIssuerURL = URL(
-                    string: "https://localhost:8080/.well-known/oauth-authorization-server/auth")!
+                let wrongIssuerURL = testURL("https://localhost:8080/.well-known/oauth-authorization-server/auth")
                 // Discovery URL 2 returns correct issuer → used
-                let correctIssuerURL = URL(
-                    string: "https://localhost:8080/.well-known/openid-configuration/auth")!
-                let tokenEndpointURL = URL(string: "https://localhost:8080/oauth/token")!
+                let correctIssuerURL = testURL("https://localhost:8080/.well-known/openid-configuration/auth")
+                let tokenEndpointURL = testURL("https://localhost:8080/oauth/token")
                 let finalResponseData = MockResponses.jsonRPCResult(id: 95)
 
                 requestHandler = MockResponses.routingHandler(routes: [
@@ -2258,7 +2099,7 @@ import Testing
                 return OAuthScenarioContext(
                     testEndpoint: testEndpoint,
                     oauthConfiguration: .init(authentication: .none(clientID: "test-client")),
-                    messageData: #"{"jsonrpc":"2.0","method":"ping","id":95}"#.data(using: .utf8)!,
+                    messageData: Data(#"{"jsonrpc":"2.0","method":"ping","id":95}"#.utf8),
                     expectedResponseData: finalResponseData,
                     expectedCallCounts: [
                         testEndpoint: 2,
@@ -2273,14 +2114,10 @@ import Testing
             // MARK: 35 - Proactive Token Refresh Within Window (Gap 5)
 
             func configureOAuthProactiveTokenRefreshWithinWindow() -> OAuthScenarioContext {
-                let testEndpoint = URL(string: "https://localhost:8080/test-proactive-refresh")!
-                let resourceMetadataURL = URL(
-                    string:
-                        "https://localhost:8080/.well-known/oauth-protected-resource/test-proactive-refresh"
-                )!
-                let asMetadataURL = URL(
-                    string: "https://localhost:8080/.well-known/oauth-authorization-server/auth")!
-                let tokenEndpointURL = URL(string: "https://localhost:8080/oauth/token")!
+                let testEndpoint = testURL("https://localhost:8080/test-proactive-refresh")
+                let resourceMetadataURL = testURL("https://localhost:8080/.well-known/oauth-protected-resource/test-proactive-refresh")
+                let asMetadataURL = testURL("https://localhost:8080/.well-known/oauth-authorization-server/auth")
+                let tokenEndpointURL = testURL("https://localhost:8080/oauth/token")
                 let firstResponseData = MockResponses.jsonRPCResult(id: 96)
                 let secondResponseData = MockResponses.jsonRPCResult(id: 97)
 
@@ -2342,14 +2179,13 @@ import Testing
                         authentication: .none(clientID: "test-client"),
                         proactiveRefreshWindowSeconds: 400
                     ),
-                    messageData: #"{"jsonrpc":"2.0","method":"ping","id":96}"#.data(using: .utf8)!,
+                    messageData: Data(#"{"jsonrpc":"2.0","method":"ping","id":96}"#.utf8),
                     expectedResponseData: firstResponseData,
                     expectedCallCounts: [
                         testEndpoint: 3,  // initial 401 + first send retry + second send
                         tokenEndpointURL: 2,  // initial client_credentials + refresh_token
                     ],
-                    secondMessageData: #"{"jsonrpc":"2.0","method":"ping","id":97}"#.data(
-                        using: .utf8)!,
+                    secondMessageData: Data(#"{"jsonrpc":"2.0","method":"ping","id":97}"#.utf8),
                     secondExpectedResponseData: secondResponseData
                 )
             }

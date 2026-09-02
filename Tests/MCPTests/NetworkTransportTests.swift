@@ -300,7 +300,7 @@ import Testing
             try await transport.connect()
 
             // Test sending a simple message
-            let message = #"{"key":"value"}"#.data(using: .utf8)!
+            let message = Data(#"{"key":"value"}"#.utf8)
             try await transport.send(message)
 
             // Verify the message was sent with a newline delimiter
@@ -308,7 +308,7 @@ import Testing
             #expect(sentData.count == 1)
 
             if sentData.count > 0 {
-                let expectedOutput = message + "\n".data(using: .utf8)!
+                let expectedOutput = message + Data("\n".utf8)
                 #expect(sentData[0] == expectedOutput)
             }
 
@@ -339,7 +339,7 @@ import Testing
             #expect(received != nil)
 
             if let received = received {
-                #expect(received == message.data(using: .utf8)!)
+                #expect(received == Data(message.utf8))
             }
 
             await transport.disconnect()
@@ -413,7 +413,7 @@ import Testing
             try await Task.sleep(for: .milliseconds(100))
 
             // Try to send message after failure - should trigger reconnection process
-            let message = #"{"test":"reconnect"}"#.data(using: .utf8)!
+            let message = Data(#"{"test":"reconnect"}"#.utf8)
 
             do {
                 try await transport.send(message)
@@ -515,7 +515,7 @@ import Testing
             let parts = [
                 message.prefix(5).data(using: .utf8)!,
                 message.dropFirst(5).data(using: .utf8)!,
-                "\n".data(using: .utf8)!,
+                Data("\n".utf8),
             ]
 
             // Queue the parts
@@ -531,7 +531,7 @@ import Testing
             let received = try await iterator.next()
             #expect(received != nil)
             if let received = received {
-                #expect(received == message.data(using: .utf8)!)
+                #expect(received == Data(message.utf8))
             }
 
             await transport.disconnect()

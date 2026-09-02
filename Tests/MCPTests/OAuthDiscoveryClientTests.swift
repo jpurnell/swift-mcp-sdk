@@ -42,19 +42,19 @@ import Testing
             let (session, key) = makeIsolatedSession()
             await IsolatedMockURLProtocol.setHandler(key: key) { _ in
                 let response = HTTPURLResponse(
-                    url: URL(string: "https://example.com/.well-known/oauth-protected-resource")!,
+                    url: testURL("https://example.com/.well-known/oauth-protected-resource"),
                     statusCode: 200, httpVersion: nil, headerFields: nil)!
                 return (response, body)
             }
 
             let metadata = try await makeClient().fetchProtectedResourceMetadata(
-                candidates: [URL(string: "https://example.com/.well-known/oauth-protected-resource")!],
+                candidates: [testURL("https://example.com/.well-known/oauth-protected-resource")],
                 fallbackIssuer: nil,
                 session: session
             )
             let expected = OAuthProtectedResourceMetadata(
                 resource: nil,
-                authorizationServers: [URL(string: "https://auth.example.com")!],
+                authorizationServers: [testURL("https://auth.example.com")],
                 scopesSupported: nil)
             #expect(metadata == expected)
         }
@@ -67,22 +67,22 @@ import Testing
             await IsolatedMockURLProtocol.setHandler(key: key) { request in
                 let statusCode = request.url?.lastPathComponent == "mcp" ? 404 : 200
                 let response = HTTPURLResponse(
-                    url: request.url!, statusCode: statusCode,
+                    url: testRequestURL(request), statusCode: statusCode,
                     httpVersion: nil, headerFields: nil)!
                 return (response, statusCode == 200 ? body : Data())
             }
 
             let metadata = try await makeClient().fetchProtectedResourceMetadata(
                 candidates: [
-                    URL(string: "https://example.com/.well-known/oauth-protected-resource/mcp")!,
-                    URL(string: "https://example.com/.well-known/oauth-protected-resource")!,
+                    testURL("https://example.com/.well-known/oauth-protected-resource/mcp"),
+                    testURL("https://example.com/.well-known/oauth-protected-resource"),
                 ],
                 fallbackIssuer: nil,
                 session: session
             )
             let expected = OAuthProtectedResourceMetadata(
                 resource: nil,
-                authorizationServers: [URL(string: "https://auth.example.com")!],
+                authorizationServers: [testURL("https://auth.example.com")],
                 scopesSupported: nil)
             #expect(metadata == expected)
         }
@@ -96,21 +96,21 @@ import Testing
             await IsolatedMockURLProtocol.setHandler(key: key) { request in
                 let body = request.url?.lastPathComponent == "mcp" ? emptyBody : validBody
                 let response = HTTPURLResponse(
-                    url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!
+                    url: testRequestURL(request), statusCode: 200, httpVersion: nil, headerFields: nil)!
                 return (response, body)
             }
 
             let metadata = try await makeClient().fetchProtectedResourceMetadata(
                 candidates: [
-                    URL(string: "https://example.com/.well-known/oauth-protected-resource/mcp")!,
-                    URL(string: "https://example.com/.well-known/oauth-protected-resource")!,
+                    testURL("https://example.com/.well-known/oauth-protected-resource/mcp"),
+                    testURL("https://example.com/.well-known/oauth-protected-resource"),
                 ],
                 fallbackIssuer: nil,
                 session: session
             )
             let expected = OAuthProtectedResourceMetadata(
                 resource: nil,
-                authorizationServers: [URL(string: "https://auth.example.com")!],
+                authorizationServers: [testURL("https://auth.example.com")],
                 scopesSupported: nil)
             #expect(metadata == expected)
         }
@@ -120,14 +120,14 @@ import Testing
             let (session, key) = makeIsolatedSession()
             await IsolatedMockURLProtocol.setHandler(key: key) { request in
                 let response = HTTPURLResponse(
-                    url: request.url!, statusCode: 404, httpVersion: nil, headerFields: nil)!
+                    url: testRequestURL(request), statusCode: 404, httpVersion: nil, headerFields: nil)!
                 return (response, Data())
             }
 
             await #expect(throws: OAuthAuthorizationError.self) {
                 try await makeClient().fetchProtectedResourceMetadata(
                     candidates: [
-                        URL(string: "https://example.com/.well-known/oauth-protected-resource")!
+                        testURL("https://example.com/.well-known/oauth-protected-resource")
                     ],
                     fallbackIssuer: nil,
                     session: session
@@ -137,16 +137,16 @@ import Testing
 
         @Test("Returns synthetic metadata with fallback issuer when all candidates fail")
         func testFetchProtectedResourceMetadataUsesFallbackIssuer() async throws {
-            let fallback = URL(string: "https://example.com")!
+            let fallback = testURL("https://example.com")
             let (session, key) = makeIsolatedSession()
             await IsolatedMockURLProtocol.setHandler(key: key) { request in
                 let response = HTTPURLResponse(
-                    url: request.url!, statusCode: 404, httpVersion: nil, headerFields: nil)!
+                    url: testRequestURL(request), statusCode: 404, httpVersion: nil, headerFields: nil)!
                 return (response, Data())
             }
 
             let metadata = try await makeClient().fetchProtectedResourceMetadata(
-                candidates: [URL(string: "https://example.com/.well-known/oauth-protected-resource")!],
+                candidates: [testURL("https://example.com/.well-known/oauth-protected-resource")],
                 fallbackIssuer: fallback,
                 session: session
             )
@@ -166,7 +166,7 @@ import Testing
             let (session, key) = makeIsolatedSession()
             await IsolatedMockURLProtocol.setHandler(key: key) { _ in
                 let response = HTTPURLResponse(
-                    url: URL(string: "\(issuer)/.well-known/oauth-authorization-server")!,
+                    url: testURL("\(issuer)/.well-known/oauth-authorization-server"),
                     statusCode: 200, httpVersion: nil, headerFields: nil)!
                 return (response, body)
             }
@@ -195,13 +195,13 @@ import Testing
             let (session, key) = makeIsolatedSession()
             await IsolatedMockURLProtocol.setHandler(key: key) { _ in
                 let response = HTTPURLResponse(
-                    url: URL(string: "https://auth.example.com")!,
+                    url: testURL("https://auth.example.com"),
                     statusCode: 200, httpVersion: nil, headerFields: nil)!
                 return (response, body)
             }
 
             let (server, _) = try await makeClient().fetchAuthorizationServerMetadata(
-                candidates: [URL(string: "https://auth.example.com")!],
+                candidates: [testURL("https://auth.example.com")],
                 session: session
             )
             #expect(server == URL(string: metadataIssuer)!)
@@ -212,7 +212,7 @@ import Testing
             let (session, _) = makeIsolatedSession()
             await #expect(throws: OAuthAuthorizationError.self) {
                 try await makeClient().fetchAuthorizationServerMetadata(
-                    candidates: [URL(string: "https://10.0.0.1")!],
+                    candidates: [testURL("https://10.0.0.1")],
                     session: session
                 )
             }
@@ -223,13 +223,13 @@ import Testing
             let (session, key) = makeIsolatedSession()
             await IsolatedMockURLProtocol.setHandler(key: key) { request in
                 let response = HTTPURLResponse(
-                    url: request.url!, statusCode: 500, httpVersion: nil, headerFields: nil)!
+                    url: testRequestURL(request), statusCode: 500, httpVersion: nil, headerFields: nil)!
                 return (response, Data())
             }
 
             await #expect(throws: OAuthAuthorizationError.self) {
                 try await makeClient().fetchAuthorizationServerMetadata(
-                    candidates: [URL(string: "https://auth.example.com")!],
+                    candidates: [testURL("https://auth.example.com")],
                     session: session
                 )
             }

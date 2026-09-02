@@ -26,7 +26,7 @@ import Testing
         }
 
         static func jsonRPCResult(id: Int) -> Data {
-            #"{"jsonrpc":"2.0","result":{"ok":true},"id":\#(id)}"#.data(using: .utf8)!
+            Data(#"{"jsonrpc":"2.0","result":{"ok":true},"id":\#(id)}"#.utf8)
         }
 
         // MARK: - Route Builders
@@ -34,7 +34,7 @@ import Testing
         static func jsonSuccess(body: Data) -> Route {
             { request in
                 let response = HTTPURLResponse(
-                    url: request.url!, statusCode: 200, httpVersion: "HTTP/1.1",
+                    url: testRequestURL(request), statusCode: 200, httpVersion: "HTTP/1.1",
                     headerFields: ["Content-Type": "application/json"])!
                 return (response, body)
             }
@@ -57,7 +57,7 @@ import Testing
                 if let errorDescription { params.append("error_description=\"\(errorDescription)\"") }
                 let headerValue = "Bearer \(params.joined(separator: ", "))"
                 let response = HTTPURLResponse(
-                    url: request.url!, statusCode: statusCode, httpVersion: "HTTP/1.1",
+                    url: testRequestURL(request), statusCode: statusCode, httpVersion: "HTTP/1.1",
                     headerFields: ["WWW-Authenticate": headerValue])!
                 return (response, Data())
             }
@@ -74,7 +74,7 @@ import Testing
                 if let resource { dict["resource"] = resource }
                 let data = try JSONSerialization.data(withJSONObject: dict)
                 let response = HTTPURLResponse(
-                    url: request.url!, statusCode: 200, httpVersion: "HTTP/1.1",
+                    url: testRequestURL(request), statusCode: 200, httpVersion: "HTTP/1.1",
                     headerFields: ["Content-Type": "application/json"])!
                 return (response, data)
             }
@@ -104,7 +104,7 @@ import Testing
                 }
                 let data = try JSONSerialization.data(withJSONObject: dict)
                 let response = HTTPURLResponse(
-                    url: request.url!, statusCode: 200, httpVersion: "HTTP/1.1",
+                    url: testRequestURL(request), statusCode: 200, httpVersion: "HTTP/1.1",
                     headerFields: ["Content-Type": "application/json"])!
                 return (response, data)
             }
@@ -124,7 +124,7 @@ import Testing
                 if let refreshToken { dict["refresh_token"] = refreshToken }
                 let data = try JSONSerialization.data(withJSONObject: dict)
                 let response = HTTPURLResponse(
-                    url: request.url!, statusCode: 200, httpVersion: "HTTP/1.1",
+                    url: testRequestURL(request), statusCode: 200, httpVersion: "HTTP/1.1",
                     headerFields: ["Content-Type": "application/json"])!
                 return (response, data)
             }
@@ -141,7 +141,7 @@ import Testing
                 ]
                 let data = try JSONSerialization.data(withJSONObject: dict)
                 let response = HTTPURLResponse(
-                    url: request.url!, statusCode: 200, httpVersion: "HTTP/1.1",
+                    url: testRequestURL(request), statusCode: 200, httpVersion: "HTTP/1.1",
                     headerFields: ["Content-Type": "application/json"])!
                 return (response, data)
             }
@@ -159,7 +159,7 @@ import Testing
                 for (key, value) in extraFields { dict[key] = value }
                 let data = try JSONSerialization.data(withJSONObject: dict)
                 let response = HTTPURLResponse(
-                    url: request.url!, statusCode: statusCode, httpVersion: "HTTP/1.1",
+                    url: testRequestURL(request), statusCode: statusCode, httpVersion: "HTTP/1.1",
                     headerFields: ["Content-Type": "application/json"])!
                 return (response, data)
             }
@@ -168,7 +168,7 @@ import Testing
         static func httpError(statusCode: Int) -> Route {
             { request in
                 let response = HTTPURLResponse(
-                    url: request.url!, statusCode: statusCode, httpVersion: "HTTP/1.1",
+                    url: testRequestURL(request), statusCode: statusCode, httpVersion: "HTTP/1.1",
                     headerFields: nil)!
                 return (response, Data())
             }
@@ -183,7 +183,7 @@ import Testing
                 if let clientSecret { dict["client_secret"] = clientSecret }
                 let data = try JSONSerialization.data(withJSONObject: dict)
                 let response = HTTPURLResponse(
-                    url: request.url!, statusCode: 201, httpVersion: "HTTP/1.1",
+                    url: testRequestURL(request), statusCode: 201, httpVersion: "HTTP/1.1",
                     headerFields: ["Content-Type": "application/json"])!
                 return (response, data)
             }
@@ -192,7 +192,7 @@ import Testing
         static func redirect(to location: String, statusCode: Int = 302) -> Route {
             { request in
                 let response = HTTPURLResponse(
-                    url: request.url!, statusCode: statusCode, httpVersion: "HTTP/1.1",
+                    url: testRequestURL(request), statusCode: statusCode, httpVersion: "HTTP/1.1",
                     headerFields: ["Location": location])!
                 return (response, Data())
             }

@@ -274,7 +274,7 @@ struct ServerTests {
                 {"jsonrpc":"2.0","id":2,"method":"ping","params":{}}
             ]
             """
-        let batchData = batchJSON.data(using: .utf8)!
+        let batchData = Data(batchJSON.utf8)
         try await clientTransport.send(batchData)
 
         // Wait for batch processing

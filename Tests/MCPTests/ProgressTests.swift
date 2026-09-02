@@ -134,7 +134,7 @@ struct ProgressTests {
 
         let encoder = JSONEncoder()
         let data = try encoder.encode(meta)
-        let jsonString = String(data: data, encoding: .utf8)!
+        let jsonString = String(decoding: data, as: UTF8.self)
 
         #expect(jsonString.contains("progressToken"))
         #expect(jsonString.contains("test-token"))
@@ -252,7 +252,7 @@ struct ProgressTests {
         #expect(decoded._meta == nil)
 
         // Verify _meta is not included in JSON when nil
-        let jsonString = String(data: data, encoding: .utf8)!
+        let jsonString = String(decoding: data, as: UTF8.self)
         #expect(!jsonString.contains("_meta"))
     }
 
@@ -273,7 +273,7 @@ struct ProgressTests {
         #expect(decoded._meta?.progressToken == token)
 
         // Verify _meta is included in JSON
-        let jsonString = String(data: data, encoding: .utf8)!
+        let jsonString = String(decoding: data, as: UTF8.self)
         #expect(jsonString.contains("_meta"))
         #expect(jsonString.contains("progressToken"))
         #expect(jsonString.contains("call-tool-token"))
@@ -287,7 +287,7 @@ struct ProgressTests {
 
         let encoder = JSONEncoder()
         let data = try encoder.encode(request)
-        let jsonString = String(data: data, encoding: .utf8)!
+        let jsonString = String(decoding: data, as: UTF8.self)
 
         // Note: JSON encoding may escape forward slashes as \/
         #expect(jsonString.contains("tools") && jsonString.contains("call"))
@@ -313,7 +313,7 @@ struct ProgressTests {
                 }
             }
             """
-        let data = jsonString.data(using: .utf8)!
+        let data = Data(jsonString.utf8)
 
         let decoder = JSONDecoder()
         let request = try decoder.decode(Request<CallTool>.self, from: data)
@@ -338,7 +338,7 @@ struct ProgressTests {
                 }
             }
             """
-        let data = jsonString.data(using: .utf8)!
+        let data = Data(jsonString.utf8)
 
         let decoder = JSONDecoder()
         let request = try decoder.decode(Request<CallTool>.self, from: data)

@@ -13,7 +13,7 @@ import Testing
     struct OAuthClientRegistrarTests {
 
         let registrar = OAuthClientRegistrar(urlValidator: OAuthURLValidator())
-        let registrationEndpoint = URL(string: "https://auth.example.com/register")!
+        let registrationEndpoint = testURL("https://auth.example.com/register")
 
         func makeASMetadata(registrationEndpoint: URL? = nil) -> OAuthAuthorizationServerMetadata {
             OAuthAuthorizationServerMetadata(

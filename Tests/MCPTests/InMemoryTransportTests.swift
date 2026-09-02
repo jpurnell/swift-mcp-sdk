@@ -74,9 +74,9 @@ struct InMemoryTransportTests {
         }
 
         // Send messages from client
-        let message1 = "Hello".data(using: .utf8)!
-        let message2 = "World".data(using: .utf8)!
-        let message3 = "!".data(using: .utf8)!
+        let message1 = Data("Hello".utf8)
+        let message2 = Data("World".utf8)
+        let message3 = Data("!".utf8)
 
         try await clientTransport.send(message1)
         try await clientTransport.send(message2)
@@ -130,10 +130,10 @@ struct InMemoryTransportTests {
         }
 
         // Send messages in both directions
-        try await transport1.send("From transport 1 - message 1".data(using: .utf8)!)
-        try await transport2.send("From transport 2 - message 1".data(using: .utf8)!)
-        try await transport1.send("From transport 1 - message 2".data(using: .utf8)!)
-        try await transport2.send("From transport 2 - message 2".data(using: .utf8)!)
+        try await transport1.send(Data("From transport 1 - message 1".utf8))
+        try await transport2.send(Data("From transport 2 - message 1".utf8))
+        try await transport1.send(Data("From transport 1 - message 2".utf8))
+        try await transport2.send(Data("From transport 2 - message 2".utf8))
 
         // Verify both sides received messages
         let messages1 = try await receive1Task.value
@@ -158,7 +158,7 @@ struct InMemoryTransportTests {
 
         // Try to send without connecting
         do {
-            try await clientTransport.send("test".data(using: .utf8)!)
+            try await clientTransport.send(Data("test".utf8))
             #expect(Bool(false), "Expected send to throw an error")
         } catch let error as MCPError {
             if case .internalError(let message) = error {
@@ -194,7 +194,7 @@ struct InMemoryTransportTests {
         }
 
         // Send a message
-        try await clientTransport.send("message".data(using: .utf8)!)
+        try await clientTransport.send(Data("message".utf8))
 
         // Give some time for message to be received
         try await Task.sleep(for: .milliseconds(100))
@@ -259,9 +259,9 @@ struct InMemoryTransportTests {
         try await serverTransport.connect()
 
         // Send messages before receive stream is created
-        try await clientTransport.send("message1".data(using: .utf8)!)
-        try await clientTransport.send("message2".data(using: .utf8)!)
-        try await clientTransport.send("message3".data(using: .utf8)!)
+        try await clientTransport.send(Data("message1".utf8))
+        try await clientTransport.send(Data("message2".utf8))
+        try await clientTransport.send(Data("message3".utf8))
 
         // Now create receive stream
         let messages = await serverTransport.receive()
@@ -366,7 +366,7 @@ struct InMemoryTransportTests {
         await withTaskGroup(of: Void.self) { group in
             for i in 0..<10 {
                 group.addTask {
-                    try? await clientTransport.send("Message \(i)".data(using: .utf8)!)
+                    try? await clientTransport.send(Data("Message \(i)".utf8))
                 }
             }
         }
@@ -401,7 +401,7 @@ struct InMemoryTransportTests {
         try await clientTransport.connect()
         try await serverTransport.connect()
 
-        try await clientTransport.send("test".data(using: .utf8)!)
+        try await clientTransport.send(Data("test".utf8))
 
         await clientTransport.disconnect()
         await serverTransport.disconnect()

@@ -15,22 +15,22 @@ struct OAuthURLValidatorTests {
     @Test("Accepts HTTPS URL")
     func testValidateHTTPSOrLoopbackAcceptsHTTPS() throws {
         try OAuthURLValidator().validateHTTPSOrLoopback(
-            URL(string: "https://example.com/mcp")!, context: "test")
+            testURL("https://example.com/mcp"), context: "test")
     }
 
     @Test("Accepts loopback HTTP")
     func testValidateHTTPSOrLoopbackAcceptsLoopback() throws {
         try OAuthURLValidator().validateHTTPSOrLoopback(
-            URL(string: "http://localhost:8080/mcp")!, context: "test")
+            testURL("http://localhost:8080/mcp"), context: "test")
         try OAuthURLValidator().validateHTTPSOrLoopback(
-            URL(string: "http://127.0.0.1:9000/mcp")!, context: "test")
+            testURL("http://127.0.0.1:9000/mcp"), context: "test")
     }
 
     @Test("Rejects remote HTTP")
     func testValidateHTTPSOrLoopbackRejectsRemoteHTTP() {
         #expect(throws: OAuthAuthorizationError.self) {
             try OAuthURLValidator().validateHTTPSOrLoopback(
-                URL(string: "http://example.com/mcp")!, context: "test")
+                testURL("http://example.com/mcp"), context: "test")
         }
     }
 
@@ -38,7 +38,7 @@ struct OAuthURLValidatorTests {
     func testValidateHTTPSOrLoopbackRejectsFragment() {
         #expect(throws: OAuthAuthorizationError.self) {
             try OAuthURLValidator().validateHTTPSOrLoopback(
-                URL(string: "https://example.com/mcp#frag")!, context: "test")
+                testURL("https://example.com/mcp#frag"), context: "test")
         }
     }
 
@@ -47,14 +47,14 @@ struct OAuthURLValidatorTests {
     @Test("Accepts HTTPS authorization server")
     func testValidateAuthorizationServerAcceptsHTTPS() throws {
         try OAuthURLValidator().validateAuthorizationServer(
-            URL(string: "https://auth.example.com")!, context: "test")
+            testURL("https://auth.example.com"), context: "test")
     }
 
     @Test("Rejects HTTP authorization server by default")
     func testValidateAuthorizationServerRejectsHTTP() {
         #expect(throws: OAuthAuthorizationError.self) {
             try OAuthURLValidator().validateAuthorizationServer(
-                URL(string: "http://auth.example.com")!, context: "test")
+                testURL("http://auth.example.com"), context: "test")
         }
     }
 
@@ -62,14 +62,14 @@ struct OAuthURLValidatorTests {
     func testValidateAuthorizationServerAcceptsLoopbackWhenAllowed() throws {
         let v = OAuthURLValidator(allowLoopbackHTTPForAuthorizationServer: true)
         try v.validateAuthorizationServer(
-            URL(string: "http://localhost:8080")!, context: "test")
+            testURL("http://localhost:8080"), context: "test")
     }
 
     @Test("Rejects loopback HTTP when flag is not set")
     func testValidateAuthorizationServerRejectsLoopbackWhenNotAllowed() {
         #expect(throws: OAuthAuthorizationError.self) {
             try OAuthURLValidator().validateAuthorizationServer(
-                URL(string: "http://localhost:8080")!, context: "test")
+                testURL("http://localhost:8080"), context: "test")
         }
     }
 
@@ -78,20 +78,20 @@ struct OAuthURLValidatorTests {
     @Test("Accepts HTTPS redirect URI")
     func testValidateRedirectURIAcceptsHTTPS() throws {
         try OAuthURLValidator().validateRedirectURI(
-            URL(string: "https://app.example.com/callback")!)
+            testURL("https://app.example.com/callback"))
     }
 
     @Test("Accepts loopback HTTP redirect URI")
     func testValidateRedirectURIAcceptsLoopback() throws {
         try OAuthURLValidator().validateRedirectURI(
-            URL(string: "http://localhost:8080/callback")!)
+            testURL("http://localhost:8080/callback"))
     }
 
     @Test("Rejects remote HTTP redirect URI")
     func testValidateRedirectURIRejectsRemoteHTTP() {
         #expect(throws: OAuthAuthorizationError.self) {
             try OAuthURLValidator().validateRedirectURI(
-                URL(string: "http://app.example.com/callback")!)
+                testURL("http://app.example.com/callback"))
         }
     }
 
@@ -99,7 +99,7 @@ struct OAuthURLValidatorTests {
     func testValidateRedirectURIRejectsFragment() {
         #expect(throws: OAuthAuthorizationError.self) {
             try OAuthURLValidator().validateRedirectURI(
-                URL(string: "https://app.example.com/callback#section")!)
+                testURL("https://app.example.com/callback#section"))
         }
     }
 

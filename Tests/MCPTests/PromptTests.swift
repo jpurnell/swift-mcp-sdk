@@ -178,7 +178,7 @@ struct PromptTests {
         let jsonString = """
             {"jsonrpc":"2.0","id":"test-id","method":"prompts/list"}
             """
-        let data = jsonString.data(using: .utf8)!
+        let data = Data(jsonString.utf8)
 
         let decoder = JSONDecoder()
         let decoded = try decoder.decode(Request<ListPrompts>.self, from: data)
@@ -193,7 +193,7 @@ struct PromptTests {
         let jsonString = """
             {"jsonrpc":"2.0","id":"test-id","method":"prompts/list","params":null}
             """
-        let data = jsonString.data(using: .utf8)!
+        let data = Data(jsonString.utf8)
 
         let decoder = JSONDecoder()
         let decoded = try decoder.decode(Request<ListPrompts>.self, from: data)

@@ -76,7 +76,7 @@ struct LoggingTests {
         """
 
         let decoder = JSONDecoder()
-        let request = try decoder.decode(Request<SetLoggingLevel>.self, from: json.data(using: .utf8)!)
+        let request = try decoder.decode(Request<SetLoggingLevel>.self, from: Data(json.utf8))
 
         #expect(request.method == "logging/setLevel")
         #expect(request.params.level == .warning)
@@ -188,7 +188,7 @@ struct LoggingTests {
         """
 
         let decoder = JSONDecoder()
-        let notification = try decoder.decode(Message<LogMessageNotification>.self, from: json.data(using: .utf8)!)
+        let notification = try decoder.decode(Message<LogMessageNotification>.self, from: Data(json.utf8))
 
         #expect(notification.method == "notifications/message")
         #expect(notification.params.level == LogLevel.info)

@@ -227,7 +227,7 @@ struct SamplingTests {
         // Test text content JSON format
         let textContent: Sampling.Message.Content = .text("Hello")
         let textData = try encoder.encode(textContent)
-        let textJSON = String(data: textData, encoding: .utf8)!
+        let textJSON = String(decoding: textData, as: UTF8.self)
 
         #expect(textJSON.contains("\"type\":\"text\""))
         #expect(textJSON.contains("\"text\":\"Hello\""))
@@ -236,7 +236,7 @@ struct SamplingTests {
         let imageContent: Sampling.Message.Content = .image(
             data: "base64data", mimeType: "image/png")
         let imageData = try encoder.encode(imageContent)
-        let imageJSON = String(data: imageData, encoding: .utf8)!
+        let imageJSON = String(decoding: imageData, as: UTF8.self)
 
         #expect(imageJSON.contains("\"type\":\"image\""))
         #expect(imageJSON.contains("\"data\":\"base64data\""))

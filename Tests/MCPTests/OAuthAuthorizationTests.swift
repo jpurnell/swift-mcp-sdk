@@ -99,58 +99,58 @@ struct OAuthAuthorizationTests {
 
     @Test("Protected resource metadata discovery fallback URLs")
     func testProtectedResourceMetadataURLs() {
-        let endpoint = URL(string: "https://example.com/public/mcp")!
+        let endpoint = testURL("https://example.com/public/mcp")
         let urls = metadataDiscovery.protectedResourceMetadataURLs(for: endpoint)
 
         #expect(
             urls == [
-                URL(string: "https://example.com/.well-known/oauth-protected-resource/public/mcp")!,
-                URL(string: "https://example.com/.well-known/oauth-protected-resource")!,
+                testURL("https://example.com/.well-known/oauth-protected-resource/public/mcp"),
+                testURL("https://example.com/.well-known/oauth-protected-resource"),
             ])
     }
 
     @Test("Authorization server metadata discovery URLs for issuer with path")
     func testAuthorizationServerMetadataURLsWithPath() {
-        let issuer = URL(string: "https://auth.example.com/tenant1")!
+        let issuer = testURL("https://auth.example.com/tenant1")
         let urls = metadataDiscovery.authorizationServerMetadataURLs(for: issuer)
 
         #expect(
             urls == [
-                URL(string: "https://auth.example.com/.well-known/oauth-authorization-server/tenant1")!,
-                URL(string: "https://auth.example.com/.well-known/openid-configuration/tenant1")!,
-                URL(string: "https://auth.example.com/tenant1/.well-known/openid-configuration")!,
+                testURL("https://auth.example.com/.well-known/oauth-authorization-server/tenant1"),
+                testURL("https://auth.example.com/.well-known/openid-configuration/tenant1"),
+                testURL("https://auth.example.com/tenant1/.well-known/openid-configuration"),
             ])
     }
 
     @Test("Authorization server metadata discovery URLs for issuer without path")
     func testAuthorizationServerMetadataURLsWithoutPath() {
-        let issuer = URL(string: "https://auth.example.com")!
+        let issuer = testURL("https://auth.example.com")
         let urls = metadataDiscovery.authorizationServerMetadataURLs(for: issuer)
 
         #expect(
             urls == [
-                URL(string: "https://auth.example.com/.well-known/oauth-authorization-server")!,
-                URL(string: "https://auth.example.com/.well-known/openid-configuration")!,
+                testURL("https://auth.example.com/.well-known/oauth-authorization-server"),
+                testURL("https://auth.example.com/.well-known/openid-configuration"),
             ])
     }
 
     @Test("Canonical resource URI normalization")
     func testCanonicalResourceURINormalization() throws {
-        let endpoint = URL(string: "HTTPS://MCP.EXAMPLE.COM/?q=1")!
+        let endpoint = testURL("HTTPS://MCP.EXAMPLE.COM/?q=1")
         let canonical = try metadataDiscovery.canonicalResourceURI(from: endpoint)
         #expect(canonical.absoluteString == "https://mcp.example.com")
     }
 
     @Test("Canonical resource URI supports explicit port and root slash normalization")
     func testCanonicalResourceURIWithExplicitPort() throws {
-        let endpoint = URL(string: "HTTPS://MCP.EXAMPLE.COM:8443/")!
+        let endpoint = testURL("HTTPS://MCP.EXAMPLE.COM:8443/")
         let canonical = try metadataDiscovery.canonicalResourceURI(from: endpoint)
         #expect(canonical.absoluteString == "https://mcp.example.com:8443")
     }
 
     @Test("Canonical resource URI preserves specific server path")
     func testCanonicalResourceURIPreservesPath() throws {
-        let endpoint = URL(string: "https://mcp.example.com/server/mcp")!
+        let endpoint = testURL("https://mcp.example.com/server/mcp")
         let canonical = try metadataDiscovery.canonicalResourceURI(from: endpoint)
         #expect(canonical.absoluteString == "https://mcp.example.com/server/mcp")
     }
@@ -158,7 +158,7 @@ struct OAuthAuthorizationTests {
     @Test("Canonical resource URI rejects missing scheme")
     func testCanonicalResourceURIRejectsMissingScheme() {
         #expect(throws: OAuthAuthorizationError.self) {
-            _ = try metadataDiscovery.canonicalResourceURI(from: URL(string: "mcp.example.com")!)
+            _ = try metadataDiscovery.canonicalResourceURI(from: testURL("mcp.example.com"))
         }
     }
 
@@ -166,7 +166,7 @@ struct OAuthAuthorizationTests {
     func testCanonicalResourceURIRejectsNonLoopbackHTTP() {
         #expect(throws: OAuthAuthorizationError.self) {
             _ = try metadataDiscovery.canonicalResourceURI(
-                from: URL(string: "http://mcp.example.com/resource")!
+                from: testURL("http://mcp.example.com/resource")
             )
         }
     }
@@ -174,7 +174,7 @@ struct OAuthAuthorizationTests {
     @Test("Canonical resource URI allows loopback http scheme")
     func testCanonicalResourceURIAllowsLoopbackHTTP() throws {
         let canonical = try metadataDiscovery.canonicalResourceURI(
-            from: URL(string: "http://localhost:8080/mcp")!
+            from: testURL("http://localhost:8080/mcp")
         )
         #expect(canonical.absoluteString == "http://localhost:8080/mcp")
     }
@@ -183,23 +183,23 @@ struct OAuthAuthorizationTests {
     func testCanonicalResourceURIRejectsFragment() {
         #expect(throws: OAuthAuthorizationError.self) {
             _ = try metadataDiscovery.canonicalResourceURI(
-                from: URL(string: "https://mcp.example.com#fragment")!
+                from: testURL("https://mcp.example.com#fragment")
             )
         }
     }
 
     @Test("Protected resource matching allows same-origin parent resource")
     func testProtectedResourceMatchingParentResource() {
-        let resource = URL(string: "https://mcp.example.com")!
-        let endpoint = URL(string: "https://mcp.example.com/mcp")!
+        let resource = testURL("https://mcp.example.com")
+        let endpoint = testURL("https://mcp.example.com/mcp")
         #expect(metadataDiscovery.protectedResourceMatches(resource: resource, endpoint: endpoint))
     }
 
     @Test("Protected resource matching enforces path boundaries")
     func testProtectedResourceMatchingPathBoundary() {
-        let resource = URL(string: "https://mcp.example.com/mcp")!
-        let validEndpoint = URL(string: "https://mcp.example.com/mcp/tools")!
-        let invalidEndpoint = URL(string: "https://mcp.example.com/mcp2")!
+        let resource = testURL("https://mcp.example.com/mcp")
+        let validEndpoint = testURL("https://mcp.example.com/mcp/tools")
+        let invalidEndpoint = testURL("https://mcp.example.com/mcp2")
 
         #expect(metadataDiscovery.protectedResourceMatches(resource: resource, endpoint: validEndpoint))
         #expect(!metadataDiscovery.protectedResourceMatches(resource: resource, endpoint: invalidEndpoint))
@@ -207,8 +207,8 @@ struct OAuthAuthorizationTests {
 
     @Test("Protected resource matching rejects origin mismatches")
     func testProtectedResourceMatchingOriginMismatch() {
-        let resource = URL(string: "https://evil.example.com/mcp")!
-        let endpoint = URL(string: "https://mcp.example.com/mcp")!
+        let resource = testURL("https://evil.example.com/mcp")
+        let endpoint = testURL("https://mcp.example.com/mcp")
         #expect(!metadataDiscovery.protectedResourceMatches(resource: resource, endpoint: endpoint))
     }
 
@@ -233,7 +233,7 @@ struct OAuthAuthorizationTests {
     #if canImport(CryptoKit)
         @Test("private_key_jwt helper builds signed JWT with expected claims")
         func testPrivateKeyJWTAssertionHelper() throws {
-            let tokenEndpoint = URL(string: "https://auth.example.com/oauth/token")!
+            let tokenEndpoint = testURL("https://auth.example.com/oauth/token")
             let assertion = try OAuthConfiguration.makePrivateKeyJWTAssertion(
                 clientID: "test-client",
                 tokenEndpoint: tokenEndpoint,
@@ -270,7 +270,7 @@ struct OAuthAuthorizationTests {
         #expect(throws: OAuthConfiguration.PrivateKeyJWTAssertionError.self) {
             _ = try OAuthConfiguration.makePrivateKeyJWTAssertion(
                 clientID: "test-client",
-                tokenEndpoint: URL(string: "https://auth.example.com/token")!,
+                tokenEndpoint: testURL("https://auth.example.com/token"),
                 privateKeyPEM: Self.testPrivateKeyPEM,
                 expiresIn: 0
             )
@@ -320,7 +320,7 @@ struct OAuthAuthorizationTests {
     @Test("Protected resource metadata returns empty for non-HTTPS endpoint")
     func testProtectedResourceMetadataRejectsHTTP() {
         let urls = metadataDiscovery.protectedResourceMetadataURLs(
-            for: URL(string: "http://remote.example.com/mcp")!
+            for: testURL("http://remote.example.com/mcp")
         )
         #expect(urls.isEmpty)
     }
@@ -328,18 +328,18 @@ struct OAuthAuthorizationTests {
     @Test("Protected resource metadata for root endpoint produces path-specific and root URLs")
     func testProtectedResourceMetadataRootEndpoint() {
         let urls = metadataDiscovery.protectedResourceMetadataURLs(
-            for: URL(string: "https://example.com")!
+            for: testURL("https://example.com")
         )
         #expect(urls.count == 2)
         #expect(urls.allSatisfy {
-            $0 == URL(string: "https://example.com/.well-known/oauth-protected-resource")!
+            $0 == testURL("https://example.com/.well-known/oauth-protected-resource")
         })
     }
 
     @Test("Protected resource metadata allows loopback HTTP")
     func testProtectedResourceMetadataAllowsLoopbackHTTP() {
         let urls = metadataDiscovery.protectedResourceMetadataURLs(
-            for: URL(string: "http://localhost:8080/mcp")!
+            for: testURL("http://localhost:8080/mcp")
         )
         #expect(!urls.isEmpty)
     }
@@ -347,7 +347,7 @@ struct OAuthAuthorizationTests {
     @Test("Authorization server metadata returns empty for non-HTTPS issuer")
     func testAuthorizationServerMetadataRejectsHTTP() {
         let urls = metadataDiscovery.authorizationServerMetadataURLs(
-            for: URL(string: "http://remote.example.com")!
+            for: testURL("http://remote.example.com")
         )
         #expect(urls.isEmpty)
     }
@@ -355,7 +355,7 @@ struct OAuthAuthorizationTests {
     @Test("Authorization server fallback issuer derives origin from endpoint")
     func testAuthorizationServerFallbackIssuer() throws {
         let issuer = try metadataDiscovery.authorizationServerFallbackIssuer(
-            from: URL(string: "https://mcp.example.com:8443/server/mcp")!
+            from: testURL("https://mcp.example.com:8443/server/mcp")
         )
         #expect(issuer.absoluteString == "https://mcp.example.com:8443")
     }
@@ -363,7 +363,7 @@ struct OAuthAuthorizationTests {
     @Test("Authorization server fallback issuer normalizes case and strips query")
     func testAuthorizationServerFallbackIssuerNormalization() throws {
         let issuer = try metadataDiscovery.authorizationServerFallbackIssuer(
-            from: URL(string: "HTTPS://AUTH.EXAMPLE.COM/path?q=1")!
+            from: testURL("HTTPS://AUTH.EXAMPLE.COM/path?q=1")
         )
         #expect(issuer.absoluteString == "https://auth.example.com")
     }
@@ -372,22 +372,22 @@ struct OAuthAuthorizationTests {
     func testAuthorizationServerFallbackIssuerRejectsInsecure() {
         #expect(throws: OAuthAuthorizationError.self) {
             _ = try metadataDiscovery.authorizationServerFallbackIssuer(
-                from: URL(string: "http://remote.example.com/mcp")!
+                from: testURL("http://remote.example.com/mcp")
             )
         }
     }
 
     @Test("Protected resource matching with port mismatch")
     func testProtectedResourceMatchingPortMismatch() {
-        let resource = URL(string: "https://mcp.example.com:8443")!
-        let endpoint = URL(string: "https://mcp.example.com:9443/mcp")!
+        let resource = testURL("https://mcp.example.com:8443")
+        let endpoint = testURL("https://mcp.example.com:9443/mcp")
         #expect(!metadataDiscovery.protectedResourceMatches(resource: resource, endpoint: endpoint))
     }
 
     @Test("Protected resource matching with exact path")
     func testProtectedResourceMatchingExactPath() {
-        let resource = URL(string: "https://mcp.example.com/mcp")!
-        let endpoint = URL(string: "https://mcp.example.com/mcp")!
+        let resource = testURL("https://mcp.example.com/mcp")
+        let endpoint = testURL("https://mcp.example.com/mcp")
         #expect(metadataDiscovery.protectedResourceMatches(resource: resource, endpoint: endpoint))
     }
 
@@ -442,7 +442,7 @@ struct OAuthAuthorizationTests {
         // OAuthTokenResponse decodes token_type from JSON; simulate an empty value via
         // direct struct construction using the internal initializer path.
         let json = #"{"access_token":"tok","token_type":"","expires_in":3600}"#
-        let data = json.data(using: .utf8)!
+        let data = Data(json.utf8)
         let decoded = try JSONDecoder().decode(OAuthTokenResponse.self, from: data)
         // The token_type is empty; the authorizer guard must reject this.
         let tokenType = decoded.tokenType.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -454,7 +454,7 @@ struct OAuthAuthorizationTests {
     @Test("Token type whitespace-only is rejected")
     func testWhitespaceTokenTypeIsRejected() throws {
         let json = #"{"access_token":"tok","token_type":"   ","expires_in":3600}"#
-        let data = json.data(using: .utf8)!
+        let data = Data(json.utf8)
         let decoded = try JSONDecoder().decode(OAuthTokenResponse.self, from: data)
         let tokenType = decoded.tokenType.trimmingCharacters(in: .whitespacesAndNewlines)
         let isValid = !tokenType.isEmpty
@@ -549,7 +549,7 @@ struct OAuthAuthorizationTests {
         let authorizer = OAuthAuthorizer(configuration: config, tokenStorage: storage)
 
         try await authorizer.prepareAuthorization(
-            for: URL(string: "https://example.com/mcp")!,
+            for: testURL("https://example.com/mcp"),
             session: .shared
         )
 
@@ -577,7 +577,7 @@ struct OAuthAuthorizationTests {
         let authorizer = OAuthAuthorizer(configuration: config, tokenStorage: storage)
 
         try await authorizer.prepareAuthorization(
-            for: URL(string: "https://example.com/mcp")!,
+            for: testURL("https://example.com/mcp"),
             session: .shared
         )
 
@@ -633,8 +633,8 @@ struct OAuthAuthorizationTests {
     // MARK: - BearerTokenValidator Audience and Expiry Tests
 
     private let testResourceMetadataURL =
-        URL(string: "https://api.example.com/.well-known/oauth-protected-resource")!
-    private let testResourceIdentifier = URL(string: "https://api.example.com")!
+        testURL("https://api.example.com/.well-known/oauth-protected-resource")
+    private let testResourceIdentifier = testURL("https://api.example.com")
 
     private func makeBearerValidator(
         tokenValidator: @escaping BearerTokenValidator.TokenValidator

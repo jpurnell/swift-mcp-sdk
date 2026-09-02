@@ -13,7 +13,7 @@ import Testing
     struct OAuthTokenEndpointClientTests {
 
         let client = OAuthTokenEndpointClient(urlValidator: OAuthURLValidator())
-        let tokenEndpoint = URL(string: "https://auth.example.com/token")!
+        let tokenEndpoint = testURL("https://auth.example.com/token")
 
         func successBody(
             accessToken: String = "access-token",
