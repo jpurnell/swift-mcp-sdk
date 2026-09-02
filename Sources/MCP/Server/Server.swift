@@ -838,7 +838,7 @@ public actor Server {
         }
 
         do {
-            let response = try await handlerTask.value
+            let response = identifying(try await handlerTask.value)
 
             if sendResponse {
                 try await send(response)
@@ -861,6 +861,39 @@ public actor Server {
 
             return response
         }
+    }
+
+    /// Stamps a successful result with the server's identity in `_meta`.
+    ///
+    /// A client on `2026-07-28` never sees an `initialize` result — the handshake is gone — so a
+    /// response is the only place it can learn who answered. Spec PR #3002 puts that in
+    /// `_meta["io.modelcontextprotocol/serverInfo"]`, and makes it a SHOULD on responses rather
+    /// than on discovery alone: a request may reach any instance behind a load balancer, and
+    /// which one answered is exactly what a client chasing an inconsistency needs.
+    ///
+    /// A handler that set the key itself is left alone. Errors are not stamped: the shape a
+    /// receiver reads there is `code`/`message`/`data`, and `_meta` has no place in it.
+    private func identifying(_ response: Response<AnyMethod>) -> Response<AnyMethod> {
+        guard case .success(let result) = response.result,
+            case .object(var fields) = result
+        else { return response }
+
+        var meta: [String: Value]
+        if case .object(let existing) = fields["_meta"] {
+            guard existing[Metadata.Keys.serverInfo] == nil else { return response }
+            meta = existing
+        } else {
+            meta = [:]
+        }
+
+        var info: [String: Value] = [
+            "name": .string(serverInfo.name),
+            "version": .string(serverInfo.version),
+        ]
+        if let title = serverInfo.title { info["title"] = .string(title) }
+        meta[Metadata.Keys.serverInfo] = .object(info)
+        fields["_meta"] = .object(meta)
+        return Response<AnyMethod>(id: response.id, result: .success(.object(fields)))
     }
 
     private func handleMessage(_ message: Message<AnyNotification>) async throws {

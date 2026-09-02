@@ -54,6 +54,21 @@ public enum MCPError: Swift.Error, Sendable {
     /// The client asked for a protocol version this server does not support.
     case unsupportedProtocolVersion(String?)  // -32022
 
+    /// An error whose `data` carries the structured payload the specification defines for its
+    /// code.
+    ///
+    /// Several errors are only actionable through `data`: the capabilities a request needed
+    /// (`-32021`), the URI that was refused (`-32602`), the versions a server will serve
+    /// (`-32022`). Every other case here carries a free-text detail, which cannot express any of
+    /// those without inventing a string format the receiver would have to parse back.
+    ///
+    /// Build one through ``missingRequiredClientCapability(requiring:)``,
+    /// ``resourceNotFound(uri:)`` or ``unsupportedProtocolVersion(requested:supported:)`` rather
+    /// than by hand. Those share a name with the free-text cases above and differ in their
+    /// argument labels — the same error, said with a payload instead of a sentence — so match on
+    /// ``code`` rather than on the case when either form may arrive.
+    case structured(code: Int, message: String, data: [String: Value])
+
     // Server errors (-32000 to -32099)
     case serverError(code: Int, message: String)
 
@@ -76,6 +91,7 @@ public enum MCPError: Swift.Error, Sendable {
         case .headerMismatch: return -32020
         case .missingRequiredClientCapability: return -32021
         case .unsupportedProtocolVersion: return -32022
+        case .structured(let code, _, _): return code
         case .serverError(let code, _): return code
         // Renumbered from -32042 by the 2026-07-28 allocation policy: that code sits inside
         // the range the specification reserves for itself, and the revision removed the
@@ -91,6 +107,70 @@ public enum MCPError: Swift.Error, Sendable {
         case .connectionClosed: return -32000
         case .transportError: return -32001
         }
+    }
+
+    /// The structured `data` payload this error carries, if it has one.
+    ///
+    /// `nil` for the free-text cases, whose `data` is a `detail` string rather than a shape the
+    /// receiver can act on.
+    public var structuredData: [String: Value]? {
+        guard case .structured(_, _, let data) = self else { return nil }
+        return data
+    }
+
+    /// A `-32021` naming the capabilities the request needed, as a `ClientCapabilities` object.
+    ///
+    /// The specification's own example carries `{"requiredCapabilities": {"elicitation": {}}}` —
+    /// an object keyed by capability, not a list of names — so a client can merge the answer
+    /// into what it already declares and retry. Each capability's value is an empty object
+    /// because the client is being told *which* capability is missing, not how to configure it.
+    ///
+    /// - Parameter capabilities: The capability names the request could not proceed without.
+    public static func missingRequiredClientCapability(requiring capabilities: [String]) -> MCPError {
+        var required: [String: Value] = [:]
+        for capability in capabilities { required[capability] = .object([:]) }
+        let names = capabilities.joined(separator: ", ")
+        return .structured(
+            code: -32021,
+            message: "Missing required client capability: \(names)",
+            data: ["requiredCapabilities": .object(required)]
+        )
+    }
+
+    /// A `-32602` naming the URI that was not found (SEP-2164).
+    ///
+    /// A client reading several resources at once cannot tell which read was refused from the
+    /// message alone; the URI in `data` is what makes the error attributable.
+    ///
+    /// - Parameter uri: The resource URI the server does not have.
+    public static func resourceNotFound(uri: String) -> MCPError {
+        .structured(
+            code: -32602,
+            message: "Resource not found: \(uri)",
+            data: ["uri": .string(uri)]
+        )
+    }
+
+    /// A `-32022` carrying both the version that was asked for and the versions on offer.
+    ///
+    /// `supported` alone refuses the client without saying which of its attempts was refused,
+    /// which matters when more than one is in flight. Echoing `requested` makes the error
+    /// self-describing.
+    ///
+    /// - Parameters:
+    ///   - requested: The protocol version the client asked for.
+    ///   - supported: The versions this server will actually serve.
+    public static func unsupportedProtocolVersion(
+        requested: String, supported: [String]
+    ) -> MCPError {
+        .structured(
+            code: -32022,
+            message: "Unsupported protocol version '\(requested)'",
+            data: [
+                "requested": .string(requested),
+                "supported": .array(supported.map { .string($0) }),
+            ]
+        )
     }
 
     /// Check if an error represents a "resource temporarily unavailable" condition
@@ -131,6 +211,8 @@ extension MCPError: LocalizedError {
             return "Missing required client capability\(detail.map { ": \($0)" } ?? "")"
         case .unsupportedProtocolVersion(let detail):
             return "Unsupported protocol version\(detail.map { ": \($0)" } ?? "")"
+        case .structured(_, let message, _):
+            return message
         case .serverError(_, let message):
             return "Server error: \(message)"
         case .urlElicitationRequired(let message, _):
@@ -162,6 +244,8 @@ extension MCPError: LocalizedError {
             return "The request needed a client capability the client did not declare"
         case .unsupportedProtocolVersion:
             return "The requested protocol version is not supported by this server"
+        case .structured:
+            return "The error carries a structured payload describing what the request needed"
         case .serverError:
             return "Server-defined error occurred"
         case .urlElicitationRequired:
@@ -237,6 +321,9 @@ extension MCPError: Codable {
             if let detail = detail {
                 try container.encode(["detail": detail], forKey: .data)
             }
+        case .structured(_, let message, let data):
+            try container.encode(message, forKey: .message)
+            try container.encode(data, forKey: .data)
         case .serverError(_, _):
             // No additional data for server errors
             try container.encode(errorDescription ?? "Unknown error", forKey: .message)
@@ -281,6 +368,16 @@ extension MCPError: Codable {
             return fallback
         }
 
+        // A payload the sender built to be acted on — anything beyond the free-text shapes this
+        // type has always written — is kept whole. Flattening it into a detail string would
+        // discard the only part a receiver can use, and it is the sender's own framing rather
+        // than a guess about which case was meant.
+        let freeTextKeys: Set<String> = ["detail", "error", "elicitations"]
+        if let data, !data.isEmpty, !Set(data.keys).isSubset(of: freeTextKeys) {
+            self = .structured(code: code, message: message, data: data)
+            return
+        }
+
         switch code {
         case -32700:
             self = .parseError(unwrapDetail(message))
@@ -319,6 +416,15 @@ extension MCPError: Codable {
                 }
             }
             self = .urlElicitationRequired(message: message, elicitations: elicitations)
+        // The three codes SEP-2575 moved into the reserved range. Without these they decoded as
+        // `.serverError`, which is the catch-all for codes this SDK does not know — and these
+        // are codes it does know.
+        case -32020:
+            self = .headerMismatch(unwrapDetail(message))
+        case -32021:
+            self = .missingRequiredClientCapability(unwrapDetail(message))
+        case -32022:
+            self = .unsupportedProtocolVersion(unwrapDetail(message))
         case -32000:
             self = .connectionClosed
         case -32001:
@@ -351,6 +457,8 @@ extension MCPError: Equatable {
         case (.methodNotFound(let a), .methodNotFound(let b)): return a == b
         case (.invalidParams(let a), .invalidParams(let b)): return a == b
         case (.internalError(let a), .internalError(let b)): return a == b
+        case (.structured(let c1, let m1, let d1), .structured(let c2, let m2, let d2)):
+            return c1 == c2 && m1 == m2 && d1 == d2
         case (.serverError(let c1, let m1), .serverError(let c2, let m2)):
             return c1 == c2 && m1 == m2
         case (.urlElicitationRequired(let m1, let e1), .urlElicitationRequired(let m2, let e2)):
@@ -387,6 +495,9 @@ extension MCPError: Hashable {
             hasher.combine(detail)
         case .unsupportedProtocolVersion(let detail):
             hasher.combine(detail)
+        case .structured(_, let message, let data):
+            hasher.combine(message)
+            hasher.combine(data)
         case .serverError(_, let message):
             hasher.combine(message)
         case .urlElicitationRequired(let message, let elicitations):
