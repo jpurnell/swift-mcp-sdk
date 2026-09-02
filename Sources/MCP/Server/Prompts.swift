@@ -300,7 +300,7 @@ public enum ListPrompts: Method {
             prompts: [Prompt],
             nextCursor: String? = nil,
             _meta: Metadata? = nil,
-            resultType: ResultType? = nil,
+            resultType: ResultType? = .complete,
             ttlMs: Int? = nil,
             cacheScope: CacheScope? = nil
         ) {
@@ -387,7 +387,7 @@ public enum GetPrompt: Method {
             description: String? = nil,
             messages: [Prompt.Message],
             _meta: Metadata? = nil,
-            resultType: ResultType? = nil
+            resultType: ResultType? = .complete
         ) {
             self.description = description
             self.messages = messages

@@ -144,7 +144,7 @@ public enum Complete: Method {
         public init(
             completion: Completion,
             _meta: Metadata? = nil,
-            resultType: ResultType? = nil
+            resultType: ResultType? = .complete
         ) {
             self.completion = completion
             self._meta = _meta

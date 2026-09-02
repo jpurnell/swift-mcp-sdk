@@ -54,7 +54,7 @@ public enum Discover: Method {
             capabilities: Server.Capabilities,
             instructions: String? = nil,
             _meta: Metadata? = nil,
-            resultType: ResultType? = nil,
+            resultType: ResultType? = .complete,
             ttlMs: Int? = nil,
             cacheScope: CacheScope? = nil
         ) {

@@ -69,7 +69,7 @@ public enum SubscriptionsListen: Method {
         public var _meta: Metadata?
 
         /// Creates the result.
-        public init(resultType: ResultType? = nil, _meta: Metadata? = nil) {
+        public init(resultType: ResultType? = .complete, _meta: Metadata? = nil) {
             self.resultType = resultType
             self._meta = _meta
         }

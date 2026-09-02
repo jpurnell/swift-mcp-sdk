@@ -337,7 +337,7 @@ public enum ListTools: Method {
             tools: [Tool],
             nextCursor: String? = nil,
             _meta: Metadata? = nil,
-            resultType: ResultType? = nil,
+            resultType: ResultType? = .complete,
             ttlMs: Int? = nil,
             cacheScope: CacheScope? = nil
         ) {
@@ -468,7 +468,7 @@ public enum CallTool: Method {
             structuredContent: Value? = nil,
             isError: Bool? = nil,
             _meta: Metadata? = nil,
-            resultType: ResultType? = nil
+            resultType: ResultType? = .complete
         ) {
             self.content = content
             self.structuredContent = structuredContent

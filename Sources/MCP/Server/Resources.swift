@@ -279,7 +279,7 @@ public enum ListResources: Method {
             resources: [Resource],
             nextCursor: String? = nil,
             _meta: Metadata? = nil,
-            resultType: ResultType? = nil,
+            resultType: ResultType? = .complete,
             ttlMs: Int? = nil,
             cacheScope: CacheScope? = nil
         ) {
@@ -346,7 +346,7 @@ public enum ReadResource: Method {
         public init(
             contents: [Resource.Content],
             _meta: Metadata? = nil,
-            resultType: ResultType? = nil,
+            resultType: ResultType? = .complete,
             ttlMs: Int? = nil,
             cacheScope: CacheScope? = nil
         ) {
@@ -416,7 +416,7 @@ public enum ListResourceTemplates: Method {
             templates: [Resource.Template],
             nextCursor: String? = nil,
             _meta: Metadata? = nil,
-            resultType: ResultType? = nil,
+            resultType: ResultType? = .complete,
             ttlMs: Int? = nil,
             cacheScope: CacheScope? = nil
         ) {
