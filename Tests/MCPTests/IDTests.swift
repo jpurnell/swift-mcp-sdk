@@ -43,7 +43,7 @@ struct IDTests {
         if case .string(let str) = id1 {
             #expect(!str.isEmpty)
             // Verify it's a valid UUID string
-            #expect(UUID(uuidString: str) != nil)
+            #expect(try #require(UUID(uuidString: str)).uuidString.lowercased() == str.lowercased())
         } else {
             #expect(Bool(false), "Random ID should be string type")
         }

@@ -15,9 +15,21 @@ struct InMemoryTransportTests {
         try await clientTransport.connect()
         try await serverTransport.connect()
 
+        // Connected transports can exchange messages in both directions
+        let payload = Data("ping".utf8)
+        try await clientTransport.send(payload)
+        var serverIterator = await serverTransport.receive().makeAsyncIterator()
+        let atServer = try await serverIterator.next()
+        #expect(atServer == payload)
+
         // Clean up
         await clientTransport.disconnect()
         await serverTransport.disconnect()
+
+        // After disconnecting, sending fails
+        await #expect(throws: MCPError.self) {
+            try await clientTransport.send(payload)
+        }
     }
 
     @Test("Connect without pairing throws error")
@@ -48,6 +60,13 @@ struct InMemoryTransportTests {
         try await clientTransport.connect()
         try await clientTransport.connect()  // Should be safe
         try await clientTransport.connect()  // Should be safe
+
+        // Transport is still connected and usable after the repeated connects
+        try await serverTransport.connect()
+        try await clientTransport.send(Data("still-works".utf8))
+        var serverIterator = await serverTransport.receive().makeAsyncIterator()
+        let received = try await serverIterator.next()
+        #expect(received == Data("still-works".utf8))
 
         // Clean up
         await clientTransport.disconnect()
@@ -231,8 +250,18 @@ struct InMemoryTransportTests {
 
         // Disconnect client (peer)
         await clientTransport.disconnect()
-        
-        receiveTask.cancel()
+
+        // The server's receive stream ends with connectionClosed when the peer goes away
+        let result = await receiveTask.value
+        // (nil means the stream was already closed when iteration began)
+        if let error = result {
+            #expect((error as? MCPError) == MCPError.connectionClosed)
+        }
+
+        // The server has been disconnected by the peer, so it can no longer send
+        await #expect(throws: MCPError.self) {
+            try await serverTransport.send(Data("late".utf8))
+        }
     }
 
     @Test("Multiple disconnects are safe")
@@ -249,6 +278,14 @@ struct InMemoryTransportTests {
 
         // Clean up server
         await serverTransport.disconnect()
+
+        // Both ends are disconnected: sends fail on each
+        await #expect(throws: MCPError.self) {
+            try await clientTransport.send(Data("x".utf8))
+        }
+        await #expect(throws: MCPError.self) {
+            try await serverTransport.send(Data("x".utf8))
+        }
     }
 
     @Test("Message queueing before stream creation")

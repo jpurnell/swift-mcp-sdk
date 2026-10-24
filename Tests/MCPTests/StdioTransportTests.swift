@@ -17,7 +17,16 @@ struct StdioTransportTests {
         let (_, output) = try FileDescriptor.pipe()
         let transport = StdioTransport(input: input, output: output, logger: nil)
         try await transport.connect()
+
+        // Connected: sending succeeds
+        try await transport.send(Data(#"{"a":1}"#.utf8))
+
         await transport.disconnect()
+
+        // Disconnected: sending fails
+        await #expect(throws: MCPError.self) {
+            try await transport.send(Data(#"{"a":2}"#.utf8))
+        }
     }
 
     @Test("Send Message")
@@ -83,7 +92,10 @@ struct StdioTransportTests {
         let stream: AsyncThrowingStream<Data, Swift.Error> = await transport.receive()
         var iterator = stream.makeAsyncIterator()
 
-        _ = try await iterator.next()
+        // Input without a newline delimiter never forms a complete message, so the
+        // stream ends at EOF without delivering the invalid payload.
+        let received = try await iterator.next()
+        #expect(received == nil)
 
         await transport.disconnect()
     }

@@ -105,8 +105,8 @@ struct RoundtripTests {
 
             #expect(result.serverInfo.name == "TestServer")
             #expect(result.serverInfo.version == "1.0.0")
-            #expect(result.capabilities.prompts != nil)
-            #expect(result.capabilities.tools != nil)
+            #expect(result.capabilities.prompts == Server.Capabilities.Prompts())
+            #expect(result.capabilities.tools == Server.Capabilities.Tools())
             #expect(result.protocolVersion == Version.latest)
         }
         try await withThrowingTaskGroup(of: Void.self) { group in

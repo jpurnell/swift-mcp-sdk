@@ -262,7 +262,7 @@ struct ElicitationIntegrationTests {
         await client.withElicitationHandler { parameters in
             if case .form(let formParams) = parameters {
                 #expect(formParams.message == "Please enter your details")
-                #expect(formParams.requestedSchema.properties["email"] != nil)
+                #expect(formParams.requestedSchema.properties["email"] == ["type": "string", "format": "email"])
                 #expect(formParams._meta?["flow"]?.stringValue == "onboarding")
 
                 // Return accepted response

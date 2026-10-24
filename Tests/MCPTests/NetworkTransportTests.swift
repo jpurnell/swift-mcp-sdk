@@ -174,7 +174,7 @@ import Testing
     @Suite("Network Transport Tests", .serialized)
     struct NetworkTransportTests {
         @Test("Heartbeat Creation And Parsing")
-        func testHeartbeatCreationAndParsing() {
+        func testHeartbeatCreationAndParsing() throws {
             // Create a heartbeat
             let heartbeat = NetworkTransport.Heartbeat()
 
@@ -182,13 +182,11 @@ import Testing
             let data = heartbeat.data
             let parsed = NetworkTransport.Heartbeat.from(data: data)
 
-            #expect(parsed != nil)
+            let parsedHeartbeat = try #require(parsed)
 
             // Time should be very close (within 1 second)
-            if let parsed = parsed {
-                let timeDifference = abs(parsed.timestamp.timeIntervalSince(heartbeat.timestamp))
-                #expect(timeDifference < 1.0)
-            }
+            let timeDifference = abs(parsedHeartbeat.timestamp.timeIntervalSince(heartbeat.timestamp))
+            #expect(timeDifference < 1.0)
 
             // Test invalid data
             let invalidData = Data([0x01, 0x02, 0x03])
@@ -335,12 +333,8 @@ import Testing
             var iterator = stream.makeAsyncIterator()
 
             // Get first message
-            let received = try await iterator.next()
-            #expect(received != nil)
-
-            if let received = received {
-                #expect(received == Data(message.utf8))
-            }
+            let received = try #require(try await iterator.next())
+            #expect(received == Data(message.utf8))
 
             await transport.disconnect()
         }
@@ -496,8 +490,16 @@ import Testing
             // Disconnect while receiving
             await transport.disconnect()
 
-            // Wait for the receive task to complete
-            _ = await receiveTask.result
+            // Wait for the receive task to complete: ending the stream is a clean finish
+            let result = await receiveTask.result
+            if case .failure(let error) = result {
+                Issue.record("Receive loop should end cleanly on disconnect, got \(error)")
+            }
+
+            // The transport no longer accepts sends once disconnected
+            await #expect(throws: MCPError.self) {
+                try await transport.send(Data("after".utf8))
+            }
         }
 
         @Test("Partial Message Reception")
@@ -528,11 +530,8 @@ import Testing
             var iterator = stream.makeAsyncIterator()
 
             // Get the complete message
-            let received = try await iterator.next()
-            #expect(received != nil)
-            if let received = received {
-                #expect(received == Data(message.utf8))
-            }
+            let received = try #require(try await iterator.next())
+            #expect(received == Data(message.utf8))
 
             await transport.disconnect()
         }
@@ -557,11 +556,8 @@ import Testing
             var iterator = stream.makeAsyncIterator()
 
             // Get the message
-            let received = try await iterator.next()
-            #expect(received != nil)
-            if let received = received {
-                #expect(received.count == largeMessage.count)
-            }
+            let received = try #require(try await iterator.next())
+            #expect(received.count == largeMessage.count)
 
             await transport.disconnect()
         }
@@ -628,11 +624,9 @@ import Testing
             try await Task.sleep(for: .milliseconds(500))
 
             // Verify connection state
-            if case .failed = mockConnection.state {
-                // expected
-            } else {
-                Issue.record("Expected state to be failed")
-            }
+            var isFailed = false
+            if case .failed = mockConnection.state { isFailed = true }
+            #expect(isFailed, "Expected state to be failed")
 
             await transport.disconnect()
         }

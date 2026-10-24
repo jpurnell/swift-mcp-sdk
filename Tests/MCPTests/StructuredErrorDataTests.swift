@@ -29,7 +29,8 @@ struct StructuredErrorDataTests {
         let json = try encoded(error)
         let data = try #require(json["data"] as? [String: Any])
         let required = try #require(data["requiredCapabilities"] as? [String: Any])
-        #expect(required["sampling"] as? [String: Any] != nil, "each capability is an object")
+        let sampling = try #require(required["sampling"] as? [String: Any], "each capability is an object")
+        #expect(sampling.isEmpty)
     }
 
     /// SEP-2164: the URI belongs in `data`, so a client handling several reads at once can tell
@@ -66,7 +67,7 @@ struct StructuredErrorDataTests {
 
         #expect(decoded.code == -32021)
         let payload = try #require(decoded.structuredData)
-        #expect(payload["requiredCapabilities"]?.objectValue?["elicitation"] != nil)
+        #expect(payload["requiredCapabilities"]?.objectValue?["elicitation"] == .object([:]))
     }
 
     /// The free-text cases are unchanged: a detail string still encodes as `data.detail`, and
@@ -94,6 +95,7 @@ extension StructuredErrorDataTests {
         let required = try #require(data["requiredCapabilities"] as? [String: Any])
         let extensions = try #require(required["extensions"] as? [String: Any])
         #expect(Array(extensions.keys) == ["io.modelcontextprotocol/tasks"])
-        #expect(extensions["io.modelcontextprotocol/tasks"] as? [String: Any] != nil)
+        let tasksExtension = try #require(extensions["io.modelcontextprotocol/tasks"] as? [String: Any])
+        #expect(tasksExtension.isEmpty)
     }
 }

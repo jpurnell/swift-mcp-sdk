@@ -189,7 +189,7 @@ struct SamplingTests {
             sampling: .init()
         )
 
-        #expect(capabilities.sampling != nil)
+        #expect(capabilities.sampling == Client.Capabilities.Sampling())
 
         let encoder = JSONEncoder()
         let decoder = JSONDecoder()
@@ -197,7 +197,7 @@ struct SamplingTests {
         let data = try encoder.encode(capabilities)
         let decoded = try decoder.decode(Client.Capabilities.self, from: data)
 
-        #expect(decoded.sampling != nil)
+        #expect(decoded.sampling == Client.Capabilities.Sampling())
     }
 
     @Test("Client sampling handler registration")
@@ -1083,8 +1083,8 @@ struct Sampling2025_11_25Tests {
             sampling: .init(tools: .init(), context: .init())
         )
 
-        #expect(capabilities.sampling?.tools != nil)
-        #expect(capabilities.sampling?.context != nil)
+        #expect(capabilities.sampling?.tools == Client.Capabilities.Sampling.Tools())
+        #expect(capabilities.sampling?.context == Client.Capabilities.Sampling.Context())
 
         let data = try encoder.encode(capabilities)
         let decoded = try decoder.decode(Client.Capabilities.self, from: data)

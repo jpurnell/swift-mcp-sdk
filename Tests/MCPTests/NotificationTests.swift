@@ -105,7 +105,7 @@ struct NotificationTests {
         let json = try JSONDecoder().decode([String: Value].self, from: data)
         #expect(json["jsonrpc"] == "2.0")
         #expect(json["method"] == "notifications/resources/updated")
-        #expect(json["params"] != nil)
+        #expect(json["params"] == .object(["uri": "test://resource"]))
         #expect(json.count == 3, "Should contain jsonrpc, method, and params fields")
 
         // Verify we can decode it back

@@ -99,7 +99,9 @@ struct TaskEnvelopeTests {
         let json = try encoded(result)
         #expect(json["status"] as? String == "completed")
         let inlined = try #require(json["result"] as? [String: Any])
-        #expect(inlined["content"] as? [[String: Any]] != nil)
+        let content = try #require(inlined["content"] as? [[String: Any]])
+        #expect(content.count == 1)
+        #expect(content.first?["type"] as? String == "text")
     }
 
     /// A tool that ran and reported failure is `completed` with `isError`; `failed` is reserved

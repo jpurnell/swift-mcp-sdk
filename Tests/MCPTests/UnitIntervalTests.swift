@@ -52,20 +52,20 @@ struct UnitIntervalTests {
         // Test exact boundary values
         let exactZero = 0.0 * 1.0
         let zero = UnitInterval(exactZero)
-        #expect(zero != nil)
+        #expect(isBitIdentical(try #require(zero).doubleValue, 0.0))
 
         let exactOne = 1.0 * 1.0
         let one = UnitInterval(exactOne)
-        #expect(one != nil)
+        #expect(isBitIdentical(try #require(one).doubleValue, 1.0))
 
         // Test machine precision boundaries
         let justAboveZero = Double.ulpOfOne * 1.0
         let aboveZero = UnitInterval(justAboveZero)
-        #expect(aboveZero != nil)
+        #expect(isBitIdentical(try #require(aboveZero).doubleValue, justAboveZero))
 
         let justBelowOne = (1.0 - Double.ulpOfOne) * 1.0
         let belowOne = UnitInterval(justBelowOne)
-        #expect(belowOne != nil)
+        #expect(isBitIdentical(try #require(belowOne).doubleValue, justBelowOne))
 
         // Test very small positive value
         let tinyValue = 1e-10 * 1.0

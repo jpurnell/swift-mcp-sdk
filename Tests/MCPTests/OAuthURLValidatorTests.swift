@@ -13,17 +13,21 @@ struct OAuthURLValidatorTests {
     // MARK: - validateHTTPSOrLoopback
 
     @Test("Accepts HTTPS URL")
-    func testValidateHTTPSOrLoopbackAcceptsHTTPS() throws {
-        try OAuthURLValidator().validateHTTPSOrLoopback(
-            testURL("https://example.com/mcp"), context: "test")
+    func testValidateHTTPSOrLoopbackAcceptsHTTPS() {
+        #expect(throws: Never.self) {
+            try OAuthURLValidator().validateHTTPSOrLoopback(
+                testURL("https://example.com/mcp"), context: "test")
+        }
     }
 
     @Test("Accepts loopback HTTP")
-    func testValidateHTTPSOrLoopbackAcceptsLoopback() throws {
-        try OAuthURLValidator().validateHTTPSOrLoopback(
-            testURL("http://localhost:8080/mcp"), context: "test")
-        try OAuthURLValidator().validateHTTPSOrLoopback(
-            testURL("http://127.0.0.1:9000/mcp"), context: "test")
+    func testValidateHTTPSOrLoopbackAcceptsLoopback() {
+        #expect(throws: Never.self) {
+            try OAuthURLValidator().validateHTTPSOrLoopback(
+                testURL("http://localhost:8080/mcp"), context: "test")
+            try OAuthURLValidator().validateHTTPSOrLoopback(
+                testURL("http://127.0.0.1:9000/mcp"), context: "test")
+        }
     }
 
     @Test("Rejects remote HTTP")
@@ -45,9 +49,11 @@ struct OAuthURLValidatorTests {
     // MARK: - validateAuthorizationServer
 
     @Test("Accepts HTTPS authorization server")
-    func testValidateAuthorizationServerAcceptsHTTPS() throws {
-        try OAuthURLValidator().validateAuthorizationServer(
-            testURL("https://auth.example.com"), context: "test")
+    func testValidateAuthorizationServerAcceptsHTTPS() {
+        #expect(throws: Never.self) {
+            try OAuthURLValidator().validateAuthorizationServer(
+                testURL("https://auth.example.com"), context: "test")
+        }
     }
 
     @Test("Rejects HTTP authorization server by default")
@@ -59,10 +65,12 @@ struct OAuthURLValidatorTests {
     }
 
     @Test("Accepts loopback HTTP when flag is set")
-    func testValidateAuthorizationServerAcceptsLoopbackWhenAllowed() throws {
-        let v = OAuthURLValidator(allowLoopbackHTTPForAuthorizationServer: true)
-        try v.validateAuthorizationServer(
-            testURL("http://localhost:8080"), context: "test")
+    func testValidateAuthorizationServerAcceptsLoopbackWhenAllowed() {
+        #expect(throws: Never.self) {
+            let v = OAuthURLValidator(allowLoopbackHTTPForAuthorizationServer: true)
+            try v.validateAuthorizationServer(
+                testURL("http://localhost:8080"), context: "test")
+        }
     }
 
     @Test("Rejects loopback HTTP when flag is not set")
@@ -76,15 +84,19 @@ struct OAuthURLValidatorTests {
     // MARK: - validateRedirectURI
 
     @Test("Accepts HTTPS redirect URI")
-    func testValidateRedirectURIAcceptsHTTPS() throws {
-        try OAuthURLValidator().validateRedirectURI(
-            testURL("https://app.example.com/callback"))
+    func testValidateRedirectURIAcceptsHTTPS() {
+        #expect(throws: Never.self) {
+            try OAuthURLValidator().validateRedirectURI(
+                testURL("https://app.example.com/callback"))
+        }
     }
 
     @Test("Accepts loopback HTTP redirect URI")
-    func testValidateRedirectURIAcceptsLoopback() throws {
-        try OAuthURLValidator().validateRedirectURI(
-            testURL("http://localhost:8080/callback"))
+    func testValidateRedirectURIAcceptsLoopback() {
+        #expect(throws: Never.self) {
+            try OAuthURLValidator().validateRedirectURI(
+                testURL("http://localhost:8080/callback"))
+        }
     }
 
     @Test("Rejects remote HTTP redirect URI")

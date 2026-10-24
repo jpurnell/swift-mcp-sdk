@@ -84,13 +84,15 @@ struct LoggingTests {
 
     @Test("SetLoggingLevel response")
     func testSetLoggingLevelResponse() throws {
-        let response = SetLoggingLevel.response(id: .random)
+        let id = ID.random
+        let response = SetLoggingLevel.response(id: id)
 
-        if case .success = response.result {
-            // Success case
-        } else {
+        #expect(response.id == id)
+        guard case .success(let result) = response.result else {
             Issue.record("Expected success result")
+            return
         }
+        #expect(result == Empty())
     }
 
     // MARK: - LogMessageNotification Tests
@@ -233,7 +235,7 @@ struct LoggingTests {
         let initResult = try await client.connect(transport: clientTransport)
 
         // Verify logging capability is advertised
-        #expect(initResult.capabilities.logging != nil)
+        #expect(initResult.capabilities.logging == Server.Capabilities.Logging())
 
         // Call setLoggingLevel
         try await client.setLoggingLevel(.warning)

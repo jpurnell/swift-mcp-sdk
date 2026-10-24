@@ -309,8 +309,8 @@ import Testing
                         let state = queryItems.first(where: { $0.name == "state" })?.value
                         let redirectURI =
                             queryItems.first(where: { $0.name == "redirect_uri" })?.value
-                        #expect(state != nil)
-                        #expect(redirectURI != nil)
+                        #expect(state?.isEmpty == false)
+                        #expect(redirectURI?.isEmpty == false)
 
                         var redirectComponents = URLComponents(string: redirectURI ?? "")
                         var redirectQueryItems = redirectComponents?.queryItems ?? []
@@ -699,8 +699,8 @@ import Testing
                             request.value(forHTTPHeaderField: "Authorization")
                                 == "Bearer access-token-xyz")
                         #expect(request.url?.query == "foo=bar")
-                        #expect(
-                            !(request.url?.absoluteString.contains("access_token=") ?? false))
+                        let urlString1 = try #require(request.url?.absoluteString)
+                        #expect(!urlString1.contains("access_token="))
                         let requestBody =
                             String(data: readRequestBody(request) ?? Data(), encoding: .utf8) ?? ""
                         #expect(!requestBody.contains("access_token="))
@@ -757,8 +757,8 @@ import Testing
                         #expect(
                             request.value(forHTTPHeaderField: "Authorization")
                                 == "Bearer session-access-token")
-                        #expect(
-                            !(request.url?.absoluteString.contains("access_token=") ?? false))
+                        let urlString2 = try #require(request.url?.absoluteString)
+                        #expect(!urlString2.contains("access_token="))
                         let requestBody =
                             String(data: readRequestBody(request) ?? Data(), encoding: .utf8) ?? ""
                         #expect(!requestBody.contains("access_token="))
@@ -830,8 +830,8 @@ import Testing
                                 request.value(forHTTPHeaderField: "Authorization")
                                     == "Bearer stream-access-token")
                             #expect(request.url?.query == "foo=bar")
-                            #expect(
-                                !(request.url?.absoluteString.contains("access_token=") ?? false))
+                            let urlString3 = try #require(request.url?.absoluteString)
+                            #expect(!urlString3.contains("access_token="))
                             #expect(
                                 request.value(forHTTPHeaderField: "MCP-Session-Id")
                                     == "stream-session-id")
@@ -848,8 +848,8 @@ import Testing
                         #expect(
                             request.value(forHTTPHeaderField: "Authorization")
                                 == "Bearer stream-access-token")
-                        #expect(
-                            !(request.url?.absoluteString.contains("access_token=") ?? false))
+                        let urlString4 = try #require(request.url?.absoluteString)
+                        #expect(!urlString4.contains("access_token="))
                         let requestBody =
                             String(data: readRequestBody(request) ?? Data(), encoding: .utf8) ?? ""
                         #expect(!requestBody.contains("access_token="))

@@ -30,7 +30,7 @@ struct OAuthAuthorizationTests {
     }
 
     @Test("Parse Bearer challenge with resource metadata and scope")
-    func testParseBearerChallenge() {
+    func testParseBearerChallenge() throws {
         let headers = [
             "WWW-Authenticate":
                 "Bearer resource_metadata=\"https://mcp.example.com/.well-known/oauth-protected-resource\", scope=\"files:read files:write\", error=\"insufficient_scope\""
@@ -38,16 +38,16 @@ struct OAuthAuthorizationTests {
 
         let challenge = DefaultOAuthWWWAuthenticateParser().parseBearer(from: headers)
 
-        #expect(challenge != nil)
+        let parsed = try #require(challenge)
         #expect(
-            challenge?.resourceMetadataURL
+            parsed.resourceMetadataURL
                 == URL(string: "https://mcp.example.com/.well-known/oauth-protected-resource"))
-        #expect(challenge?.scope == "files:read files:write")
-        #expect(challenge?.error == "insufficient_scope")
+        #expect(parsed.scope == "files:read files:write")
+        #expect(parsed.error == "insufficient_scope")
     }
 
     @Test("Parse Bearer challenge with optional error description")
-    func testParseBearerChallengeErrorDescription() {
+    func testParseBearerChallengeErrorDescription() throws {
         let headers = [
             "WWW-Authenticate":
                 "Bearer error=\"insufficient_scope\", scope=\"files:read files:write\", resource_metadata=\"https://mcp.example.com/.well-known/oauth-protected-resource\", error_description=\"Additional file write permission required\""
@@ -55,17 +55,17 @@ struct OAuthAuthorizationTests {
 
         let challenge = DefaultOAuthWWWAuthenticateParser().parseBearer(from: headers)
 
-        #expect(challenge != nil)
-        #expect(challenge?.error == "insufficient_scope")
-        #expect(challenge?.scope == "files:read files:write")
+        let parsed = try #require(challenge)
+        #expect(parsed.error == "insufficient_scope")
+        #expect(parsed.scope == "files:read files:write")
         #expect(
-            challenge?.resourceMetadataURL
+            parsed.resourceMetadataURL
                 == URL(string: "https://mcp.example.com/.well-known/oauth-protected-resource"))
-        #expect(challenge?.errorDescription == "Additional file write permission required")
+        #expect(parsed.errorDescription == "Additional file write permission required")
     }
 
     @Test("Parse Bearer challenge when another auth scheme appears first")
-    func testParseBearerChallengeWhenBearerIsNotFirst() {
+    func testParseBearerChallengeWhenBearerIsNotFirst() throws {
         let headers = [
             "WWW-Authenticate":
                 "Basic realm=\"legacy\", Bearer resource_metadata=\"https://mcp.example.com/.well-known/oauth-protected-resource\", scope=\"files:read\""
@@ -73,15 +73,15 @@ struct OAuthAuthorizationTests {
 
         let challenge = DefaultOAuthWWWAuthenticateParser().parseBearer(from: headers)
 
-        #expect(challenge != nil)
+        let parsed = try #require(challenge)
         #expect(
-            challenge?.resourceMetadataURL
+            parsed.resourceMetadataURL
                 == URL(string: "https://mcp.example.com/.well-known/oauth-protected-resource"))
-        #expect(challenge?.scope == "files:read")
+        #expect(parsed.scope == "files:read")
     }
 
     @Test("Parse Bearer challenge stops before the next auth scheme")
-    func testParseBearerChallengeStopsBeforeNextScheme() {
+    func testParseBearerChallengeStopsBeforeNextScheme() throws {
         let headers = [
             "WWW-Authenticate":
                 "Bearer resource_metadata=\"https://mcp.example.com/.well-known/oauth-protected-resource\", scope=\"files:read\", DPoP algs=\"ES256\""
@@ -89,12 +89,12 @@ struct OAuthAuthorizationTests {
 
         let challenge = DefaultOAuthWWWAuthenticateParser().parseBearer(from: headers)
 
-        #expect(challenge != nil)
+        let parsed = try #require(challenge)
         #expect(
-            challenge?.resourceMetadataURL
+            parsed.resourceMetadataURL
                 == URL(string: "https://mcp.example.com/.well-known/oauth-protected-resource"))
-        #expect(challenge?.scope == "files:read")
-        #expect(challenge?.parameters["algs"] == nil)
+        #expect(parsed.scope == "files:read")
+        #expect(parsed.parameters["algs"] == nil)
     }
 
     @Test("Protected resource metadata discovery fallback URLs")
@@ -248,8 +248,8 @@ struct OAuthAuthorizationTests {
 
             let headerData = Self.decodeBase64URL(parts[0])
             let payloadData = Self.decodeBase64URL(parts[1])
-            #expect(headerData != nil)
-            #expect(payloadData != nil)
+            _ = try #require(headerData)
+            _ = try #require(payloadData)
 
             let header = try JSONSerialization.jsonObject(with: #require(headerData)) as? [String: Any]
             let payload = try JSONSerialization.jsonObject(with: #require(payloadData)) as? [String: Any]
@@ -292,19 +292,19 @@ struct OAuthAuthorizationTests {
     }
 
     @Test("Parse Bearer returns empty challenge for bare Bearer with no parameters")
-    func testParseBearerBareBearerScheme() {
+    func testParseBearerBareBearerScheme() throws {
         let challenge = DefaultOAuthWWWAuthenticateParser().parseBearer(from: ["WWW-Authenticate": "Bearer"])
-        #expect(challenge != nil)
-        #expect(challenge?.parameters.isEmpty == true)
+        let parsed = try #require(challenge)
+        #expect(parsed.parameters.isEmpty == true)
     }
 
     @Test("Parse Bearer header name lookup is case-insensitive")
-    func testParseBearerCaseInsensitiveHeaderName() {
+    func testParseBearerCaseInsensitiveHeaderName() throws {
         let challenge = DefaultOAuthWWWAuthenticateParser().parseBearer(
             from: ["www-authenticate": "Bearer scope=\"read\""]
         )
-        #expect(challenge != nil)
-        #expect(challenge?.scope == "read")
+        let parsed = try #require(challenge)
+        #expect(parsed.scope == "read")
     }
 
     @Test("Parse Bearer returns nil when only non-Bearer schemes present")
@@ -486,7 +486,7 @@ struct OAuthAuthorizationTests {
     }
 
     @Test("InMemoryTokenStorage clear removes stored token")
-    func testTokenStorageClear() {
+    func testTokenStorageClear() throws {
         let storage = InMemoryTokenStorage()
         let token = OAuthAccessToken(
             value: "access-456",
@@ -497,7 +497,8 @@ struct OAuthAuthorizationTests {
             refreshToken: nil
         )
         storage.save(token)
-        #expect(storage.load() != nil)
+        let stored = try #require(storage.load())
+        #expect(stored.value == "access-456")
 
         storage.clear()
         #expect(storage.load() == nil)
@@ -588,24 +589,24 @@ struct OAuthAuthorizationTests {
     // MARK: - WWW-Authenticate Bare Scheme Detection
 
     @Test("Bare scheme Digest terminates preceding Bearer parameter collection")
-    func testBareSchemeTerminatesBearer() {
+    func testBareSchemeTerminatesBearer() throws {
         // "Digest" has no params and no '=', so it must start a new challenge and stop
         // the Bearer parameter collector before "scope" from the second Bearer leaks in.
         let header = #"Bearer scope="a", Digest, Bearer scope="b""#
         let challenge = DefaultOAuthWWWAuthenticateParser().parseBearer(
             from: ["WWW-Authenticate": header])
-        #expect(challenge != nil)
+        let parsed = try #require(challenge)
         // The outer loop stops at the first Bearer, so scope must be "a", not "b".
-        #expect(challenge?.scope == "a")
+        #expect(parsed.scope == "a")
     }
 
     @Test("Non-Bearer leading scheme followed by Bearer is parsed correctly")
-    func testNonBearerLeadingSchemeFollowedByBearer() {
+    func testNonBearerLeadingSchemeFollowedByBearer() throws {
         let header = #"SomeScheme, Bearer scope="test""#
         let challenge = DefaultOAuthWWWAuthenticateParser().parseBearer(
             from: ["WWW-Authenticate": header])
-        #expect(challenge != nil)
-        #expect(challenge?.scope == "test")
+        let parsed = try #require(challenge)
+        #expect(parsed.scope == "test")
     }
 
     // MARK: - Private IP Blocking

@@ -19,7 +19,8 @@ struct ToolTests {
 
         #expect(tool.name == "test_tool")
         #expect(tool.description == "A test tool")
-        #expect(tool.inputSchema != nil)
+        let schema = try #require(tool.inputSchema.objectValue)
+        #expect(schema["properties"]?.objectValue?["param1"] == .string("Test parameter"))
         #expect(tool.title == nil)
         #expect(tool.outputSchema == nil)
     }

@@ -65,5 +65,11 @@ The fork is held to this project's quality gate, which upstream's code was not w
 - **Every `@unchecked Sendable` and `nonisolated(unsafe)` states what serialises it.**
 - **Pointer use inside `withUnsafe*` blocks no longer constructs a second pointer to the same
   memory**, which is the shape that goes wrong when someone later returns it.
+- **Test-quality findings cleared across 23 test files, without overrides.** `!= nil` / `!= 0`
+  checks now bind with `try #require` and assert a concrete value; tests that only ran a
+  throwing call now assert the outcome (a post-disconnect `send` throws, a second `connect`
+  throws, a cancelled handler observed its cancellation); optionals are no longer defaulted
+  with `?? false` / `?? []` inside `#expect`; and a `guard let ... else { return }` that let a
+  test pass without running its assertions is now `try #require`.
 
 [upstream]: https://github.com/modelcontextprotocol/swift-sdk

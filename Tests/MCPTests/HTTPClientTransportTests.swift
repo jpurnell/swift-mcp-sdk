@@ -171,6 +171,10 @@ import Testing
 
             try await transport.connect()
             await transport.disconnect()
+            // After disconnect the transport rejects sends.
+            await #expect(throws: MCPError.self) {
+                try await transport.send(Data("{}".utf8))
+            }
         }
 
         @Test("Send and Receive JSON Response", .httpClientTransportSetup)
@@ -1112,7 +1116,7 @@ import Testing
                 // Step 1: Initialize client
                 let initResult = try await client.connect(transport: transport)
                 #expect(initResult.protocolVersion == Version.latest)
-                #expect(initResult.capabilities.tools != nil)
+                _ = try #require(initResult.capabilities.tools)
 
                 // Step 2: Call a tool
                 let toolResult = try await client.callTool(name: "calculator")
@@ -1629,6 +1633,9 @@ import Testing
                 try await transport.send(scenario.messageData)
                 await MockURLProtocol.verifyCallCounts(scenario.expectedCallCounts)
                 await transport.disconnect()
+                await #expect(throws: MCPError.self) {
+                    try await transport.send(scenario.messageData)
+                }
             }
 
             @Test("OAuth accessTokenProvider receives SDK discovery context", .httpClientTransportSetup)
@@ -1653,15 +1660,16 @@ import Testing
                 #expect(received == scenario.expectedResponseData)
 
                 let capturedContext = await providerTracker.capturedContext
-                #expect(capturedContext != nil)
-                #expect(capturedContext?.statusCode == 401)
-                #expect(capturedContext?.endpoint == scenario.testEndpoint)
-                #expect(capturedContext?.resource == scenario.testEndpoint)
-                #expect(capturedContext?.authorizationServer == URL(string: "https://localhost:8080/auth"))
-                #expect(capturedContext?.tokenEndpoint == URL(string: "https://localhost:8080/oauth/token"))
-                #expect(capturedContext?.challengedScope == "files:read files:write")
-                #expect(Set(capturedContext?.scopesSupported ?? []) == Set(["files:read", "files:write"]))
-                #expect(capturedContext?.requestedScopes == Set(["files:read", "files:write"]))
+                let context = try #require(capturedContext)
+                #expect(context.statusCode == 401)
+                #expect(context.endpoint == scenario.testEndpoint)
+                #expect(context.resource == scenario.testEndpoint)
+                #expect(context.authorizationServer == URL(string: "https://localhost:8080/auth"))
+                #expect(context.tokenEndpoint == URL(string: "https://localhost:8080/oauth/token"))
+                #expect(context.challengedScope == "files:read files:write")
+                let scopesSupported = try #require(context.scopesSupported)
+                #expect(Set(scopesSupported) == Set(["files:read", "files:write"]))
+                #expect(context.requestedScopes == Set(["files:read", "files:write"]))
 
                 await MockURLProtocol.verifyCallCounts(scenario.expectedCallCounts)
                 await transport.disconnect()

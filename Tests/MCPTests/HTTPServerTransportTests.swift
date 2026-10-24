@@ -279,17 +279,18 @@ struct StatefulHTTPServerTransportTests {
         let transport = makeStatefulTransport()
         try await transport.connect()
         await transport.disconnect()
+        // Once disconnected the transport is terminated and refuses to send.
+        await #expect(throws: MCPError.self) {
+            try await transport.send(Data("{}".utf8))
+        }
     }
 
     @Test("Double connect throws")
     func testDoubleConnectThrows() async throws {
         let transport = makeStatefulTransport()
         try await transport.connect()
-        do {
+        await #expect(throws: MCPError.self) {
             try await transport.connect()
-            Issue.record("Expected error on double connect")
-        } catch {
-            // Expected
         }
         await transport.disconnect()
     }
@@ -380,12 +381,10 @@ struct StatefulHTTPServerTransportTests {
         )
 
         let sessionID = response.headers[HTTPHeaderName.sessionID]
-        #expect(sessionID != nil)
+        let sid = try #require(sessionID)
         // UUID format: 8-4-4-4-12 hex chars
-        if let sid = sessionID {
-            #expect(sid.count == 36)
-            #expect(sid.contains("-"))
-        }
+        #expect(sid.count == 36)
+        #expect(sid.contains("-"))
 
         if case .stream(let stream, _) = response {
             Task { for try await _ in stream {} }
@@ -440,7 +439,10 @@ struct StatefulHTTPServerTransportTests {
         )
 
         let received = try await receiveTask.value
-        #expect(received != nil)
+        let receivedData = try #require(received)
+        let receivedJSON = try #require(
+            try JSONSerialization.jsonObject(with: receivedData) as? [String: Any])
+        #expect(receivedJSON["method"] as? String == "notifications/test")
 
         await transport.disconnect()
     }
@@ -799,13 +801,7 @@ struct StatefulHTTPServerTransportTests {
                 authorization: "Bearer init-token"
             )
         )
-        let sessionID = initResponse.headers[HTTPHeaderName.sessionID]
-        #expect(sessionID != nil)
-
-        guard let sessionID else {
-            await transport.disconnect()
-            return
-        }
+        let sessionID = try #require(initResponse.headers[HTTPHeaderName.sessionID])
 
         let response = await transport.handleRequest(
             makeStatefulPOSTRequest(
@@ -908,17 +904,18 @@ struct StatelessHTTPServerTransportTests {
         let transport = makeStatelessTransport()
         try await transport.connect()
         await transport.disconnect()
+        // Once disconnected the transport is terminated and refuses to send.
+        await #expect(throws: MCPError.self) {
+            try await transport.send(Data("{}".utf8))
+        }
     }
 
     @Test("Double connect throws")
     func testDoubleConnectThrows() async throws {
         let transport = makeStatelessTransport()
         try await transport.connect()
-        do {
+        await #expect(throws: MCPError.self) {
             try await transport.connect()
-            Issue.record("Expected error on double connect")
-        } catch {
-            // Expected
         }
         await transport.disconnect()
     }
@@ -1175,8 +1172,9 @@ struct StatelessHTTPServerTransportTests {
             }
             try await Task.sleep(for: .milliseconds(10))
         }
-        #expect(responseB != nil, "duplicate-id request must return promptly, not hang")
-        #expect(responseB?.statusCode == 409)
+        let rejectedB = try #require(
+            responseB, "duplicate-id request must return promptly, not hang")
+        #expect(rejectedB.statusCode == 409)
 
         // A's context is untouched — B never overwrote it (no auth cross-talk, #265).
         let ctxStillA = await transport.httpRequestContext(for: .string("1"))
@@ -1233,9 +1231,9 @@ struct ServerHandlerContextTests {
 
         // In-flight: context surfaces through the protocol lookup.
         let inFlight = await transport.httpRequestContext(for: .string("42"))
-        #expect(inFlight != nil)
-        #expect(inFlight?.header("Authorization") == "Bearer token-xyz")
-        #expect(inFlight?.path == "/mcp")
+        let inFlightContext = try #require(inFlight)
+        #expect(inFlightContext.header("Authorization") == "Bearer token-xyz")
+        #expect(inFlightContext.path == "/mcp")
 
         // Drain the SSE stream in the background so the response routes cleanly.
         if case .stream(let stream, _) = response {
@@ -1267,7 +1265,9 @@ struct ServerHandlerContextTests {
                 authorization: "Bearer keep"
             )
         )
-        #expect(await transport.httpRequestContext(for: .string("7")) != nil)
+        let ctx7 = await transport.httpRequestContext(for: .string("7"))
+        let ctx7Value = try #require(ctx7)
+        #expect(ctx7Value.header("Authorization") == "Bearer keep")
 
         // DELETE terminates the session.
         _ = await transport.handleRequest(makeDELETERequest(sessionID: sessionID))
@@ -1300,9 +1300,9 @@ struct ServerHandlerContextTests {
         try await Task.sleep(for: .milliseconds(50))
 
         let inFlight = await transport.httpRequestContext(for: .string("99"))
-        #expect(inFlight != nil)
-        #expect(inFlight?.header("Authorization") == "Bearer stateless-token")
-        #expect(inFlight?.path == "/mcp")
+        let inFlightContext = try #require(inFlight)
+        #expect(inFlightContext.header("Authorization") == "Bearer stateless-token")
+        #expect(inFlightContext.path == "/mcp")
 
         // Send the response to unblock the waiter.
         try await transport.send(makeResponseBody(id: "99"))

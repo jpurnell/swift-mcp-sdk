@@ -20,7 +20,8 @@ struct JSONSchemaPolicyTests {
             "properties": .object(["a": .object(["$ref": .string("#/$defs/thing")])]),
             "$defs": .object(["thing": .object(["type": .string("string")])]),
         ])
-        try JSONSchemaPolicy.validate(schema)
+        // Valid schema: validation completes without throwing
+        #expect(throws: Never.self) { try JSONSchemaPolicy.validate(schema) }
     }
 
     /// The rule that matters most: a network `$ref` is refused rather than fetched.
@@ -105,6 +106,7 @@ struct JSONSchemaPolicyTests {
             "if": .object(["required": .array([.string("a")])]),
             "then": .object(["required": .array([.string("a")])]),
         ])
-        try JSONSchemaPolicy.validate(schema)
+        // Valid schema: validation completes without throwing
+        #expect(throws: Never.self) { try JSONSchemaPolicy.validate(schema) }
     }
 }

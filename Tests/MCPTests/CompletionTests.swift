@@ -132,8 +132,8 @@ struct CompletionTests {
 
         let request = Complete.request(.init(ref: ref, argument: argument, context: context))
 
-        #expect(request.params.context != nil)
-        #expect(request.params.context?.arguments["language"] == "python")
+        let decoded = try #require(request.params.context)
+        #expect(decoded.arguments == ["language": "python"])
     }
 
     @Test("Complete request encoding")
@@ -314,7 +314,7 @@ struct CompletionTests {
         let initResult = try await client.connect(transport: clientTransport)
 
         // Verify completions capability is advertised
-        #expect(initResult.capabilities.completions != nil)
+        #expect(initResult.capabilities.completions == Server.Capabilities.Completions())
 
         // Request completions
         let completion = try await client.complete(
@@ -395,8 +395,8 @@ struct CompletionTests {
         await server.withMethodHandler(Complete.self) { params in
             #expect(params.argument.name == "framework")
             #expect(params.argument.value == "fla")
-            #expect(params.context != nil)
-            #expect(params.context?.arguments["language"] == "python")
+            let context = try #require(params.context)
+            #expect(context.arguments == ["language": "python"])
 
             return .init(
                 completion: .init(

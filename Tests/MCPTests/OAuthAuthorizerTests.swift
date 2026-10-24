@@ -265,7 +265,7 @@ struct OAuthAuthorizerTests {
             session: .shared
         )
 
-        #expect(tokenClient.capturedParameters?["resource"] != nil)
+        #expect(tokenClient.capturedParameters?["resource"] == "https://mcp.example.com/mcp")
     }
 
     // MARK: - handleChallenge (authorization_code)

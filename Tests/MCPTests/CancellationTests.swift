@@ -3,6 +3,22 @@ import Testing
 
 @testable import MCP
 
+/// Records whether a server-side handler observed cancellation.
+private actor CancellationObserver {
+    private(set) var observed = false
+
+    func mark() { observed = true }
+
+    /// Polls until cancellation is observed or the timeout elapses.
+    func waitForCancellation(timeout: Duration = .seconds(2)) async -> Bool {
+        let deadline = ContinuousClock.now + timeout
+        while !observed && ContinuousClock.now < deadline {
+            try? await Task.sleep(for: .milliseconds(10))
+        }
+        return observed
+    }
+}
+
 @Suite("Cancellation Tests")
 struct CancellationTests {
     @Test("Client sends CancelledNotification")
@@ -16,8 +32,21 @@ struct CancellationTests {
             capabilities: .init()
         )
 
+        let observer = CancellationObserver()
+
         // Start server
         try await server.start(transport: serverTransport)
+
+        // Slow ping handler that records when it is cancelled
+        await server.withMethodHandler(Ping.self) { _ in
+            do {
+                try await Task.sleep(for: .seconds(5))
+            } catch {
+                await observer.mark()
+                throw error
+            }
+            return Empty()
+        }
 
         // Connect client
         _ = try await client.connect(transport: clientTransport)
@@ -27,15 +56,20 @@ struct CancellationTests {
         let pingRequest = Ping.request()
         let context = try await client.send(pingRequest)
 
-        try await Task.sleep(for: .milliseconds(10))
+        try await Task.sleep(for: .milliseconds(50))
 
         // Cancel the request
         try await client.cancelRequest(context.requestID, reason: "Test cancellation")
 
         try await Task.sleep(for: .milliseconds(50))
 
-        // Verify cancellation was sent (server should have received it)
-        // The test passes if no errors occur and the request is cancelled
+        // The server received the notification and cancelled the in-flight handler
+        #expect(await observer.waitForCancellation())
+
+        // The cancelled request never yields a result on the client
+        await #expect(throws: CancellationError.self) {
+            _ = try await context.value
+        }
 
         await client.disconnect()
         await server.stop()
@@ -72,13 +106,8 @@ struct CancellationTests {
         try await server.cancelRequest(pingRequest.id, reason: "Server cancelled")
 
         // Try to get result - should throw CancellationError
-        do {
+        await #expect(throws: CancellationError.self) {
             _ = try await context.value
-            Issue.record("Expected CancellationError but request succeeded")
-        } catch is CancellationError {
-            // Expected
-        } catch {
-            Issue.record("Expected CancellationError but got: \(error)")
         }
 
         await client.disconnect()
@@ -172,8 +201,14 @@ struct CancellationTests {
             .init(tools: [Tool(name: "slowTool", description: "A slow tool", inputSchema: .object([:]))])
         }
 
+        let observer = CancellationObserver()
         await server.withMethodHandler(CallTool.self) { params in
-            try await Task.sleep(for: .seconds(5))
+            do {
+                try await Task.sleep(for: .seconds(5))
+            } catch {
+                await observer.mark()
+                throw error
+            }
             return .init(content: [.text(text: "Should not reach here", annotations: nil, _meta: nil)], isError: false)
         }
 
@@ -190,14 +225,12 @@ struct CancellationTests {
         try await client.cancelRequest(context.requestID, reason: "Test timeout")
 
         // Try to get result - should throw CancellationError
-        do {
+        await #expect(throws: CancellationError.self) {
             _ = try await context.value
-            Issue.record("Expected CancellationError but request succeeded")
-        } catch is CancellationError {
-            // Expected
-        } catch {
-            Issue.record("Expected CancellationError but got: \(error)")
         }
+
+        // The server-side tool handler observed the cancellation
+        #expect(await observer.waitForCancellation())
 
         await client.disconnect()
         await server.stop()
@@ -218,8 +251,14 @@ struct CancellationTests {
         try await server.start(transport: serverTransport)
 
         // Register a slow handler (must be after start to override default)
+        let observer = CancellationObserver()
         await server.withMethodHandler(Ping.self) { _ in
-            try await Task.sleep(for: .seconds(10))
+            do {
+                try await Task.sleep(for: .seconds(10))
+            } catch {
+                await observer.mark()
+                throw error
+            }
             return Empty()
         }
         _ = try await client.connect(transport: clientTransport)
@@ -234,14 +273,12 @@ struct CancellationTests {
         try await client.cancelRequest(context.requestID, reason: "Test cancellation")
 
         // Try to get result - should throw CancellationError (proving no response was sent)
-        do {
+        await #expect(throws: CancellationError.self) {
             _ = try await context.value
-            Issue.record("Expected CancellationError but request succeeded")
-        } catch is CancellationError {
-            // Expected - this proves the server didn't send a response
-        } catch {
-            Issue.record("Expected CancellationError but got: \(error)")
         }
+
+        // The handler was cancelled rather than completing, so no response was produced
+        #expect(await observer.waitForCancellation())
 
         await client.disconnect()
         await server.stop()

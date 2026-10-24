@@ -46,50 +46,42 @@ struct Base64DataTests {
     }
 
     @Test("Parse data URL with plain text")
-    func testParseDataURLPlainText() {
+    func testParseDataURLPlainText() throws {
         // Example from RFC 2397
         let result = Data.parseDataURL("data:,A%20brief%20note")
-        #expect(result != nil)
-        if let (mimeType, data) = result {
-            #expect(mimeType == "text/plain")
-            #expect(String(data: data, encoding: .utf8) == "A brief note")
-        }
+        let (mimeType, data) = try #require(result)
+        #expect(mimeType == "text/plain")
+        #expect(String(data: data, encoding: .utf8) == "A brief note")
     }
 
     @Test("Parse data URL with charset")
-    func testParseDataURLWithCharset() {
+    func testParseDataURLWithCharset() throws {
         // Modified example from RFC 2397 (using valid percent encoding)
         let result = Data.parseDataURL(
             "data:text/plain;charset=iso-8859-7,%CF%84%CE%B5%CF%83%CF%84")
-        #expect(result != nil)
-        if let (mimeType, _) = result {
-            #expect(mimeType == "text/plain;charset=iso-8859-7")
-        }
+        let (mimeType, _) = try #require(result)
+        #expect(mimeType == "text/plain;charset=iso-8859-7")
     }
 
     @Test("Parse data URL with base64 encoding")
-    func testParseDataURLBase64() {
+    func testParseDataURLBase64() throws {
         // Simple base64 encoded "Hello"
         let result = Data.parseDataURL("data:text/plain;base64,SGVsbG8=")
-        #expect(result != nil)
-        if let (mimeType, data) = result {
-            #expect(mimeType == "text/plain")
-            #expect(String(data: data, encoding: .utf8) == "Hello")
-        }
+        let (mimeType, data) = try #require(result)
+        #expect(mimeType == "text/plain")
+        #expect(String(data: data, encoding: .utf8) == "Hello")
     }
 
     @Test("Parse data URL with implicit text/plain")
-    func testParseDataURLImplicitTextPlain() {
+    func testParseDataURLImplicitTextPlain() throws {
         let result = Data.parseDataURL("data:,hello%20world")
-        #expect(result != nil)
-        if let (mimeType, data) = result {
-            #expect(mimeType == "text/plain")
-            #expect(String(data: data, encoding: .utf8) == "hello world")
-        }
+        let (mimeType, data) = try #require(result)
+        #expect(mimeType == "text/plain")
+        #expect(String(data: data, encoding: .utf8) == "hello world")
     }
 
     @Test("Parse invalid data URLs")
-    func testParseInvalidDataURLs() {
+    func testParseInvalidDataURLs() throws {
         // Not a data URL
         #expect(Data.parseDataURL("https://example.com") == nil)
 
@@ -98,15 +90,13 @@ struct Base64DataTests {
 
         // Empty base64 data (valid according to RFC 2397)
         let result = Data.parseDataURL("data:text/plain;base64,")
-        #expect(result != nil)
-        if let (mimeType, data) = result {
-            #expect(mimeType == "text/plain")
-            #expect(data.isEmpty)
-        }
+        let (mimeType, data) = try #require(result)
+        #expect(mimeType == "text/plain")
+        #expect(data.isEmpty)
     }
 
     @Test("Test data URL encoding")
-    func testDataURLEncoding() {
+    func testDataURLEncoding() throws {
         let testData = Data("Hello, world!".utf8)
 
         // Default mime type (text/plain)
@@ -120,23 +110,18 @@ struct Base64DataTests {
         #expect(Data.isDataURL(string: url2))
 
         // Roundtrip test
-        if let (mimeType, data) = Data.parseDataURL(url2) {
-            #expect(mimeType == "application/octet-stream")
-            #expect(data == testData)
-        } else {
-            #expect(Bool(false), "Failed to parse encoded data URL")
-        }
+        let (mimeType, data) = try #require(Data.parseDataURL(url2))
+        #expect(mimeType == "application/octet-stream")
+        #expect(data == testData)
     }
 
     @Test("Test complex example from RFC 2397")
-    func testComplexExample() {
+    func testComplexExample() throws {
         // Partial example of image from RFC (shortened for test brevity)
         let dataURL = "data:image/gif;base64,R0lGODdhMAAwAPAAAAAAAP///ywAAAAAMAAw"
 
         let result = Data.parseDataURL(dataURL)
-        #expect(result != nil)
-        if let (mimeType, _) = result {
-            #expect(mimeType == "image/gif")
-        }
+        let (mimeType, _) = try #require(result)
+        #expect(mimeType == "image/gif")
     }
 }
