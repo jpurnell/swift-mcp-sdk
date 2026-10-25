@@ -17,7 +17,7 @@ merged into the integration branch. See the CHANGELOG entry "quality-gate cleanu
 `swift test`: 669 tests / 57 suites pass on the merged tree.
 
 ## Known remaining / watch
-- `stochastic-determinism` on `PKCE.swift` (`SecureRandomNumberGenerator`, the one place naming the system generator). A `getentropy` replacement was tried and rejected by pointer-escape + build portability.
+- Gate: 0 errors, 0 warnings, consistency 1.00. `SecureRandomNumberGenerator` reads `SecRandomCopyBytes` (Apple) or `/dev/urandom`; a `getentropy` version was rejected by pointer-escape.
 - `testReconnectionBackoff` now checks the backoff schedule, not that the transport waits.
 - Conformance client: an IdP on a different non-loopback host with no `idp_issuer` now fails.
 - swift-log has no `privacy:` parameter; values are logged as metadata.

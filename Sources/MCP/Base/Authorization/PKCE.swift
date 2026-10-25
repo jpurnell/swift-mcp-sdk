@@ -4,6 +4,10 @@ import Foundation
     import CryptoKit
 #endif
 
+#if canImport(Security)
+    import Security
+#endif
+
 /// Pure PKCE (RFC 7636) helpers required by the authorization_code flow.
 public enum PKCE {
 
@@ -98,13 +102,28 @@ public enum PKCE {
 
 /// Random number generator backed by the operating system's cryptographically secure source.
 ///
-/// A thin forwarding wrapper so call sites can accept any `RandomNumberGenerator` (tests inject a
-/// seeded one) and default to this one in production. It is the single place in the SDK that
-/// names the system generator.
+/// Call sites accept any `RandomNumberGenerator` (tests inject a seeded one) and default to this
+/// one in production. Apple platforms read `SecRandomCopyBytes`; other platforms read
+/// `/dev/urandom`.
 struct SecureRandomNumberGenerator: RandomNumberGenerator {
-    private var system = SystemRandomNumberGenerator()
-
     mutating func next() -> UInt64 {
-        system.next()
+        var bytes = [UInt8](repeating: 0, count: MemoryLayout<UInt64>.size)
+        #if canImport(Security)
+            let status = SecRandomCopyBytes(kSecRandomDefault, bytes.count, &bytes)
+            precondition(status == errSecSuccess, "SecRandomCopyBytes failed; no secure random bytes")
+        #else
+            guard let source = FileHandle(forReadingAtPath: "/dev/urandom") else {
+                preconditionFailure("/dev/urandom unreadable; no secure random bytes")
+            }
+            let data: Data
+            do {
+                data = try source.read(upToCount: bytes.count) ?? Data()
+            } catch {
+                preconditionFailure("/dev/urandom read failed (\(error)); no secure random bytes")
+            }
+            precondition(data.count == bytes.count, "/dev/urandom returned too few bytes")
+            bytes = Array(data)
+        #endif
+        return bytes.reduce(0) { ($0 << 8) | UInt64($1) }
     }
 }

@@ -1375,6 +1375,8 @@ The Swift SDK provides multiple built-in transports:
 | [`NetworkTransport`](/Sources/MCP/Base/Transports/NetworkTransport.swift) | Custom transport using Apple's Network framework for TCP/UDP connections | Apple platforms only | Low-level networking, custom protocols |
 
 
+**Session IDs.** The default `UUIDSessionIDGenerator` (name kept for compatibility) now returns 64 lowercase hex characters built from 32 bytes of the system CSPRNG, not a UUID, because a session ID is a bearer capability. Supply your own `SessionIDGenerator` if you need another format.
+
 ### Custom Transport Implementation
 
 You can implement a custom transport by conforming to the `Transport` protocol:
