@@ -47,7 +47,15 @@ public struct InputRequiredResult: Hashable, Codable, Sendable {
     /// Optional metadata about this result.
     public var _meta: Metadata?
 
-    /// Creates an interim result naming what the server still needs.
+    /// Creates an interim result telling the client what the server still needs before it can finish.
+    ///
+    /// The result type is always `.inputRequired`.
+    ///
+    /// - Parameters:
+    ///   - inputRequests: Requests for the client to answer, keyed by a server-chosen name; the client
+    ///     replies under the same keys. Defaults to `nil`.
+    ///   - requestState: Opaque server state the client must echo back on retry. Defaults to `nil`.
+    ///   - _meta: Optional result metadata. Defaults to `nil`.
     public init(
         inputRequests: [String: InputRequest]? = nil,
         requestState: String? = nil,
@@ -63,7 +71,12 @@ public struct InputRequiredResult: Hashable, Codable, Sendable {
         case resultType, inputRequests, requestState, _meta
     }
 
-    /// Decodes whichever union case the payload matches.
+    /// Decodes an interim result.
+    ///
+    /// Every key is optional; an absent `resultType` reads as `.inputRequired`.
+    ///
+    /// - Parameter decoder: The decoder to read from.
+    /// - Throws: `DecodingError` if a present key is malformed.
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         resultType =
@@ -75,6 +88,11 @@ public struct InputRequiredResult: Hashable, Codable, Sendable {
     }
 
     /// Encodes the interim result, always emitting its `input_required` tag.
+    ///
+    /// `inputRequests`, `requestState` and `_meta` are omitted when `nil`.
+    ///
+    /// - Parameter encoder: The encoder to write to.
+    /// - Throws: Any error raised while encoding a member.
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encode(resultType, forKey: .resultType)
@@ -97,7 +115,15 @@ public struct InputResponseRequestParams: Hashable, Codable, Sendable {
     /// request and so still carries its own protocol version and client capabilities.
     public var _meta: Metadata?
 
-    /// Creates the parameters a client attaches when retrying.
+    /// Creates the parameters a client attaches when retrying a request that returned
+    /// `InputRequiredResult`.
+    ///
+    /// - Parameters:
+    ///   - inputResponses: The client's answers, keyed to match the server's `inputRequests`.
+    ///     Defaults to `nil`.
+    ///   - requestState: The opaque state from the interim result, echoed unmodified. Defaults to `nil`.
+    ///   - _meta: Metadata for the retried request, which the specification requires on this object.
+    ///     Defaults to `nil`.
     public init(
         inputResponses: [String: InputResponse]? = nil,
         requestState: String? = nil,
@@ -127,6 +153,12 @@ extension InputRequest: Codable {
     /// would appear to work and be wrong: `Empty` accepts any object, so every entry would
     /// decode as `.listRoots` without error. The specification's own `InputRequiredResult`
     /// example is what caught that.
+    ///
+    /// `params` is required for sampling and elicitation requests and optional for `roots/list`.
+    ///
+    /// - Parameter decoder: The decoder to read from.
+    /// - Throws: `DecodingError` if `method` is missing, is not a method a server may request input for, or
+    ///   its `params` fail to decode.
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         let method = try container.decode(String.self, forKey: .method)
@@ -149,6 +181,11 @@ extension InputRequest: Codable {
     }
 
     /// Encodes the request as a JSON-RPC request object, tagged by its method.
+    ///
+    /// Writes `method` and `params` (no `jsonrpc` or `id`).
+    ///
+    /// - Parameter encoder: The encoder to write to.
+    /// - Throws: Any error raised while encoding the parameters.
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         switch self {
@@ -166,7 +203,13 @@ extension InputRequest: Codable {
 }
 
 extension InputResponse: Codable {
-    /// Decodes whichever union case the payload matches.
+    /// Decodes a response by trying a sampling result, then an elicitation result, then a roots result.
+    ///
+    /// The union has no discriminator, so the first shape that decodes wins; the roots result is the
+    /// fallback and its error is the one thrown.
+    ///
+    /// - Parameter decoder: The decoder to read from.
+    /// - Throws: `DecodingError` if the payload matches none of the three result shapes.
     public init(from decoder: Decoder) throws {
         if let value = try? CreateSamplingMessage.Result(from: decoder) { // silent: a failed match is how the next union case is tried
             self = .createMessage(value)
@@ -180,6 +223,9 @@ extension InputResponse: Codable {
     }
 
     /// Encodes the wrapped value directly; the union has no discriminator of its own.
+    ///
+    /// - Parameter encoder: The encoder to write to.
+    /// - Throws: Any error raised while encoding the wrapped value.
     public func encode(to encoder: Encoder) throws {
         switch self {
         case .createMessage(let value): try value.encode(to: encoder)
@@ -210,7 +256,13 @@ public enum MRTRResult<Complete: Codable & Hashable & Sendable>: Hashable, Codab
         case resultType
     }
 
-    /// Decodes whichever union case the payload matches.
+    /// Decodes the result, choosing the case from `resultType`.
+    ///
+    /// `input_required` decodes as `.inputRequired`; any other tag, or no tag, decodes the payload as
+    /// `Complete`.
+    ///
+    /// - Parameter decoder: The decoder to read from.
+    /// - Throws: `DecodingError` if the payload does not decode as the selected case.
     public init(from decoder: Decoder) throws {
         let tagged = try? decoder.container(keyedBy: TagKeys.self) // silent: an untagged payload resolves to `.complete` below, per the specification
         let tag = try? tagged?.decodeIfPresent(ResultType.self, forKey: .resultType) // silent: as above
@@ -223,6 +275,9 @@ public enum MRTRResult<Complete: Codable & Hashable & Sendable>: Hashable, Codab
     }
 
     /// Encodes the wrapped result directly; `resultType` inside it carries the tag.
+    ///
+    /// - Parameter encoder: The encoder to write to.
+    /// - Throws: Any error raised while encoding the wrapped result.
     public func encode(to encoder: Encoder) throws {
         switch self {
         case .complete(let value): try value.encode(to: encoder)

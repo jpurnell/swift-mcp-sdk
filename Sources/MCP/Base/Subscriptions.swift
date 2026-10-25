@@ -21,6 +21,13 @@ public struct SubscriptionFilter: Hashable, Codable, Sendable {
     public var resourceSubscriptions: [String]?
 
     /// Creates a filter. Every field is tri-state: `nil` means "not mentioned".
+    ///
+    /// - Parameters:
+    ///   - toolsListChanged: Whether to receive `notifications/tools/list_changed`. Defaults to `nil`.
+    ///   - promptsListChanged: Whether to receive `notifications/prompts/list_changed`. Defaults to `nil`.
+    ///   - resourcesListChanged: Whether to receive `notifications/resources/list_changed`. Defaults to `nil`.
+    ///   - resourceSubscriptions: Resource URIs to receive `notifications/resources/updated` for. An empty
+    ///     array means none; `nil` means resource subscriptions were not mentioned. Defaults to `nil`.
     public init(
         toolsListChanged: Bool? = nil,
         promptsListChanged: Bool? = nil,
@@ -53,7 +60,11 @@ public enum SubscriptionsListen: Method {
         /// Metadata for this request, carrying its protocol version and client capabilities.
         public var _meta: Metadata?
 
-        /// Creates the parameters.
+        /// Creates the parameters for a `subscriptions/listen` request.
+        ///
+        /// - Parameters:
+        ///   - notifications: The notification kinds the client opts into.
+        ///   - _meta: Request metadata carrying protocol version and client capabilities. Defaults to `nil`.
         public init(notifications: SubscriptionFilter, _meta: Metadata? = nil) {
             self.notifications = notifications
             self._meta = _meta
@@ -68,7 +79,11 @@ public enum SubscriptionsListen: Method {
         /// notification that arrives on it.
         public var _meta: Metadata?
 
-        /// Creates the result.
+        /// Creates the result that opens a subscription stream.
+        ///
+        /// - Parameters:
+        ///   - resultType: The result tag. Defaults to `.complete`.
+        ///   - _meta: Metadata carrying the stream's identifier. Defaults to `nil`.
         public init(resultType: ResultType? = .complete, _meta: Metadata? = nil) {
             self.resultType = resultType
             self._meta = _meta
@@ -92,7 +107,11 @@ public enum SubscriptionsAcknowledged {
         /// Metadata carrying the subscription identifier this acknowledgement belongs to.
         public var _meta: Metadata?
 
-        /// Creates the parameters.
+        /// Creates the parameters of an acknowledgement notification.
+        ///
+        /// - Parameters:
+        ///   - notifications: The subset of requested notification kinds the server will honour.
+        ///   - _meta: Metadata carrying the subscription identifier. Defaults to `nil`.
         public init(notifications: SubscriptionFilter, _meta: Metadata? = nil) {
             self.notifications = notifications
             self._meta = _meta

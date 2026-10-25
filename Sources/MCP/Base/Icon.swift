@@ -46,13 +46,15 @@ public struct Icon: Hashable, Codable, Sendable {
     /// If not provided, the client should assume the icon can be used with any theme.
     public let theme: Theme?
 
-    /// Creates a new icon.
+    /// Creates an icon descriptor for a tool, resource, prompt or implementation.
     ///
     /// - Parameters:
-    ///   - src: A standard URI pointing to an icon resource (HTTP/HTTPS URL or data: URI)
-    ///   - mimeType: Optional MIME type override
-    ///   - sizes: Optional array of size strings (e.g., ["48x48", "96x96"])
-    ///   - theme: Optional theme specifier
+    ///   - src: URI of the icon: an HTTP/HTTPS URL or a `data:` URI with Base64 image data.
+    ///   - mimeType: MIME type override such as `"image/png"`; `nil` (default) means rely on the
+    ///     source's own type.
+    ///   - sizes: Sizes the icon suits, each `"WxH"` (for example `"48x48"`) or `"any"`; `nil`
+    ///     (default) means usable at any size.
+    ///   - theme: Background the icon is designed for; `nil` (default) means any theme.
     public init(
         src: String,
         mimeType: String? = nil,

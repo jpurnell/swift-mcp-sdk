@@ -16,7 +16,12 @@ private let httpTypesLogger = Logger(
 ///
 /// A default implementation using secure random bytes is provided via ``UUIDSessionIDGenerator``.
 public protocol SessionIDGenerator: Sendable {
-    /// Generates a new unique session identifier.
+    /// Generates a new session identifier.
+    ///
+    /// Called by a stateful transport once per session, when it accepts an `initialize` request.
+    ///
+    /// - Returns: A non-empty string of visible ASCII characters (0x21-0x7E) that is unique and, because it
+    ///   acts as a bearer capability for the session, unguessable.
     func generateSessionID() -> String
 }
 
@@ -30,13 +35,15 @@ public struct UUIDSessionIDGenerator: SessionIDGenerator {
     /// Number of random bytes in each generated ID.
     private static let byteCount = 32
 
-    /// Creates a generator.
+    /// Creates a generator. It holds no state, so instances are interchangeable.
     public init() {}
 
     /// Generates a session ID from 32 random bytes, rendered as 64 lowercase hexadecimal characters.
     ///
     /// The bytes come from the system's cryptographically secure random number generator, so
     /// IDs are unguessable. Hex digits are within the visible ASCII range (0x21-0x7E).
+    ///
+    /// - Returns: A new 64-character lowercase hexadecimal string on every call.
     public func generateSessionID() -> String {
         var generator = SecureRandomNumberGenerator()
         var hex = ""
@@ -57,26 +64,27 @@ public struct UUIDSessionIDGenerator: SessionIDGenerator {
 /// This type decouples the transport from any specific HTTP framework.
 /// The HTTP framework adapter converts its native request type into this before passing to the transport.
 public struct HTTPRequest: Sendable {
-    /// The HTTP method (e.g., "GET", "POST", "DELETE").
+    /// The HTTP method as sent, for example `"GET"`, `"POST"` or `"DELETE"`. Validators compare it verbatim.
     public let method: String
 
-    /// HTTP headers as key-value pairs.
+    /// The request headers by name. Names keep the casing the adapter supplied; use ``header(_:)`` for a
+    /// case-insensitive lookup.
     public let headers: [String: String]
 
-    /// The request body data, if any.
+    /// The raw request body, or `nil` when the request had none (for example GET and DELETE).
     public let body: Data?
 
-    /// The request path (e.g., "/mcp", "/.well-known/oauth-protected-resource").
-    /// Used by validators that need to match on specific paths.
+    /// The request path, for example `"/mcp"` or `"/.well-known/oauth-protected-resource"`, or `nil` if the
+    /// adapter did not supply it. Used by validators that match on specific paths.
     public let path: String?
 
-    /// Creates an HTTP request.
+    /// Creates the transport's view of an incoming HTTP request; framework adapters build one per request.
     ///
     /// - Parameters:
-    ///   - method: The HTTP method.
-    ///   - headers: The request headers. Defaults to none.
-    ///   - body: The request body, if any.
-    ///   - path: The request path, if known.
+    ///   - method: The HTTP method, for example `"POST"`.
+    ///   - headers: The request headers by name. Defaults to none.
+    ///   - body: The raw body. Defaults to `nil`.
+    ///   - path: The request path. Defaults to `nil`, which path-specific validators treat as unknown.
     public init(method: String, headers: [String: String] = [:], body: Data? = nil, path: String? = nil) {
         self.method = method
         self.headers = headers
@@ -84,7 +92,10 @@ public struct HTTPRequest: Sendable {
         self.path = path
     }
 
-    /// Case-insensitive header lookup.
+    /// Looks up a header by name, ignoring case.
+    ///
+    /// - Parameter name: The header name, in any casing.
+    /// - Returns: The value of the first matching header, or `nil` if none matches.
     public func header(_ name: String) -> String? {
         let lowercased = name.lowercased()
         return headers.first { $0.key.lowercased() == lowercased }?.value
@@ -128,8 +139,14 @@ public enum HTTPResponse: Sendable {
     /// 200 OK with SSE streaming body.
     case stream(AsyncThrowingStream<Data, Swift.Error>, headers: [String: String] = [:])
 
-    /// Error response with a JSON-RPC error body.
-    /// The status code, headers, and body are derived automatically.
+    /// An error response with a JSON-RPC error body.
+    ///
+    /// - `statusCode`: the HTTP status to return.
+    /// - `MCPError`: the error whose code and description form the body.
+    /// - `sessionID`: a session ID to echo in the `MCP-Session-Id` header, or `nil`.
+    /// - `extraHeaders`: additional headers, which override the derived ones on conflict.
+    ///
+    /// The status code, headers and body are derived from these values.
     case error(statusCode: Int, MCPError, sessionID: String? = nil, extraHeaders: [String: String] = [:])
 
     // MARK: - Computed Properties
@@ -146,7 +163,10 @@ public enum HTTPResponse: Sendable {
         }
     }
 
-    /// The response headers. For an error response these include a JSON `Content-Type`, the session ID when one was given, and any extra headers, which take precedence.
+    /// The response headers.
+    ///
+    /// For an error response these are a JSON `Content-Type`, the session ID when one was given, and any extra
+    /// headers, which take precedence over the other two.
     public var headers: [String: String] {
         switch self {
         case .accepted(let headers), .ok(let headers), .data(_, let headers), .stream(_, let headers):
@@ -159,7 +179,10 @@ public enum HTTPResponse: Sendable {
         }
     }
 
-    /// The response body as data. `nil` for `.accepted`, `.ok`, and `.stream`.
+    /// The response body as data. `nil` for `.accepted`, `.ok` and `.stream`.
+    ///
+    /// For `.error` this is a JSON-RPC error object holding the error's `code` and description as `message`,
+    /// with a `null` `id`; it is `nil` if serialization fails.
     public var bodyData: Data? {
         switch self {
         case .accepted, .ok, .stream:
@@ -253,11 +276,19 @@ struct SSEEvent: Sendable {
 
     /// Creates a priming event with an empty data field.
     /// Per spec, this is sent immediately to prime the client for reconnection.
+    ///
+    /// - Parameters:
+    ///   - id: The event ID the client can later send as `Last-Event-ID`.
+    ///   - retry: Reconnection delay in milliseconds to advertise, or `nil` to omit the field.
     static func priming(id: String, retry: Int? = nil) -> SSEEvent {
         SSEEvent(id: id, event: nil, data: "", retry: retry)
     }
 
     /// Creates a message event wrapping JSON-RPC data.
+    ///
+    /// - Parameters:
+    ///   - data: The encoded JSON-RPC message, placed UTF-8 decoded in the `data` field.
+    ///   - id: The event ID, or `nil` to omit it.
     static func message(data: Data, id: String? = nil) -> SSEEvent {
         SSEEvent(
             id: id,
@@ -282,6 +313,9 @@ public protocol HTTPContextProviding: Sendable {
     /// Returns the HTTP request associated with the given JSON-RPC id, if the
     /// transport still has it on hand. Implementations must return `nil` once the
     /// corresponding response has been delivered or the session has terminated.
+    ///
+    /// - Parameter id: The JSON-RPC request ID being dispatched.
+    /// - Returns: The originating HTTP request, or `nil` if the ID is unknown or no longer in flight.
     func httpRequestContext(for id: ID) async -> HTTPRequest?
 }
 
@@ -298,7 +332,12 @@ package enum JSONRPCMessageKind {
     case response(id: String)
 
     /// Attempts to classify raw JSON-RPC data.
-    /// Returns `nil` if the data cannot be parsed or classified.
+    ///
+    /// A message with a `method` is a request if it has a string or integer `id` and a notification otherwise;
+    /// a message with `result` or `error` and an `id` is a response.
+    ///
+    /// - Parameter data: A single encoded JSON-RPC message (batches are not classified).
+    /// - Returns: `nil` if the data is not a JSON object or fits none of those shapes.
     package init?(data: Data) {
         let parsed: Any
         do {

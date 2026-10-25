@@ -43,7 +43,7 @@ import Logging
 /// HTTP 409 and a JSON-RPC `-32600` error rather than silently displacing the first request.
 /// Clients must therefore keep ids unique among their own concurrent in-flight requests.
 public actor StatelessHTTPServerTransport: Transport, HTTPContextProviding {
-    /// Logger for transport-related events.
+    /// The logger that receives this transport's diagnostics. A no-op logger is used if none was supplied.
     public nonisolated let logger: Logger
 
     // MARK: - Dependencies
@@ -73,13 +73,17 @@ public actor StatelessHTTPServerTransport: Transport, HTTPContextProviding {
 
     // MARK: - Init
 
-    /// Creates a new stateless HTTP server transport.
+    /// Creates a stateless HTTP server transport that answers each POST with one JSON response.
+    ///
+    /// The transport does nothing until ``connect()`` is called and an HTTP adapter forwards requests to
+    /// ``handleRequest(_:)``.
     ///
     /// - Parameters:
-    ///   - validationPipeline: Custom validation pipeline. If `nil`, uses sensible defaults:
-    ///     origin validation (localhost), Accept header (JSON only), Content-Type,
-    ///     and protocol version validation.
-    ///   - logger: Optional logger. If `nil`, a no-op logger is used.
+    ///   - validationPipeline: The validators run on every POST. Defaults to `nil`, which uses localhost-only
+    ///     origin validation, a JSON-only `Accept` check, a JSON `Content-Type` check and protocol-version
+    ///     validation. Pass your own to add authentication or to allow other origins; it replaces the defaults
+    ///     entirely.
+    ///   - logger: Logger for transport diagnostics. Defaults to `nil`, which discards log output.
     public init(
         validationPipeline: (any HTTPRequestValidationPipeline)? = nil,
         logger: Logger? = nil
@@ -102,9 +106,11 @@ public actor StatelessHTTPServerTransport: Transport, HTTPContextProviding {
 
     // MARK: - Transport Conformance
 
-    /// Marks the transport as started.
+    /// Marks the transport as started so the server can use it.
     ///
-    /// - Throws: ``MCPError`` if the transport has already been started.
+    /// No resources are opened; HTTP requests arrive through ``handleRequest(_:)``.
+    ///
+    /// - Throws: `MCPError.internalError` if the transport has already been started.
     public func connect() async throws {
         guard !started else {
             throw MCPError.internalError("Transport already started")
@@ -113,7 +119,8 @@ public actor StatelessHTTPServerTransport: Transport, HTTPContextProviding {
         logger.debug("Stateless HTTP server transport started")
     }
 
-    /// Terminates the transport, failing any waiting requests and ending the incoming stream.
+    /// Terminates the transport: requests still waiting for a response are failed, the stream returned by
+    /// ``receive()`` is finished, and later HTTP requests are answered with 404.
     public func disconnect() async {
         await terminate()
     }
@@ -123,6 +130,12 @@ public actor StatelessHTTPServerTransport: Transport, HTTPContextProviding {
     /// - Responses are matched by JSON-RPC ID and delivered to the waiting `handleRequest` call.
     /// - Notifications and server-initiated requests are logged and dropped
     ///   (no streaming channel available in stateless mode).
+    ///
+    /// A message that cannot be classified is logged and dropped, as is a response with no waiter (for example
+    /// one that arrives after its request was cancelled).
+    ///
+    /// - Parameter data: One encoded outgoing JSON-RPC message.
+    /// - Throws: `MCPError.connectionClosed` if the transport has been terminated.
     public func send(_ data: Data) async throws {
         guard !terminated else {
             throw MCPError.connectionClosed
@@ -158,7 +171,12 @@ public actor StatelessHTTPServerTransport: Transport, HTTPContextProviding {
         }
     }
 
-    /// The stream of client messages that `handleRequest` forwards to the server.
+    /// Returns the stream of client messages that ``handleRequest(_:)`` forwards to the server.
+    ///
+    /// Each element is the raw body of an accepted POST (request, notification or response). The stream
+    /// finishes when the transport is terminated.
+    ///
+    /// - Returns: The single incoming-message stream; consume it from one reader.
     public func receive() -> AsyncThrowingStream<Data, Swift.Error> {
         incomingStream
     }
@@ -172,6 +190,16 @@ public actor StatelessHTTPServerTransport: Transport, HTTPContextProviding {
     /// - **GET**: 405 Method Not Allowed
     /// - **DELETE**: 405 Method Not Allowed
     /// - Others: 405 Method Not Allowed
+    ///
+    /// For a POST, the body must be a non-empty JSON-RPC message (400 otherwise) and pass the validation
+    /// pipeline (whose error response is returned as is). Notifications and client responses are forwarded to the
+    /// server and answered with 202. A request is forwarded and the call suspends until the server sends the
+    /// matching response, which is returned as a JSON body; a request reusing an ID already in flight gets 409,
+    /// and a failure while waiting gets 500.
+    ///
+    /// - Parameter request: The HTTP request received by the framework adapter.
+    /// - Returns: The response for the adapter to write; 404 once the transport is terminated, and 405 with
+    ///   `Allow: POST` for any method other than POST.
     public func handleRequest(_ request: HTTPRequest) async -> HTTPResponse {
         if terminated {
             return .error(

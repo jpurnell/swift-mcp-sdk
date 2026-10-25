@@ -33,7 +33,15 @@ public struct OAuthURLValidator: Sendable {
 
     /// Validates that the URL uses HTTPS or loopback HTTP, and has no fragment.
     ///
-    /// Used for MCP endpoints and protected resource metadata URLs.
+    /// Used for MCP endpoints and protected resource metadata URLs. Loopback means `localhost` or a
+    /// loopback address as judged by ``OAuthLoopbackHost``.
+    ///
+    /// - Parameters:
+    ///   - url: The URL to check.
+    ///   - context: A short label for the URL's role, interpolated into the error.
+    /// - Throws: ``OAuthAuthorizationError/invalidResourceURI(_:)`` if the URL lacks a scheme or host or has a
+    ///   fragment; ``OAuthAuthorizationError/insecureOAuthEndpoint(context:url:)`` if it is plain HTTP to a
+    ///   non-loopback host or uses another scheme.
     public func validateHTTPSOrLoopback(_ url: URL, context: String) throws {
         guard let components = URLComponents(url: url, resolvingAgainstBaseURL: false),
             let scheme = components.scheme?.lowercased(),
@@ -59,6 +67,13 @@ public struct OAuthURLValidator: Sendable {
     /// Validates that the URL is an HTTPS authorization server endpoint.
     ///
     /// Loopback HTTP is permitted when `allowLoopbackHTTPForAuthorizationServer` is `true`.
+    ///
+    /// - Parameters:
+    ///   - url: The authorization server endpoint to check.
+    ///   - context: A short label for the endpoint's role, interpolated into the error.
+    /// - Throws: ``OAuthAuthorizationError/invalidResourceURI(_:)`` if the URL lacks a scheme or host or has a
+    ///   fragment; ``OAuthAuthorizationError/insecureAuthorizationServerEndpoint(context:url:)`` if it is not HTTPS
+    ///   (and not an allowed loopback HTTP URL).
     public func validateAuthorizationServer(_ url: URL, context: String) throws {
         guard let components = URLComponents(url: url, resolvingAgainstBaseURL: false),
             let scheme = components.scheme?.lowercased(),
@@ -89,6 +104,10 @@ public struct OAuthURLValidator: Sendable {
     /// Validates the redirect URI for authorization_code flows.
     ///
     /// Accepts HTTPS or loopback HTTP; rejects any URI containing a fragment.
+    ///
+    /// - Parameter url: The redirect URI to check.
+    /// - Throws: ``OAuthAuthorizationError/invalidRedirectURI(_:)`` if the URI has no scheme, has a fragment, or
+    ///   is neither HTTPS nor HTTP to a loopback host.
     public func validateRedirectURI(_ url: URL) throws {
         guard let components = URLComponents(url: url, resolvingAgainstBaseURL: false),
             let scheme = components.scheme?.lowercased(),
@@ -116,6 +135,10 @@ public struct OAuthURLValidator: Sendable {
     /// - IPv6: `fc00::/7` (ULA), `fe80::/10` (link-local)
     ///
     /// **Limitation**: only literal IP addresses are checked. DNS rebinding is not prevented here.
+    ///
+    /// - Parameter host: A host string as it appears in a URL, without brackets or port.
+    /// - Returns: `true` if the host is a literal address in one of the blocked ranges; `false` for public
+    ///   addresses and for any name that is not a literal address.
     public func isPrivateIPHost(_ host: String) -> Bool {
         let octets = host.split(separator: ".").compactMap { UInt8($0) }
         if octets.count == 4 && !host.contains(":") {

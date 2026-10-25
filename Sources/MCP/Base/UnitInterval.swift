@@ -51,6 +51,11 @@ public struct UnitInterval: Hashable, Sendable {
 
 extension UnitInterval: Comparable {
     /// Orders two values by their underlying doubles.
+    ///
+    /// - Parameters:
+    ///   - lhs: The left-hand value.
+    ///   - rhs: The right-hand value.
+    /// - Returns: `true` if `lhs` is strictly less than `rhs`.
     public static func < (lhs: UnitInterval, rhs: UnitInterval) -> Bool {
         lhs.value < rhs.value
     }

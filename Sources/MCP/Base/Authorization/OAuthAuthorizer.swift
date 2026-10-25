@@ -76,6 +76,10 @@ public protocol HTTPClientAuthorizer: AnyObject, Sendable {
 
 extension HTTPClientAuthorizer {
     /// Default implementation that does nothing; override to refresh tokens ahead of a request.
+    ///
+    /// - Parameters:
+    ///   - endpoint: The MCP endpoint about to be contacted. Unused by the default.
+    ///   - session: The `URLSession` available for refresh requests. Unused by the default.
     public func prepareAuthorization(for endpoint: URL, session: URLSession) async throws {}
 }
 
@@ -404,6 +408,8 @@ public final class OAuthAuthorizer: HTTPClientAuthorizer, @unchecked Sendable {
     /// - Parameters:
     ///   - endpoint: The MCP endpoint about to be contacted.
     ///   - session: The `URLSession` used for the refresh request.
+    /// - Throws: Nothing in practice; refresh errors are caught and logged. The `throws` is required by
+    ///   ``HTTPClientAuthorizer``.
     public func prepareAuthorization(for endpoint: URL, session: URLSession) async throws {
         guard configuration.proactiveRefreshWindowSeconds > 0 else { return }
         guard let token = tokenStorage.load() else { return }

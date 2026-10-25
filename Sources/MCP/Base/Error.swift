@@ -6,18 +6,19 @@ import Foundation
     @preconcurrency import SystemPackage
 #endif
 
-/// Information about a required URL elicitation
+/// The payload of a `urlElicitationRequired` error: a URL the user must visit out of band before the request
+/// can proceed.
 public struct URLElicitationInfo: Codable, Hashable, Sendable {
-    /// Elicitation mode (must be "url")
+    /// The elicitation mode; the protocol requires `"url"`.
     public var mode: String
-    /// Unique identifier for this elicitation
+    /// Server-assigned identifier that distinguishes this elicitation from others.
     public var elicitationId: String
-    /// URL for the user to visit
+    /// The URL, as a string, that the user should open to complete the elicitation.
     public var url: String
-    /// Message describing the elicitation
+    /// Human-readable text explaining why the user is being asked to visit the URL.
     public var message: String
 
-    /// Creates elicitation information.
+    /// Creates the payload describing a URL elicitation, for use with `MCPError.urlElicitationRequired`.
     ///
     /// - Parameters:
     ///   - mode: The elicitation mode. Defaults to `"url"`.
@@ -32,13 +33,22 @@ public struct URLElicitationInfo: Codable, Hashable, Sendable {
     }
 }
 
-/// A model context protocol error.
+/// An error raised by MCP clients and servers, covering JSON-RPC protocol errors, MCP-specific errors and
+/// transport failures.
+///
+/// Cases carrying a JSON-RPC code encode to and decode from the wire error object (see `init(from:)`);
+/// `connectionClosed` and `transportError` are local conditions.
 public enum MCPError: Swift.Error, Sendable {
     // Standard JSON-RPC 2.0 errors (-32700 to -32603)
+    /// The payload was not valid JSON. The associated detail is optional extra text.
     case parseError(String?)  // -32700
+    /// The JSON was not a valid JSON-RPC request object.
     case invalidRequest(String?)  // -32600
+    /// The requested method does not exist or is unavailable.
     case methodNotFound(String?)  // -32601
+    /// The method's parameters were missing or invalid.
     case invalidParams(String?)  // -32602
+    /// An internal JSON-RPC error occurred while handling the request.
     case internalError(String?)  // -32603
 
     // Protocol errors reserved by the specification (-32020 to -32099).
@@ -77,16 +87,22 @@ public enum MCPError: Swift.Error, Sendable {
     case structured(code: Int, message: String, data: [String: Value])
 
     // Server errors (-32000 to -32099)
+    /// A server-defined error with an arbitrary code and message, used for codes no other case claims.
     case serverError(code: Int, message: String)
 
     // MCP specific errors
+    /// The request cannot proceed until the user completes one or more out-of-band URL elicitations.
     case urlElicitationRequired(message: String, elicitations: [URLElicitationInfo])  // -32003
 
     // Transport specific errors
+    /// The connection was closed before the operation completed. A local condition (code -32000).
     case connectionClosed
+    /// A failure reported by the underlying transport, wrapping its error. A local condition (code -32001).
     case transportError(Swift.Error)
 
-    /// The JSON-RPC 2.0 error code
+    /// The JSON-RPC error code for this error: the standard code for the protocol cases, the supplied code
+    /// for `structured` and `serverError`, and -32003 / -32000 / -32001 for URL elicitation, closed
+    /// connections and transport errors.
     public var code: Int {
         switch self {
         case .parseError: return -32700
@@ -202,7 +218,11 @@ public enum MCPError: Swift.Error, Sendable {
         )
     }
 
-    /// Check if an error represents a "resource temporarily unavailable" condition
+    /// Reports whether an error is the POSIX `EAGAIN` / `EWOULDBLOCK` condition ("resource temporarily
+    /// unavailable"), which non-blocking I/O raises when no data is ready and which callers should retry.
+    ///
+    /// - Parameter error: The error to inspect; matched as `Errno` from `System` (or `SystemPackage`).
+    /// - Returns: `true` only if `error` is an `Errno` equal to `.resourceTemporarilyUnavailable`.
     public static func isResourceTemporarilyUnavailable(_ error: Swift.Error) -> Bool {
         #if canImport(System)
             if let errno = error as? System.Errno, errno == .resourceTemporarilyUnavailable {
@@ -492,6 +512,11 @@ extension MCPError: Codable {
 
 extension MCPError: Equatable {
     /// Compares two errors by case and associated values. Transport errors compare by their localized descriptions.
+    ///
+    /// - Parameters:
+    ///   - lhs: The first error.
+    ///   - rhs: The second error.
+    /// - Returns: `true` if both are the same case with equal associated values.
     public static func == (lhs: MCPError, rhs: MCPError) -> Bool {
         switch (lhs, rhs) {
         case (.parseError(let a), .parseError(let b)): return a == b

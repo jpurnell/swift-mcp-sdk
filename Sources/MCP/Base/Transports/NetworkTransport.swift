@@ -59,7 +59,8 @@ import Logging
     /// try await client.connect(transport: transport)
     /// ```
     public actor NetworkTransport: Transport {
-        /// Represents a heartbeat message for connection health monitoring.
+        /// A liveness probe exchanged between peers: a 4-byte magic prefix followed by an 8-byte little-endian
+        /// timestamp in milliseconds since the Foundation reference date (12 bytes in all).
         public struct Heartbeat: RawRepresentable, Hashable, Sendable {
             /// Magic bytes used to identify a heartbeat message.
             private static let magicBytes: [UInt8] = [0xF0, 0x9F, 0x92, 0x93]
@@ -67,7 +68,7 @@ import Logging
             /// The timestamp of when the heartbeat was created.
             public let timestamp: Date
 
-            /// Creates a new heartbeat with the current timestamp.
+            /// Creates a heartbeat stamped with the current time.
             public init() {
                 self.timestamp = Date()
             }
@@ -86,8 +87,11 @@ import Logging
 
             /// Creates a heartbeat from its raw representation.
             ///
+            /// Bytes beyond the first 12 are ignored; millisecond precision is retained.
+            ///
             /// - Parameter rawValue: The raw bytes of the heartbeat message.
-            /// - Returns: A heartbeat if the raw value is valid, nil otherwise.
+            /// - Returns: A heartbeat, or `nil` if fewer than 12 bytes are given or the first four are not the
+            ///   magic prefix.
             public init?(rawValue: [UInt8]) {
                 // Check if the data has the correct format (magic bytes + timestamp)
                 guard rawValue.count >= 12,
@@ -113,7 +117,7 @@ import Logging
                     timeIntervalSinceReferenceDate: TimeInterval(timestamp) / 1000.0)
             }
 
-            /// Converts the heartbeat to its raw representation.
+            /// The 12-byte wire form: magic prefix then the little-endian millisecond timestamp.
             public var rawValue: [UInt8] {
                 var result = Data(Self.magicBytes)
 
@@ -126,15 +130,17 @@ import Logging
                 return Array(result)
             }
 
-            /// Converts the heartbeat to Data.
+            /// The wire form (``rawValue``) as `Data`, ready to send.
             public var data: Data {
                 return Data(self.rawValue)
             }
 
-            /// Checks if the given data represents a heartbeat message.
+            /// Reports whether data begins with the heartbeat magic prefix.
             ///
-            /// - Parameter data: The data to check.
-            /// - Returns: true if the data is a heartbeat message, false otherwise.
+            /// Only the first four bytes are examined, so this is cheap enough to run on every received chunk.
+            ///
+            /// - Parameter data: The received bytes to check.
+            /// - Returns: `true` if the data is at least four bytes and starts with the magic prefix.
             public static func isHeartbeat(_ data: Data) -> Bool {
                 guard data.count >= 4 else {
                     return false
@@ -143,10 +149,10 @@ import Logging
                 return data.prefix(4).elementsEqual(Self.magicBytes)
             }
 
-            /// Attempts to parse a heartbeat from the given data.
+            /// Parses a heartbeat from received data.
             ///
-            /// - Parameter data: The data to parse.
-            /// - Returns: A heartbeat if the data is valid, nil otherwise.
+            /// - Parameter data: The bytes to parse.
+            /// - Returns: The heartbeat, or `nil` if the data is shorter than 12 bytes or lacks the magic prefix.
             public static func from(data: Data) -> Heartbeat? {
                 guard data.count >= 12 else {
                     return nil
@@ -156,18 +162,18 @@ import Logging
             }
         }
 
-        /// Configuration for heartbeat behavior.
+        /// Settings for the periodic heartbeat the transport sends to detect dead connections.
         public struct HeartbeatConfiguration: Hashable, Sendable {
-            /// Whether heartbeats are enabled.
+            /// Whether the transport sends heartbeats at all.
             public let enabled: Bool
-            /// Interval between heartbeats in seconds.
+            /// Seconds between heartbeats.
             public let interval: TimeInterval
 
-            /// Creates a new heartbeat configuration.
+            /// Creates a heartbeat configuration.
             ///
             /// - Parameters:
-            ///   - enabled: Whether heartbeats are enabled (default: true)
-            ///   - interval: Interval in seconds between heartbeats (default: 15.0)
+            ///   - enabled: Whether heartbeats are sent. Defaults to `true`.
+            ///   - interval: Seconds between heartbeats. Defaults to 15.
             public init(enabled: Bool = true, interval: TimeInterval = 15.0) {
                 self.enabled = enabled
                 self.interval = interval
@@ -180,21 +186,22 @@ import Logging
             public static let disabled = HeartbeatConfiguration(enabled: false)
         }
 
-        /// Configuration for connection retry behavior.
+        /// Settings for retrying a failed or lost connection with exponential backoff.
         public struct ReconnectionConfiguration: Hashable, Sendable {
             /// Whether the transport should attempt to reconnect on failure.
             public let enabled: Bool
-            /// Maximum number of reconnection attempts.
+            /// The maximum number of retries after the first connection attempt fails.
             public let maxAttempts: Int
-            /// Multiplier for exponential backoff on reconnect.
+            /// The factor each successive backoff delay is multiplied by, starting from 0.5 seconds.
             public let backoffMultiplier: Double
 
-            /// Creates a new reconnection configuration.
+            /// Creates a reconnection configuration.
             ///
             /// - Parameters:
-            ///   - enabled: Whether reconnection should be attempted on failure (default: true)
-            ///   - maxAttempts: Maximum number of reconnection attempts (default: 5)
-            ///   - backoffMultiplier: Multiplier for exponential backoff on reconnect (default: 1.5)
+            ///   - enabled: Whether reconnection is attempted on failure. Defaults to `true`.
+            ///   - maxAttempts: The maximum number of retries after the first attempt fails. Defaults to 5.
+            ///   - backoffMultiplier: Growth factor applied to the 0.5 s base delay for each further attempt.
+            ///     Defaults to 1.5.
             public init(
                 enabled: Bool = true,
                 maxAttempts: Int = 5,
@@ -213,23 +220,26 @@ import Logging
 
             /// Calculates the backoff delay for a given attempt number.
             ///
-            /// - Parameter attempt: The current attempt number (1-based)
-            /// - Returns: The delay in seconds before the next attempt
+            /// The delay is `0.5 * backoffMultiplier^(attempt - 1)` seconds, so attempt 1 waits 0.5 s.
+            ///
+            /// - Parameter attempt: The current attempt number, 1-based.
+            /// - Returns: The delay in seconds before the next attempt.
             public func backoffDelay(for attempt: Int) -> TimeInterval {
                 let baseDelay = 0.5  // 500ms
                 return baseDelay * pow(backoffMultiplier, Double(attempt - 1))
             }
         }
 
-        /// Configuration for buffer behavior.
+        /// Limits on how much data the transport will accept from the connection in one read.
         public struct BufferConfiguration: Hashable, Sendable {
-            /// Maximum buffer size for receiving data chunks.
-            /// Set to nil for unlimited (uses system default).
+            /// The largest chunk, in bytes, requested from the connection per read; `nil` means no limit is
+            /// imposed by the transport (the system default applies).
             public let maxReceiveBufferSize: Int?
 
-            /// Creates a new buffer configuration.
+            /// Creates a buffer configuration.
             ///
-            /// - Parameter maxReceiveBufferSize: Maximum buffer size in bytes (default: 10MB, nil for unlimited)
+            /// - Parameter maxReceiveBufferSize: Largest read chunk in bytes, or `nil` for no limit. Defaults to
+            ///   10 MiB (10 * 1024 * 1024).
             public init(maxReceiveBufferSize: Int? = 10 * 1024 * 1024) {
                 self.maxReceiveBufferSize = maxReceiveBufferSize
             }
@@ -255,7 +265,7 @@ import Logging
         // Justification: reassigned only during connect/disconnect on the transport actor; the closures that read it run on the connection's own queue
         private nonisolated(unsafe) var connection: NetworkConnectionProtocol
 
-        /// Logger instance for transport-related events
+        /// The logger that receives this transport's diagnostics. A no-op logger is used if none was supplied.
         public nonisolated let logger: Logger
 
         // Configuration
@@ -267,14 +277,16 @@ import Logging
         /// schedule can be asserted without real time passing.
         private let backoffSleep: @Sendable (Duration) async throws -> Void
 
-        /// Creates a new NetworkTransport with the specified NWConnection
+        /// Creates a transport that exchanges newline-delimited messages over an existing `NWConnection`.
+        ///
+        /// The connection is not started until ``connect()`` is called, so the caller should not start it.
         ///
         /// - Parameters:
-        ///   - connection: The NWConnection to use for communication
-        ///   - logger: Optional logger instance for transport events
-        ///   - reconnectionConfig: Configuration for reconnection behavior (default: .default)
-        ///   - heartbeatConfig: Configuration for heartbeat behavior (default: .default)
-        ///   - bufferConfig: Configuration for buffer behavior (default: .default)
+        ///   - connection: The connection to communicate over; the transport takes control of its lifecycle.
+        ///   - logger: Logger for transport diagnostics. Defaults to `nil`, which discards log output.
+        ///   - heartbeatConfig: Heartbeat behaviour. Defaults to ``HeartbeatConfiguration/default``.
+        ///   - reconnectionConfig: Retry behaviour. Defaults to ``ReconnectionConfiguration/default``.
+        ///   - bufferConfig: Receive buffer limit. Defaults to ``BufferConfiguration/default``.
         public init(
             connection: NWConnection,
             logger: Logger? = nil,
@@ -347,7 +359,11 @@ import Logging
             try await connect()
         }
 
-        /// Opens the connection, retrying with backoff according to the reconnection configuration.
+        /// Starts the `NWConnection`, waits for it to become ready, then begins the receive loop (and the
+        /// heartbeat, if enabled).
+        ///
+        /// A failed attempt is retried after a backoff delay, up to ``ReconnectionConfiguration/maxAttempts``
+        /// retries, when reconnection is enabled. Calling it while already connected does nothing.
         ///
         /// - Throws: The underlying connection error once retries are exhausted, or immediately when
         ///   reconnection is disabled or the transport is stopping.
@@ -532,10 +548,10 @@ import Logging
         }
 
 
-        /// Disconnects from the transport
+        /// Stops the heartbeat, cancels the `NWConnection` and finishes the stream returned by ``receive()``.
         ///
-        /// This cancels the NWConnection, finalizes the message stream,
-        /// and releases associated resources.
+        /// Marks the transport as stopping first so that no reconnection is attempted. Calling it while not
+        /// connected does nothing.
         public func disconnect() async {
             guard isConnected else { return }
 
@@ -552,13 +568,14 @@ import Logging
             logger.debug("Network transport disconnected")
         }
 
-        /// Sends data through the network connection
+        /// Sends one message over the connection, followed by a newline delimiter.
         ///
-        /// This sends a JSON-RPC message through the NWConnection, adding a newline
-        /// delimiter to mark the end of the message.
+        /// If the send fails with a lost connection and reconnection is enabled, a reconnect is scheduled in the
+        /// background after a 500 ms pause; the failed send itself is still reported to the caller.
         ///
-        /// - Parameter message: The JSON-RPC message to send
-        /// - Throws: MCPError for transport failures or connection issues
+        /// - Parameter message: The encoded JSON-RPC message, without a trailing newline.
+        /// - Throws: `MCPError.internalError` if the transport is not connected, has been deallocated, or the
+        ///   connection reports a send error.
         public func send(_ message: Data) async throws {
             guard isConnected else {
                 throw MCPError.internalError("Transport not connected")
@@ -651,12 +668,12 @@ import Logging
             }
         }
 
-        /// Receives data in an async sequence
+        /// Returns the stream of inbound messages.
         ///
-        /// This returns an AsyncThrowingStream that emits Data objects representing
-        /// each JSON-RPC message received from the network connection.
+        /// Heartbeat packets are consumed internally and not yielded. Every call returns the same stream, so it
+        /// should have a single reader. The stream finishes on ``disconnect()``.
         ///
-        /// - Returns: An AsyncThrowingStream of Data objects
+        /// - Returns: A stream yielding one `Data` per newline-delimited message.
         public func receive() -> AsyncThrowingStream<Data, Swift.Error> {
             return messageStream
         }

@@ -316,7 +316,20 @@ public struct OAuthConfiguration: Sendable {
 
         /// Creates a provider context.
         ///
-        /// Each parameter initializes the stored property of the same name.
+        /// The SDK builds one of these for each pending authorization attempt and passes it to the
+        /// configured access-token provider.
+        ///
+        /// - Parameters:
+        ///   - statusCode: HTTP status that triggered authorization, typically 401 or 403.
+        ///   - endpoint: The MCP endpoint URL being accessed.
+        ///   - resource: The canonical RFC 8707 resource URI used for audience binding.
+        ///   - authorizationServer: Issuer URL of the selected authorization server, or `nil` if none was discovered.
+        ///   - authorizationEndpoint: Authorization endpoint from server metadata, or `nil` if unavailable.
+        ///   - tokenEndpoint: Token endpoint from metadata or a configuration override, or `nil`.
+        ///   - registrationEndpoint: Dynamic client registration endpoint from metadata, or `nil`.
+        ///   - challengedScope: The `scope` value from the latest challenge header, or `nil`.
+        ///   - scopesSupported: `scopes_supported` from protected resource metadata, or `nil`.
+        ///   - requestedScopes: The scope set the SDK selected for this attempt, or `nil` for none.
         public init(
             statusCode: Int,
             endpoint: URL,
@@ -436,7 +449,14 @@ public struct OAuthConfiguration: Sendable {
 extension OAuthConfiguration.TokenEndpointAuthentication {
     /// Compares two authentication values by method and client identifier.
     ///
-    /// Secrets are not compared, and two `privateKeyJWT` values are equal when their client identifiers match, since closures cannot be compared.
+    /// Values of different methods are never equal. For `clientSecretBasic` and `clientSecretPost` both the
+    /// client identifier and the secret must match; `none` compares the identifier only. Two `privateKeyJWT`
+    /// values are equal when their client identifiers match, because the signing closures cannot be compared.
+    ///
+    /// - Parameters:
+    ///   - lhs: The first authentication value.
+    ///   - rhs: The second authentication value.
+    /// - Returns: `true` if the two values are equal under the rules above.
     public static func == (lhs: Self, rhs: Self) -> Bool {
         switch (lhs, rhs) {
         case (.clientSecretBasic(let li, let ls), .clientSecretBasic(let ri, let rs)):

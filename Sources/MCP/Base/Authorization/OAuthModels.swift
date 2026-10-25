@@ -141,7 +141,16 @@ public struct OAuthAccessToken: Sendable, Codable {
     /// before registration completes).
     public let clientID: String?
 
-    /// Creates a new access token record.
+    /// Creates an access token record for storage and reuse.
+    ///
+    /// - Parameters:
+    ///   - value: The access token string sent as the bearer credential.
+    ///   - tokenType: The token type reported by the server, for example `"Bearer"`.
+    ///   - expiresAt: Absolute expiry time, or `nil` if the server gave no expiry (never treated as expired).
+    ///   - scopes: The scopes granted with the token.
+    ///   - authorizationServer: Issuer URL of the server that issued the token, or `nil` if unknown.
+    ///   - refreshToken: Refresh token issued alongside, or `nil`.
+    ///   - clientID: The `client_id` the token was issued to, or `nil` (default) if none was configured.
     public init(
         value: String,
         tokenType: String,
