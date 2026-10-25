@@ -9,8 +9,10 @@ import Foundation
 ///
 /// - SeeAlso: https://modelcontextprotocol.io/specification/2025-11-25/basic/utilities/cancellation
 public struct CancelledNotification: Notification {
+    /// The JSON-RPC method name for this notification: `notifications/cancelled`.
     public static let name: String = "notifications/cancelled"
 
+    /// Parameters for the `CancelledNotification` notification.
     public struct Parameters: Hashable, Codable, Sendable {
         /// The ID of the request to cancel.
         ///
@@ -21,6 +23,11 @@ public struct CancelledNotification: Notification {
         /// An optional human-readable reason for the cancellation.
         public let reason: String?
 
+        /// Creates a new `Parameters`.
+        ///
+        /// - Parameters:
+        ///   - requestId: The ID of the request to cancel.
+        ///   - reason: An optional human-readable reason for the cancellation.
         public init(requestId: ID? = nil, reason: String? = nil) {
             self.requestId = requestId
             self.reason = reason
