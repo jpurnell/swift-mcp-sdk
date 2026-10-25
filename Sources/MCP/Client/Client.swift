@@ -25,10 +25,11 @@ public actor Client {
         /// servers, though this may lead to undefined behavior.
         public var strict: Bool
 
-        /// Creates a new `Configuration`.
+        /// Creates a client configuration.
         ///
-        /// - Parameters:
-        ///   - strict: The strict configuration.
+        /// - Parameter strict: If `true`, the client refuses requests that need a server capability before
+        ///   the server's capabilities are known (and when the server did not advertise the capability).
+        ///   Defaults to `false`, the lenient behavior.
         public init(strict: Bool = false) {
             self.strict = strict
         }
@@ -49,15 +50,16 @@ public actor Client {
         /// Optional set of sized icons for display in a user interface
         public var icons: [Icon]?
 
-        /// Creates a new `Info`.
+        /// Creates the implementation info a client reports to the server during `initialize`
+        /// (`clientInfo`).
         ///
         /// - Parameters:
-        ///   - name: The client name
-        ///   - version: The client version
-        ///   - title: A human-readable title for display purposes
-        ///   - description: Optional description of the client
-        ///   - websiteUrl: Optional website URL for the client
-        ///   - icons: Optional set of sized icons for display in a user interface
+        ///   - name: The client's programmatic name.
+        ///   - version: The client's version string.
+        ///   - title: Optional human-readable display name.
+        ///   - description: Optional description of the client.
+        ///   - websiteUrl: Optional URL of the client's website.
+        ///   - icons: Optional sized icons a UI may display.
         public init(
             name: String,
             version: String,
@@ -82,10 +84,10 @@ public actor Client {
             /// Whether the list of roots has changed
             public var listChanged: Bool?
 
-            /// Creates a new `Roots`.
+            /// Creates the `roots` capability declaration.
             ///
-            /// - Parameters:
-            ///   - listChanged: Whether the list of roots has changed
+            /// - Parameter listChanged: `true` if the client sends `notifications/roots/list_changed` when
+            ///   its roots change; `nil` (the default) leaves it undeclared.
             public init(listChanged: Bool? = nil) {
                 self.listChanged = listChanged
             }
@@ -95,13 +97,15 @@ public actor Client {
         public struct Sampling: Hashable, Sendable {
             /// Tools sub-capability for sampling
             public struct Tools: Hashable, Codable, Sendable {
-                /// Creates a new `Tools`.
+                /// Creates the `sampling.tools` marker, which carries no options; its presence says the
+                /// client supports tool use in sampling requests.
                 public init() {}
             }
 
             /// Context sub-capability for sampling
             public struct Context: Hashable, Codable, Sendable {
-                /// Creates a new `Context`.
+                /// Creates the `sampling.context` marker, which carries no options; its presence says the
+                /// client supports including MCP context in sampling requests.
                 public init() {}
             }
 
@@ -110,11 +114,12 @@ public actor Client {
             /// Whether context is supported in sampling
             public var context: Context?
 
-            /// Creates a new `Sampling`.
+            /// Creates the `sampling` capability declaration. A bare `Sampling()` declares basic sampling
+            /// support with no sub-capabilities.
             ///
             /// - Parameters:
-            ///   - tools: Whether tools are supported in sampling
-            ///   - context: Whether context is supported in sampling
+            ///   - tools: Declares tool-use support in sampling when non-`nil`.
+            ///   - context: Declares context-inclusion support in sampling when non-`nil`.
             public init(tools: Tools? = nil, context: Context? = nil) {
                 self.tools = tools
                 self.context = context
@@ -125,13 +130,15 @@ public actor Client {
         public struct Elicitation: Hashable, Sendable {
             /// Form-based elicitation sub-capability
             public struct Form: Hashable, Codable, Sendable {
-                /// Creates a new `Form`.
+                /// Creates the `elicitation.form` marker, which carries no options; its presence says the
+                /// client supports form-based elicitation.
                 public init() {}
             }
 
             /// URL-based elicitation sub-capability
             public struct URL: Hashable, Codable, Sendable {
-                /// Creates a new `URL`.
+                /// Creates the `elicitation.url` marker, which carries no options; its presence says the
+                /// client supports URL-based elicitation.
                 public init() {}
             }
 
@@ -140,11 +147,11 @@ public actor Client {
             /// Whether URL-based elicitation is supported
             public var url: URL?
 
-            /// Creates a new `Elicitation`.
+            /// Creates the `elicitation` capability declaration.
             ///
             /// - Parameters:
-            ///   - form: Whether form-based elicitation is supported
-            ///   - url: Whether URL-based elicitation is supported
+            ///   - form: Declares form-based elicitation; defaults to ``Form`` (declared).
+            ///   - url: Declares URL-based elicitation when non-`nil`; defaults to `nil`.
             public init(form: Form? = Form(), url: URL? = nil) {
                 self.form = form
                 self.url = url
@@ -163,14 +170,17 @@ public actor Client {
         /// Whether the client supports roots
         public var roots: Capabilities.Roots?
 
-        /// Creates a new `Capabilities`.
+        /// Creates the capability set a client advertises to servers during `initialize`.
+        ///
+        /// Each parameter defaults to `nil`, meaning the capability is not declared.
         ///
         /// - Parameters:
-        ///   - sampling: Whether the client supports sampling
-        ///   - elicitation: Whether the client supports elicitation
-        ///   - experimental: Experimental features supported by the client
-        ///   - extensions: Capability extensions declared by the client,
-        ///   - roots: Whether the client supports roots
+        ///   - sampling: Declares support for server-initiated `sampling/createMessage` requests.
+        ///   - elicitation: Declares support for server-initiated elicitation requests.
+        ///   - experimental: Non-standard features, keyed by feature identifier.
+        ///   - extensions: Optional protocol extensions (for example MCP Apps UI), keyed by extension
+        ///     identifier.
+        ///   - roots: Declares support for `roots/list` requests.
         public init(
             sampling: Sampling? = nil,
             elicitation: Elicitation? = nil,
@@ -229,17 +239,18 @@ public actor Client {
     private let encoder = JSONEncoder()
     private let decoder = JSONDecoder()
 
-    /// Creates a new `Client`.
+    /// Creates a client. Nothing is sent until ``connect(transport:)`` is called.
     ///
     /// - Parameters:
-    ///   - name: The client name
-    ///   - version: The client version
-    ///   - title: A human-readable title for display purposes
-    ///   - description: Optional description of the client
-    ///   - websiteUrl: Optional website URL for the client
-    ///   - icons: Optional set of sized icons for display in a user interface
-    ///   - capabilities: The client capabilities
-    ///   - configuration: The client configuration
+    ///   - name: The client's name, reported to the server in `clientInfo`.
+    ///   - version: The client's version string, reported to the server.
+    ///   - title: Optional human-readable display name.
+    ///   - description: Optional description of the client.
+    ///   - websiteUrl: Optional URL of the client's website.
+    ///   - icons: Optional sized icons a UI may display.
+    ///   - capabilities: The capabilities to advertise to the server; defaults to none.
+    ///   - configuration: Behavior options such as strict capability checking; defaults to
+    ///     ``Configuration/default`` (non-strict).
     public init(
         name: String,
         version: String,
@@ -257,7 +268,15 @@ public actor Client {
         self.configuration = configuration
     }
 
-    /// Connect to the server using the given transport
+    /// Connects the transport, starts the background loop that reads incoming messages, and performs the MCP
+    /// `initialize` handshake automatically.
+    ///
+    /// Register handlers (for example ``withSamplingHandler(_:)`` or ``onNotification(_:handler:)``) before
+    /// connecting if the server may send requests or notifications straight away.
+    ///
+    /// - Parameter transport: The transport to communicate over; its `connect()` is awaited here.
+    /// - Returns: The server's `initialize` result (protocol version, capabilities, server info). Discardable.
+    /// - Throws: Any error from `transport.connect()` or from the `initialize` exchange.
     @discardableResult
     public func connect(transport: any Transport) async throws -> Initialize.Result {
         self.connection = transport
@@ -372,7 +391,9 @@ public actor Client {
             .map(IncomingMessage.notification)
     }
 
-    /// Disconnect the client and cancel all pending requests
+    /// Disconnects from the server: fails every in-flight request with ``MCPError`` (internal error,
+    /// "Client disconnected"), cancels the receive loop, disconnects the transport, and waits for the loop to
+    /// finish. Does nothing harmful if the client is not connected.
     public func disconnect() async {
         await logger?.debug("Initiating client disconnect...")
 
@@ -415,7 +436,13 @@ public actor Client {
 
     // MARK: - Registration
 
-    /// Register a handler for a notification
+    /// Registers a handler for notifications of type `N` received from the server, keyed by `N.name`.
+    /// Handlers accumulate: registering again adds another handler rather than replacing earlier ones.
+    ///
+    /// - Parameters:
+    ///   - type: The notification type to observe, for example ``ProgressNotification``.
+    ///   - handler: Closure called with each received notification message.
+    /// - Returns: The client itself, so registrations can be chained.
     @discardableResult
     public func onNotification<N: Notification>(
         _ type: N.Type,
@@ -426,7 +453,14 @@ public actor Client {
         return self
     }
 
-    /// Register a handler for server-to-client requests
+    /// Registers the handler for server-initiated requests of method type `M`, keyed by `M.name`.
+    /// Registering again for the same method replaces the earlier handler.
+    ///
+    /// - Parameters:
+    ///   - type: The method type to handle.
+    ///   - handler: Closure that receives the decoded parameters and returns the result, or throws to produce
+    ///     an error response.
+    /// - Returns: The client itself, so registrations can be chained.
     @discardableResult
     public func withMethodHandler<M: Method>(
         _ type: M.Type,
@@ -439,7 +473,11 @@ public actor Client {
         return self
     }
 
-    /// Send a notification to the server
+    /// Encodes `notification` as JSON and sends it to the server.
+    ///
+    /// - Parameter notification: The notification to send.
+    /// - Throws: ``MCPError`` (internal error) if the client has no connection; otherwise any encoding or
+    ///   transport error.
     public func notify<N: Notification>(_ notification: Message<N>) async throws {
         guard let connection = connection else {
             throw MCPError.internalError("Client connection not initialized")
@@ -1285,19 +1323,18 @@ extension Client.Capabilities.Sampling: Codable {
         case tools, context
     }
 
-    /// Creates the sampling capabilities from their JSON object form.
+    /// Decodes the `sampling` capability object. Both keys are optional: `tools` and `context` are each
+    /// decoded if present, so an empty object (`{}`) yields a value with no sub-capabilities.
     ///
-    /// An empty object (`{}`) decodes to no sub-capabilities.
+    /// - Throws: `DecodingError` if a present key has the wrong shape.
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         self.tools = try container.decodeIfPresent(Tools.self, forKey: .tools)
         self.context = try container.decodeIfPresent(Context.self, forKey: .context)
     }
 
-    /// Encodes this value into the given encoder.
-    ///
-    /// - Parameter encoder: The encoder to write the value to.
-    /// - Throws: An error if encoding fails.
+    /// Encodes the `sampling` capability object, writing `tools` and `context` only when set. With neither
+    /// set the output is an empty object `{}`.
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encodeIfPresent(tools, forKey: .tools)
@@ -1310,10 +1347,11 @@ extension Client.Capabilities.Elicitation: Codable {
         case form, url
     }
 
-    /// Creates the elicitation capabilities from their JSON object form.
+    /// Decodes the `elicitation` capability object. `form` and `url` are both optional, but if neither is
+    /// present (including for an empty object `{}`) `form` is set to a default ``Form``, preserving the
+    /// pre-`url` meaning of an empty elicitation capability.
     ///
-    /// An empty object (`{}`), or one declaring neither `form` nor `url`, decodes to
-    /// form-only support for backward compatibility.
+    /// - Throws: `DecodingError` if a present key has the wrong shape.
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         self.form = try container.decodeIfPresent(Form.self, forKey: .form)
@@ -1324,10 +1362,8 @@ extension Client.Capabilities.Elicitation: Codable {
         }
     }
 
-    /// Encodes this value into the given encoder.
-    ///
-    /// - Parameter encoder: The encoder to write the value to.
-    /// - Throws: An error if encoding fails.
+    /// Encodes the `elicitation` capability object, writing `form` and `url` only when set. With neither set
+    /// the output is `{}`, which a decoder reads back as form support.
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encodeIfPresent(form, forKey: .form)

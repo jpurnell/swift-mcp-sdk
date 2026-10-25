@@ -17,7 +17,9 @@ public struct ResourceReference: Hashable, Codable, Sendable {
     /// The resource URI
     public let uri: String
 
-    /// Creates a `ResourceReference` with the given values.
+    /// Creates a reference to a resource (or resource template) whose argument is being completed.
+    ///
+    /// - Parameter uri: The resource URI or URI template, as advertised by the server.
     public init(uri: String) {
         self.uri = uri
     }
@@ -26,14 +28,17 @@ public struct ResourceReference: Hashable, Codable, Sendable {
         case type, uri
     }
 
-    /// Encodes this `ResourceReference` into the given encoder using its MCP wire format.
+    /// Encodes the reference as `{"type": "ref/resource", "uri": ...}`.
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encode("ref/resource", forKey: .type)
         try container.encode(uri, forKey: .uri)
     }
 
-    /// Creates a `ResourceReference` by decoding it from the given decoder, throwing `DecodingError` if the data is malformed.
+    /// Decodes a `ref/resource` reference. Both `type` and `uri` are required.
+    ///
+    /// - Throws: `DecodingError` if either key is missing, or if `type` is anything other than
+    ///   `"ref/resource"` (a `dataCorrupted` error on the `type` key).
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         let type = try container.decode(String.self, forKey: .type)
@@ -59,7 +64,12 @@ public enum CompletionReference: Hashable, Codable, Sendable {
         case type
     }
 
-    /// Creates a `CompletionReference` by decoding it from the given decoder, throwing `DecodingError` if the data is malformed.
+    /// Decodes a completion reference by reading `type` and delegating to the matching reference type.
+    ///
+    /// `"ref/prompt"` decodes a ``PromptReference`` and `"ref/resource"` decodes a ``ResourceReference``.
+    ///
+    /// - Throws: `DecodingError` if `type` is missing, is any other value (`dataCorrupted`), or the chosen
+    ///   reference fails to decode.
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         let type = try container.decode(String.self, forKey: .type)
@@ -78,7 +88,8 @@ public enum CompletionReference: Hashable, Codable, Sendable {
         }
     }
 
-    /// Encodes this `CompletionReference` into the given encoder using its MCP wire format.
+    /// Encodes the wrapped reference directly, so the output is the flat `ref/prompt` or `ref/resource`
+    /// object with no extra wrapper.
     public func encode(to encoder: Encoder) throws {
         switch self {
         case .prompt(let ref):
@@ -106,7 +117,12 @@ public enum Complete: Method {
         /// Optional context with already-resolved arguments
         public let context: Context?
 
-        /// Creates a `Complete.Parameters` with the given values.
+        /// Creates the parameters for a `completion/complete` request.
+        ///
+        /// - Parameters:
+        ///   - ref: The prompt or resource whose argument is being completed.
+        ///   - argument: The argument name and the partial value typed so far.
+        ///   - context: Optional values of other arguments already resolved; `nil` omits it.
         public init(
             ref: CompletionReference,
             argument: Argument,
@@ -124,7 +140,11 @@ public enum Complete: Method {
             /// The current value (partial or complete)
             public let value: String
 
-            /// Creates a `Parameters.Argument` with the given values.
+            /// Creates the argument being completed.
+            ///
+            /// - Parameters:
+            ///   - name: The argument's name, as declared by the prompt or resource template.
+            ///   - value: The text entered so far, which may be partial or empty.
             public init(name: String, value: String) {
                 self.name = name
                 self.value = value
@@ -136,7 +156,9 @@ public enum Complete: Method {
             /// A mapping of already-resolved argument names to their values
             public let arguments: [String: String]
 
-            /// Creates a `Parameters.Context` with the given values.
+            /// Creates context for a completion request.
+            ///
+            /// - Parameter arguments: Previously resolved argument values keyed by argument name.
             public init(arguments: [String: String]) {
                 self.arguments = arguments
             }
@@ -152,7 +174,12 @@ public enum Complete: Method {
         /// Tells the client how to parse this result.
         public var resultType: ResultType?
 
-        /// Creates a `Complete.Result` with the given values.
+        /// Creates a `completion/complete` result, typically from a server's completion handler.
+        ///
+        /// - Parameters:
+        ///   - completion: The suggested values.
+        ///   - _meta: Optional result metadata.
+        ///   - resultType: How the client should parse the result; defaults to `.complete`.
         public init(
             completion: Completion,
             _meta: Metadata? = nil,
@@ -167,7 +194,7 @@ public enum Complete: Method {
             case completion, _meta, resultType
         }
 
-        /// Encodes this `Complete.Result` into the given encoder using its MCP wire format.
+        /// Encodes the result. `completion` is always written; `_meta` and `resultType` are omitted when `nil`.
         public func encode(to encoder: Encoder) throws {
             var container = encoder.container(keyedBy: CodingKeys.self)
             try container.encode(completion, forKey: .completion)
@@ -175,7 +202,10 @@ public enum Complete: Method {
             try container.encodeIfPresent(resultType, forKey: .resultType)
         }
 
-        /// Creates a `Complete.Result` by decoding it from the given decoder, throwing `DecodingError` if the data is malformed.
+        /// Decodes a `completion/complete` result. Only `completion` is required; `_meta` is optional, and an
+        /// unrecognised `resultType` string is tolerated and read as `nil` rather than throwing.
+        ///
+        /// - Throws: `DecodingError` if `completion` is missing or any present key has the wrong type.
         public init(from decoder: Decoder) throws {
             let container = try decoder.container(keyedBy: CodingKeys.self)
             completion = try container.decode(Completion.self, forKey: .completion)
@@ -195,7 +225,12 @@ public enum Complete: Method {
             /// Whether additional results exist
             public let hasMore: Bool?
 
-            /// Creates a `Result.Completion` with the given values.
+            /// Creates a set of completion suggestions.
+            ///
+            /// - Parameters:
+            ///   - values: The suggested values; the spec caps this at 100 items (not enforced here).
+            ///   - total: Optional total number of matches available, which may exceed `values.count`.
+            ///   - hasMore: Optional flag indicating more results exist beyond those returned.
             public init(
                 values: [String],
                 total: Int? = nil,
