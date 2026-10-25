@@ -53,6 +53,7 @@ final class OAuthNoRedirectSessionDelegate: NSObject, URLSessionTaskDelegate,
 /// and extracts the authorization code from the callback redirect URL.
 public struct OAuthAuthorizationCodeFlow: Sendable {
 
+    /// Creates an authorization code flow handler.
     public init() {}
 
     /// Builds the authorization request URL.

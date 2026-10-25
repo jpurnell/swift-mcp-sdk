@@ -23,11 +23,18 @@ public protocol OAuthWWWAuthenticateParsing {
 /// - Quoted-string parameter values with backslash escaping
 /// - Case-insensitive scheme and parameter key matching
 public struct DefaultOAuthWWWAuthenticateParser: OAuthWWWAuthenticateParsing {
+    /// Creates a parser.
     public init() {}
     private let tokenCharacters = CharacterSet(
         charactersIn: "!#$%&'*+-.^_`|~0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
     )
 
+    /// Extracts the Bearer challenge from a response's headers.
+    ///
+    /// The `WWW-Authenticate` header is located case-insensitively.
+    ///
+    /// - Parameter headers: The HTTP response headers.
+    /// - Returns: The parsed Bearer challenge, or `nil` if the header is absent, empty, or has no Bearer scheme.
     public func parseBearer(from headers: [String: String]) -> OAuthBearerChallenge? {
         guard let value = headers.first(where: {
             $0.key.caseInsensitiveCompare(HTTPHeaderName.wwwAuthenticate) == .orderedSame
@@ -186,4 +193,3 @@ public struct DefaultOAuthWWWAuthenticateParser: OAuthWWWAuthenticateParsing {
         return components.filter { !$0.isEmpty }
     }
 }
-

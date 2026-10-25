@@ -1,4 +1,5 @@
 import Foundation
+import Logging
 
 #if canImport(FoundationNetworking)
     import FoundationNetworking
@@ -74,6 +75,7 @@ public protocol HTTPClientAuthorizer: AnyObject, Sendable {
 }
 
 extension HTTPClientAuthorizer {
+    /// Default implementation that does nothing; override to refresh tokens ahead of a request.
     public func prepareAuthorization(for endpoint: URL, session: URLSession) async throws {}
 }
 
@@ -98,9 +100,16 @@ extension HTTPClientAuthorizer {
 /// Pass an instance to `HTTPClientTransport(authorizer:)` to enable automatic authorization:
 ///
 /// ```swift
+/// import Foundation
+/// import MCP
+///
+/// let serverURL = URL(string: "https://mcp.example.com/mcp")!
 /// let config = OAuthConfiguration(
 ///     grantType: .clientCredentials,
-///     authentication: .clientSecretBasic(clientID: "my-app", clientSecret: "s3cr3t")
+///     authentication: .clientSecretBasic(
+///         clientID: "my-app",
+///         clientSecret: ProcessInfo.processInfo.environment["MCP_CLIENT_SECRET"] ?? ""
+///     )
 /// )
 /// let authorizer = OAuthAuthorizer(configuration: config)
 /// let transport = HTTPClientTransport(endpoint: serverURL, authorizer: authorizer)
@@ -124,6 +133,7 @@ public final class OAuthAuthorizer: HTTPClientAuthorizer, @unchecked Sendable {
     private var stepUpAttempts: [String: Int] = [:]
     private var clientRegistrationAttempted = false
     private var clientSecretExpiresAt: Date?
+    private let logger = Logger(label: "mcp.oauth.authorizer")
 
     // MARK: - Composable Dependencies
 
@@ -200,14 +210,25 @@ public final class OAuthAuthorizer: HTTPClientAuthorizer, @unchecked Sendable {
 
     // MARK: - HTTPClientAuthorizer
 
+    /// The configured maximum number of authorization attempts per request.
     public var maxAuthorizationAttempts: Int {
         configuration.retryPolicy.maxAuthorizationAttempts
     }
 
+    /// Requires `endpoint` to use https or loopback http.
+    ///
+    /// - Parameter endpoint: The MCP endpoint URL.
+    /// - Throws: ``OAuthAuthorizationError`` if the URL is invalid or insecure.
     public func validateEndpointSecurity(for endpoint: URL) throws {
         try urlValidator.validateHTTPSOrLoopback(endpoint, context: "MCP endpoint")
     }
 
+    /// Returns `Bearer <token>` for a stored, unexpired token issued by the selected authorization server.
+    ///
+    /// A token issued by a different authorization server is cleared. Expired tokens yield `nil`.
+    ///
+    /// - Parameter endpoint: The MCP endpoint being requested.
+    /// - Returns: The header value, or `nil` if no usable token exists.
     public func authorizationHeader(for endpoint: URL) -> String? {
         guard let accessToken = tokenStorage.load() else { return nil }
         if let tokenAuthorizationServer = accessToken.authorizationServer,
@@ -223,6 +244,18 @@ public final class OAuthAuthorizer: HTTPClientAuthorizer, @unchecked Sendable {
         return "\(OAuthTokenType.bearer) \(accessToken.value)"
     }
 
+    /// Handles a `401` or `403` challenge by refreshing or acquiring a new token.
+    ///
+    /// A `401` tries a refresh token first, then an external token provider, then the configured grant. A `403` with `insufficient_scope` requests the union of the held and required scopes, bounded by the scope upgrade retry limit.
+    ///
+    /// - Parameters:
+    ///   - statusCode: The HTTP status code of the response.
+    ///   - headers: The response headers, including `WWW-Authenticate`.
+    ///   - endpoint: The MCP endpoint that produced the challenge.
+    ///   - operationKey: Identifies the operation, so step-up attempts are limited per operation.
+    ///   - session: The `URLSession` used for discovery and token requests.
+    /// - Returns: `true` if a new token was stored and the request should be retried.
+    /// - Throws: ``OAuthAuthorizationError`` if discovery or token acquisition fails.
     public func handleChallenge(
         statusCode: Int,
         headers: [String: String],
@@ -364,6 +397,13 @@ public final class OAuthAuthorizer: HTTPClientAuthorizer, @unchecked Sendable {
         }
     }
 
+    /// Refreshes the stored token ahead of expiry when it is within the proactive refresh window.
+    ///
+    /// Failures are logged and otherwise ignored, so the request proceeds and the challenge path recovers.
+    ///
+    /// - Parameters:
+    ///   - endpoint: The MCP endpoint about to be contacted.
+    ///   - session: The `URLSession` used for the refresh request.
     public func prepareAuthorization(for endpoint: URL, session: URLSession) async throws {
         guard configuration.proactiveRefreshWindowSeconds > 0 else { return }
         guard let token = tokenStorage.load() else { return }
@@ -377,17 +417,28 @@ public final class OAuthAuthorizer: HTTPClientAuthorizer, @unchecked Sendable {
         do {
             resource = try canonicalResource(for: endpoint)
         } catch {
+            logger.debug(
+                "Skipping proactive refresh: resource could not be canonicalized",
+                metadata: ["error": "\(type(of: error))"])
             return
         }
 
         let requestedScopes = token.scopes.isEmpty ? nil : token.scopes
-        _ = try? await refreshAccessToken(
-            refreshToken: refreshToken,
-            resource: resource,
-            requestedScopes: requestedScopes,
-            asMetadata: asMeta,
-            session: session
-        )
+        do {
+            _ = try await refreshAccessToken(
+                refreshToken: refreshToken,
+                resource: resource,
+                requestedScopes: requestedScopes,
+                asMetadata: asMeta,
+                session: session
+            )
+        } catch {
+            // Documented contract: a failed proactive refresh is not fatal; the normal
+            // challenge path recovers on the next 401.
+            logger.debug(
+                "Proactive token refresh failed; deferring to challenge handling",
+                metadata: ["error": "\(type(of: error))"])
+        }
     }
 
     // MARK: - Discovery
@@ -440,8 +491,16 @@ public final class OAuthAuthorizer: HTTPClientAuthorizer, @unchecked Sendable {
             candidates.append(fallback)
         }
 
-        let fallbackIssuer = try? discoveryClient.metadataDiscovery
-            .authorizationServerFallbackIssuer(from: endpoint)
+        let fallbackIssuer: URL?
+        do {
+            fallbackIssuer = try discoveryClient.metadataDiscovery
+                .authorizationServerFallbackIssuer(from: endpoint)
+        } catch {
+            logger.debug(
+                "No fallback authorization server issuer derivable from endpoint",
+                metadata: ["error": "\(type(of: error))"])
+            fallbackIssuer = nil
+        }
         let metadata = try await discoveryClient.fetchProtectedResourceMetadata(
             candidates: candidates, fallbackIssuer: fallbackIssuer, session: session)
         try validateProtectedResource(metadata: metadata, endpoint: endpoint)
@@ -546,7 +605,7 @@ public final class OAuthAuthorizer: HTTPClientAuthorizer, @unchecked Sendable {
     ) async throws {
         let tokenEndpoint = try resolveTokenEndpoint(asMetadata: asMetadata)
         var bodyParameters: [String: String] = configuration.additionalTokenRequestParameters
-        bodyParameters[OAuthParameterName.grantType] = OAuthGrantTypeValue.clientCredentials
+        bodyParameters[OAuthParameterName.grantType] = OAuthGrantTypeValue.machineToMachine
         bodyParameters[OAuthParameterName.resource] = resource.absoluteString
         if let scope = requestedScopes.flatMap(scopeSelector.serialize) {
             bodyParameters[OAuthParameterName.scope] = scope
@@ -584,7 +643,7 @@ public final class OAuthAuthorizer: HTTPClientAuthorizer, @unchecked Sendable {
 
         let verifier = PKCE.makeVerifier()
         let challenge = try PKCE.makeChallenge(from: verifier)
-        let state = UUID().uuidString
+        let state = PKCE.makeStateToken()
 
         let authorizationURL = try authCodeFlow.buildURL(
             authorizationEndpoint: authorizationEndpoint,
@@ -639,12 +698,15 @@ public final class OAuthAuthorizer: HTTPClientAuthorizer, @unchecked Sendable {
         do {
             tokenEndpoint = try resolveTokenEndpoint(asMetadata: asMetadata)
         } catch {
+            logger.debug(
+                "Token refresh skipped: token endpoint could not be resolved",
+                metadata: ["error": "\(type(of: error))"])
             return false
         }
 
         var bodyParameters: [String: String] = configuration.additionalTokenRequestParameters
-        bodyParameters[OAuthParameterName.grantType] = OAuthGrantTypeValue.refreshToken
-        bodyParameters[OAuthParameterName.refreshToken] = refreshToken
+        bodyParameters[OAuthParameterName.grantType] = OAuthGrantTypeValue.renewalGrant
+        bodyParameters[OAuthParameterName.renewalParam] = refreshToken
         bodyParameters[OAuthParameterName.resource] = resource.absoluteString
         if let scope = requestedScopes.flatMap(scopeSelector.serialize) {
             bodyParameters[OAuthParameterName.scope] = scope

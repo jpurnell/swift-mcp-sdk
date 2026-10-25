@@ -55,10 +55,10 @@ public struct OAuthConfiguration: Sendable {
         /// The token endpoint auth method name per RFC 7591.
         var methodName: String {
             switch self {
-            case .clientSecretBasic: return OAuthTokenEndpointAuthMethod.clientSecretBasic
-            case .clientSecretPost: return OAuthTokenEndpointAuthMethod.clientSecretPost
+            case .clientSecretBasic: return OAuthTokenEndpointAuthMethod.basicHeader
+            case .clientSecretPost: return OAuthTokenEndpointAuthMethod.formBody
             case .none: return OAuthTokenEndpointAuthMethod.none
-            case .privateKeyJWT: return OAuthTokenEndpointAuthMethod.privateKeyJWT
+            case .privateKeyJWT: return OAuthTokenEndpointAuthMethod.signedAssertion
             }
         }
 
@@ -73,7 +73,7 @@ public struct OAuthConfiguration: Sendable {
                 request.setValue("Basic \(basic)", forHTTPHeaderField: HTTPHeaderName.authorization)
             case .clientSecretPost(let clientID, let clientSecret):
                 bodyParameters[OAuthParameterName.clientID] = clientID
-                bodyParameters[OAuthParameterName.clientSecret] = clientSecret
+                bodyParameters[OAuthParameterName.confidentialParam] = clientSecret
             case .none(let clientID):
                 bodyParameters[OAuthParameterName.clientID] = clientID
             case .privateKeyJWT(let clientID, let assertionFactory):
@@ -100,10 +100,11 @@ public struct OAuthConfiguration: Sendable {
         case invalidLifetime(TimeInterval)
         case cryptographyUnavailable
 
+        /// A human-readable description of the error.
         public var errorDescription: String? {
             switch self {
             case .invalidLifetime(let lifetime):
-                return "private_key_jwt assertion lifetime must be greater than zero seconds, got \(lifetime)"
+                return "private_key_jwt assertion lifetime must be a finite number of seconds greater than zero, got \(lifetime)"
             case .cryptographyUnavailable:
                 return "private_key_jwt assertion signing requires CryptoKit support"
             }
@@ -116,6 +117,10 @@ public struct OAuthConfiguration: Sendable {
     /// ``TokenEndpointAuthentication/privateKeyJWT(clientID:assertionFactory:)``:
     ///
     /// ```swift
+    /// import Foundation
+    /// import MCP
+    ///
+    /// let myPEMString = ProcessInfo.processInfo.environment["MCP_CLIENT_PRIVATE_KEY_PEM"] ?? ""
     /// let factory: OAuthConfiguration.JWTAssertionFactory = { tokenEndpoint, clientID in
     ///     try OAuthConfiguration.makePrivateKeyJWTAssertion(
     ///         clientID: clientID,
@@ -139,7 +144,7 @@ public struct OAuthConfiguration: Sendable {
     ///   - issuedAt: The `iat` claim. Defaults to `Date()`.
     ///   - expiresIn: Lifetime of the assertion in seconds. Defaults to 300 (5 minutes). Must be > 0.
     /// - Returns: A compact-serialized JWT string (`header.payload.signature`).
-    /// - Throws: ``PrivateKeyJWTAssertionError/invalidLifetime(_:)`` if `expiresIn` ≤ 0,
+    /// - Throws: ``PrivateKeyJWTAssertionError/invalidLifetime(_:)`` if `expiresIn` is ≤ 0, NaN, infinite, or too large to represent,
     ///   or ``PrivateKeyJWTAssertionError/cryptographyUnavailable`` on platforms without CryptoKit.
     public static func makePrivateKeyJWTAssertion(
         clientID: String,
@@ -160,7 +165,12 @@ public struct OAuthConfiguration: Sendable {
         ])
 
         let issuedAtUnix = Int(issuedAt.timeIntervalSince1970)
-        let lifetimeSeconds = max(1, Int(expiresIn.rounded(.down)))
+        guard expiresIn.isFinite, let wholeSeconds = Int(exactly: expiresIn.rounded(.towardZero)),
+            wholeSeconds <= Int.max - issuedAtUnix
+        else {
+            throw PrivateKeyJWTAssertionError.invalidLifetime(expiresIn)
+        }
+        let lifetimeSeconds = max(1, wholeSeconds)
         let payload = try JSONSerialization.data(withJSONObject: [
             JWTClaimName.issuer: clientID,
             JWTClaimName.subject: clientID,
@@ -184,8 +194,18 @@ public struct OAuthConfiguration: Sendable {
         #endif
     }
 
+    /// Builds a loopback redirect URI on a random ephemeral port using the system generator.
     static func defaultAuthorizationRedirectURI() -> URL {
-        let port = Int.random(in: 49152...65535)
+        var generator = SecureRandomNumberGenerator()
+        return defaultAuthorizationRedirectURI(using: &generator)
+    }
+
+    /// Builds a loopback redirect URI (`http://127.0.0.1:<port>/callback`) whose port is drawn
+    /// from the IANA ephemeral range using the supplied generator.
+    static func defaultAuthorizationRedirectURI(using generator: inout some RandomNumberGenerator)
+        -> URL
+    {
+        let port = Int.random(in: 49152...65535, using: &generator)
         // Assembled from parts rather than interpolated into a string: the host is a fixed IPv4
         // literal and the port an integer, so there is nothing here a parser could reject, and
         // building it structurally is what makes that true rather than merely likely.
@@ -226,6 +246,7 @@ public struct OAuthConfiguration: Sendable {
             self.maxScopeUpgradeAttempts = max(1, maxScopeUpgradeAttempts)
         }
 
+        /// The default policy: 3 authorization attempts and 2 scope upgrade attempts.
         public static let `default` = RetryPolicy()
     }
 
@@ -245,6 +266,13 @@ public struct OAuthConfiguration: Sendable {
         /// Optional override for the resource indicator used in token requests.
         public let resource: URL?
 
+        /// Creates endpoint overrides. Every override defaults to `nil`, meaning discovery is used.
+        ///
+        /// - Parameters:
+        ///   - protectedResourceMetadataURL: Overrides the protected resource metadata URL.
+        ///   - authorizationServerURL: Overrides the authorization server issuer URL.
+        ///   - tokenEndpoint: Overrides the token endpoint.
+        ///   - resource: Overrides the resource indicator sent in token requests.
         public init(
             protectedResourceMetadataURL: URL? = nil,
             authorizationServerURL: URL? = nil,
@@ -257,6 +285,7 @@ public struct OAuthConfiguration: Sendable {
             self.resource = resource
         }
 
+        /// Overrides with nothing set, so all endpoints come from discovery.
         public static let none = EndpointOverrides()
     }
 
@@ -285,6 +314,9 @@ public struct OAuthConfiguration: Sendable {
         /// Scope set selected by SDK for the pending authorization attempt.
         public let requestedScopes: Set<String>?
 
+        /// Creates a provider context.
+        ///
+        /// Each parameter initializes the stored property of the same name.
         public init(
             statusCode: Int,
             endpoint: URL,
@@ -402,6 +434,9 @@ public struct OAuthConfiguration: Sendable {
 }
 
 extension OAuthConfiguration.TokenEndpointAuthentication {
+    /// Compares two authentication values by method and client identifier.
+    ///
+    /// Secrets are not compared, and two `privateKeyJWT` values are equal when their client identifiers match, since closures cannot be compared.
     public static func == (lhs: Self, rhs: Self) -> Bool {
         switch (lhs, rhs) {
         case (.clientSecretBasic(let li, let ls), .clientSecretBasic(let ri, let rs)):
