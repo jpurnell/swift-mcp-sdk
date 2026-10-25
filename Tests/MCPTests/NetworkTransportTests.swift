@@ -270,7 +270,7 @@ import Testing
 
             // Simulate failure before connecting
             mockConnection.simulateFailure(error: NWError.posix(POSIXErrorCode.ECONNRESET))
-            
+
             do {
                 try await transport.connect()
                 Issue.record("Expected connect to throw an error")
@@ -305,7 +305,7 @@ import Testing
             let sentData = mockConnection.getSentData()
             #expect(sentData.count == 1)
 
-            if sentData.count > 0 {
+            if !sentData.isEmpty {
                 let expectedOutput = message + Data("\n".utf8)
                 #expect(sentData[0] == expectedOutput)
             }
@@ -565,14 +565,22 @@ import Testing
         @Test("Reconnection Backoff")
         func testReconnectionBackoff() async throws {
             let mockConnection = MockNetworkConnection()
-            let startTime = Date()
 
-            // Configure for quick reconnection with known backoff
             let reconnectionConfig = NetworkTransport.ReconnectionConfiguration(
                 enabled: true,
                 maxAttempts: 3,
                 backoffMultiplier: 2.0
             )
+
+            // The schedule is a pure function of the attempt number: 0.5s, then doubling.
+            let delays = (1...reconnectionConfig.maxAttempts).map {
+                reconnectionConfig.backoffDelay(for: $0)
+            }
+            let expected = [0.5, 1.0, 2.0]
+            #expect(delays.count == expected.count)
+            for (delay, want) in zip(delays, expected) {
+                #expect(abs(delay - want) < 1e-9)
+            }
 
             let transport = NetworkTransport(
                 mockConnection,
@@ -581,19 +589,10 @@ import Testing
             )
 
             try await transport.connect()
-
-            // Simulate failure
             mockConnection.simulateFailure(error: NWError.posix(POSIXErrorCode.ECONNRESET))
 
-            // Wait for reconnection attempts
-            try await Task.sleep(for: .seconds(4))
-
-            let endTime = Date()
-            let duration = endTime.timeIntervalSince(startTime)
-
-            // Verify we had enough time for reconnection attempts
-            #expect(duration >= 3.5)  // Should have time for 3 attempts with backoff
-
+            // A failure with reconnection enabled must leave the transport able to disconnect
+            // cleanly; the schedule above is what bounds how long it would keep trying.
             await transport.disconnect()
         }
 

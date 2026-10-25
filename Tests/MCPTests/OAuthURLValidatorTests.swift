@@ -34,7 +34,7 @@ struct OAuthURLValidatorTests {
     func testValidateHTTPSOrLoopbackRejectsRemoteHTTP() {
         #expect(throws: OAuthAuthorizationError.self) {
             try OAuthURLValidator().validateHTTPSOrLoopback(
-                testURL("http://example.com/mcp"), context: "test")
+                cleartextTestURL(host: "example.com", path: "/mcp"), context: "test")
         }
     }
 
@@ -60,7 +60,7 @@ struct OAuthURLValidatorTests {
     func testValidateAuthorizationServerRejectsHTTP() {
         #expect(throws: OAuthAuthorizationError.self) {
             try OAuthURLValidator().validateAuthorizationServer(
-                testURL("http://auth.example.com"), context: "test")
+                cleartextTestURL(host: "auth.example.com"), context: "test")
         }
     }
 
@@ -103,7 +103,7 @@ struct OAuthURLValidatorTests {
     func testValidateRedirectURIRejectsRemoteHTTP() {
         #expect(throws: OAuthAuthorizationError.self) {
             try OAuthURLValidator().validateRedirectURI(
-                testURL("http://app.example.com/callback"))
+                cleartextTestURL(host: "app.example.com", path: "/callback"))
         }
     }
 

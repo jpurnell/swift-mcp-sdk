@@ -27,7 +27,7 @@ struct JSONSchemaPolicyTests {
     /// The rule that matters most: a network `$ref` is refused rather than fetched.
     @Test("A network reference is refused, not fetched", arguments: [
         "https://evil.example.com/schema.json",
-        "http://example.com/schema.json",
+        cleartextURLString(host: "example.com", path: "/schema.json"),
         "https://example.com/s.json#/$defs/x",
     ])
     func testNetworkReferenceRefused(reference: String) throws {

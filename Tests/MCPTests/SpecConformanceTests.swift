@@ -25,8 +25,8 @@ struct SpecConformanceTests {
     /// Decodes one fixture, throwing if it does not match the type the specification names.
     private typealias Decode = @Sendable (Data) throws -> Void
 
-    private static func decoding<T: Decodable>(_ type: T.Type) -> Decode {
-        { data in _ = try JSONDecoder().decode(type, from: data) }
+    private static func decoding<T: Decodable & SendableMetatype>(_ type: T.Type) -> Decode {
+        { data in _ = try JSONDecoder().decode(T.self, from: data) }
     }
 
     /// A JSON-RPC envelope: the payload is checked for the fields every message carries, and its

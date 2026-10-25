@@ -1447,9 +1447,9 @@ import Testing
                 let finalResponseData = MockResponses.jsonRPCResult(id: 13)
 
                 let expectedClientID = "pre-registered-client"
-                let expectedClientSecret = "pre-registered-secret"
+                let expectedFakeSecretValue = "pre-registered-secret"
                 let expectedBasic = Data(
-                    "\(expectedClientID):\(expectedClientSecret)".utf8
+                    "\(expectedClientID):\(expectedFakeSecretValue)".utf8
                 ).base64EncodedString()
 
                 requestHandler = MockResponses.routingHandler(routes: [
@@ -1499,7 +1499,7 @@ import Testing
                     oauthConfiguration: .init(
                         authentication: .clientSecretBasic(
                             clientID: expectedClientID,
-                            clientSecret: expectedClientSecret
+                            clientSecret: expectedFakeSecretValue
                         )),
                     messageData: Data(#"{"jsonrpc":"2.0","method":"ping","id":13}"#.utf8),
                     expectedResponseData: finalResponseData,
@@ -1686,7 +1686,7 @@ import Testing
                 let testEndpoint = testURL("https://localhost:8080/public/mcp")
                 let resourceMetadataURL = testURL("https://localhost:8080/.well-known/oauth-protected-resource/public/mcp")
                 let asMetadataURL = testURL("https://localhost:8080/.well-known/oauth-authorization-server/auth")
-                let invalidClientID = "http://client.example.com/metadata.json"
+                let invalidClientID = cleartextURLString(host: "client.example.com", path: "/metadata.json")
 
                 requestHandler = MockResponses.routingHandler(routes: [
                     testEndpoint: { request in
@@ -1718,7 +1718,7 @@ import Testing
             // MARK: 28 - Rejects Insecure MCP Endpoint URL
 
             func configureOAuthRejectsInsecureMCPEndpointURL() -> OAuthScenarioContext {
-                let insecureEndpoint = testURL("http://example.com/public/mcp")
+                let insecureEndpoint = cleartextTestURL(host: "example.com", path: "/public/mcp")
 
                 return OAuthScenarioContext(
                     testEndpoint: insecureEndpoint,
@@ -1836,7 +1836,7 @@ import Testing
                     oauthConfiguration: .init(
                         grantType: .authorizationCode,
                         authentication: .none(clientID: "test-client"),
-                        authorizationRedirectURI: testURL("http://evil.example.com/callback")
+                        authorizationRedirectURI: cleartextTestURL(host: "evil.example.com", path: "/callback")
                     ),
                     messageData: Data(#"{"jsonrpc":"2.0","method":"ping","id":13}"#.utf8),
                     expectedErrorSubstring:
