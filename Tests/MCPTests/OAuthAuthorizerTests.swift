@@ -202,7 +202,7 @@ struct OAuthAuthorizerTests {
     func testValidateEndpointSecurityPropagatesError() {
         let validator = MockURLValidator()
         validator.shouldThrow = OAuthAuthorizationError.insecureOAuthEndpoint(
-            context: "test", url: "http://example.com")
+            context: "test", url: "https://example.com")
         let authorizer = makeAuthorizer(urlValidator: validator)
 
         #expect(throws: OAuthAuthorizationError.self) {

@@ -370,7 +370,7 @@ struct RequestTests {
         #expect(decoded.id == 1)
         #expect(decoded.method == Ping.name)
     }
-    
+
     @Test("AnyRequest parameters request decoding - with empty params")
     func testAnyRequestParametersRequestDecodingWithEmptyParams() throws {
         // Test decoding when params field is null

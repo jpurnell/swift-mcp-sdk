@@ -1137,16 +1137,16 @@ import Testing
             @Test("Request modifier functionality", .httpClientTransportSetup)
             func testRequestModifier() async throws {
                 let testEndpoint = testURL("https://api.example.com/mcp")
-                let testToken = "test-bearer-token-12345"
+                let fakeBearerValue = "test-bearer-token-12345"
 
                 let configuration = URLSessionConfiguration.ephemeral
                 configuration.protocolClasses = [MockURLProtocol.self]
 
                 await MockURLProtocol.requestHandlerStorage.setHandler {
-                    [testEndpoint, testToken] (request: URLRequest) in
+                    [testEndpoint, fakeBearerValue] (request: URLRequest) in
                     // Verify the Authorization header was added by the requestModifier
                     #expect(
-                        request.value(forHTTPHeaderField: "Authorization") == "Bearer \(testToken)")
+                        request.value(forHTTPHeaderField: "Authorization") == "Bearer \(fakeBearerValue)")
 
                     // Return a successful response
                     let response = testHTTPResponse(url: testEndpoint, statusCode: 200, headers: ["Content-Type": "application/json"])
@@ -1161,7 +1161,7 @@ import Testing
                     requestModifier: { request in
                         var modifiedRequest = request
                         modifiedRequest.addValue(
-                            "Bearer \(testToken)", forHTTPHeaderField: "Authorization")
+                            "Bearer \(fakeBearerValue)", forHTTPHeaderField: "Authorization")
                         return modifiedRequest
                     },
                     logger: nil

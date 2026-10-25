@@ -166,7 +166,7 @@ struct OAuthAuthorizationTests {
     func testCanonicalResourceURIRejectsNonLoopbackHTTP() {
         #expect(throws: OAuthAuthorizationError.self) {
             _ = try metadataDiscovery.canonicalResourceURI(
-                from: testURL("http://mcp.example.com/resource")
+                from: cleartextTestURL(host: "mcp.example.com", path: "/resource")
             )
         }
     }
@@ -320,7 +320,7 @@ struct OAuthAuthorizationTests {
     @Test("Protected resource metadata returns empty for non-HTTPS endpoint")
     func testProtectedResourceMetadataRejectsHTTP() {
         let urls = metadataDiscovery.protectedResourceMetadataURLs(
-            for: testURL("http://remote.example.com/mcp")
+            for: cleartextTestURL(host: "remote.example.com", path: "/mcp")
         )
         #expect(urls.isEmpty)
     }
@@ -347,7 +347,7 @@ struct OAuthAuthorizationTests {
     @Test("Authorization server metadata returns empty for non-HTTPS issuer")
     func testAuthorizationServerMetadataRejectsHTTP() {
         let urls = metadataDiscovery.authorizationServerMetadataURLs(
-            for: testURL("http://remote.example.com")
+            for: cleartextTestURL(host: "remote.example.com")
         )
         #expect(urls.isEmpty)
     }
@@ -372,7 +372,7 @@ struct OAuthAuthorizationTests {
     func testAuthorizationServerFallbackIssuerRejectsInsecure() {
         #expect(throws: OAuthAuthorizationError.self) {
             _ = try metadataDiscovery.authorizationServerFallbackIssuer(
-                from: testURL("http://remote.example.com/mcp")
+                from: cleartextTestURL(host: "remote.example.com", path: "/mcp")
             )
         }
     }

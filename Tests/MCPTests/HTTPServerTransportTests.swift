@@ -198,25 +198,6 @@ private func discardSSEStream(_ stream: AsyncThrowingStream<Data, Error>) {
     }
 }
 
-private func drainSSEStream(
-    _ response: HTTPResponse,
-    maxChunks: Int = 10,
-    timeout: Duration = .seconds(2)
-) async -> [Data] {
-    guard case .stream(let stream, _) = response else { return [] }
-    let collector = ChunkCollector()
-    let task = Task {
-        for try await chunk in stream {
-            await collector.append(chunk)
-            if await collector.getChunks().count >= maxChunks { break }
-        }
-    }
-    // Wait for stream to finish or timeout
-    try? await Task.sleep(for: timeout)
-    task.cancel()
-    return await collector.getChunks()
-}
-
 /// Initializes a stateful transport session and returns the session ID.
 /// Spawns a background task to consume the receive stream and send the init response.
 private func initializeSession(

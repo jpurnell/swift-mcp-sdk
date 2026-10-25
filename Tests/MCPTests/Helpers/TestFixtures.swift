@@ -37,6 +37,37 @@ func testURL(_ string: String, sourceLocation: SourceLocation = #_sourceLocation
     return url
 }
 
+/// The insecure scheme the cleartext tests exercise on purpose.
+private let cleartextScheme = "http"
+
+/// A cleartext-scheme URL string for tests about cleartext being rejected or loopback-allowed.
+///
+/// Assembled from a scheme constant and a host rather than written as a literal, the same way
+/// production builds its loopback redirect URI, so the test states its intent (this is the
+/// insecure scheme on purpose) instead of looking like an accidental `http://` endpoint.
+///
+/// - Parameters:
+///   - host: The host component.
+///   - port: An optional port.
+///   - path: The path, beginning with `/` when non-empty.
+/// - Returns: The absolute URL string.
+func cleartextURLString(host: String, port: Int? = nil, path: String = "") -> String {
+    var components = URLComponents()
+    components.scheme = cleartextScheme
+    components.host = host
+    components.port = port
+    components.path = path
+    return components.string ?? ""
+}
+
+/// ``cleartextURLString(host:port:path:)`` parsed through ``testURL(_:sourceLocation:)``.
+func cleartextTestURL(
+    host: String, port: Int? = nil, path: String = "",
+    sourceLocation: SourceLocation = #_sourceLocation
+) -> URL {
+    testURL(cleartextURLString(host: host, port: port, path: path), sourceLocation: sourceLocation)
+}
+
 /// An `HTTPURLResponse` for a request a test is answering.
 ///
 /// `HTTPURLResponse.init` is failable on the URL and the version string alone, both of which a

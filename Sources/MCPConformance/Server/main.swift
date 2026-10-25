@@ -350,7 +350,7 @@ func createConformanceServer(state: ServerState, transport: StatefulHTTPServerTr
                 return .init(content: [.text(text: "Client did not provide all required fields with defaults", annotations: nil, _meta: nil)], isError: true)
             }
 
-            guard name == "John Doe", age == 30, score == 95.5, status == "active", verified == true else {
+            guard name == "John Doe", age == 30, abs(score - 95.5) < 1e-9, status == "active", verified == true else {
                 return .init(content: [.text(text: "Client defaults do not match expected values", annotations: nil, _meta: nil)], isError: true)
             }
 

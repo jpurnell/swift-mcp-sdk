@@ -26,11 +26,24 @@ typealias ScenarioHandler = ([String]) async throws -> Void
 
 private func loadConformanceContext() -> [String: String] {
     let env = ProcessInfo.processInfo.environment
+    let logger = Logger(label: "mcp.conformance.client.context")
 
-    if let raw = env["MCP_CONFORMANCE_CONTEXT"],
-        let data = raw.data(using: .utf8),
-        let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
-    {
+    var contextJSON: [String: Any]?
+    if let raw = env["MCP_CONFORMANCE_CONTEXT"] {
+        do {
+            contextJSON = try JSONSerialization.jsonObject(with: Data(raw.utf8)) as? [String: Any]
+            if contextJSON == nil {
+                logger.warning("MCP_CONFORMANCE_CONTEXT is not a JSON object; falling back to individual variables")
+            }
+        } catch {
+            logger.warning(
+                "MCP_CONFORMANCE_CONTEXT is not valid JSON; falling back to individual variables",
+                metadata: ["error": "\(error)"]
+            )
+        }
+    }
+
+    if let json = contextJSON {
         var parsed: [String: String] = [:]
         for (key, value) in json {
             if let value = value as? String {
@@ -241,6 +254,43 @@ private func requestOAuthToken(
     return token.accessToken
 }
 
+/// Rejects an IdP token endpoint the client has no reason to trust before any request is made.
+///
+/// The URL arrives from the scenario context, so it is untrusted input: without a check the client
+/// could be steered into POSTing an ID token to an arbitrary host. The scheme must be https (http
+/// only for a loopback host), and the host must be one of the origins the client already knows
+/// about: the authorization server, its token endpoint, or an explicit `idp_issuer` from the
+/// context. Loopback hosts are treated as one origin family, since the conformance harness runs
+/// its mock IdP beside the mock authorization server under either `localhost` or `127.0.0.1`.
+private func validateIdPTokenEndpoint(
+    _ url: URL,
+    allowedOrigins: [URL?]
+) throws {
+    guard let scheme = url.scheme?.lowercased(), let host = url.host?.lowercased(), !host.isEmpty
+    else {
+        throw ConformanceError.invalidArguments("IdP token endpoint has no scheme or host")
+    }
+    let loopbackHosts: Set<String> = ["localhost", "127.0.0.1", "::1"]
+    let isLoopback = loopbackHosts.contains(host)
+    guard scheme == "https" || (scheme == "http" && isLoopback) else {
+        throw ConformanceError.invalidArguments(
+            "IdP token endpoint must use https (or http on loopback): \(url.absoluteString)"
+        )
+    }
+    guard url.user == nil, url.password == nil, url.fragment == nil else {
+        throw ConformanceError.invalidArguments("IdP token endpoint must not carry credentials or a fragment")
+    }
+    let allowedHosts = Set(allowedOrigins.compactMap { $0?.host?.lowercased() })
+    let permitted =
+        allowedHosts.contains(host)
+        || (isLoopback && !allowedHosts.isDisjoint(with: loopbackHosts))
+    guard permitted else {
+        throw ConformanceError.invalidArguments(
+            "IdP token endpoint host '\(host)' is not a known authorization-server or IdP origin"
+        )
+    }
+}
+
 private func makeCrossAppAccessTokenProvider(
     context: [String: String]
 ) -> OAuthConfiguration.AccessTokenProvider {
@@ -268,6 +318,13 @@ private func makeCrossAppAccessTokenProvider(
             )
         }
         let resource = discovery.resource.absoluteString
+
+        try validateIdPTokenEndpoint(
+            idpTokenEndpoint,
+            allowedOrigins: [
+                authorizationServer, tokenEndpoint, context["idp_issuer"].flatMap { URL(string: $0) },
+            ]
+        )
 
         let idJag = try await requestOAuthToken(
             url: idpTokenEndpoint,
@@ -360,7 +417,16 @@ func runAuthorizationScenario(scenario: String, args: [String]) async throws {
 
     // Trigger an additional request for scenarios that involve runtime scope behavior.
     if scenario.contains("scope"), let firstTool = tools.first {
-        _ = try? await client.callTool(name: firstTool.name, arguments: [:])
+        do {
+            _ = try await client.callTool(name: firstTool.name, arguments: [:])
+        } catch {
+            // Scope scenarios expect this follow-up call to be refused; the outcome is the
+            // server's to judge, so record it rather than fail the client.
+            logger.debug(
+                "Follow-up tool call failed",
+                metadata: ["tool": "\(firstTool.name)", "error": "\(error)"]
+            )
+        }
     }
 
     await client.disconnect()
