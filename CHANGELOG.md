@@ -27,7 +27,8 @@ nothing here is tagged, and consumers reach it by path.
 - **Docs:** every public declaration now has a doc comment, and doc examples compile with only
   Foundation and MCP imported.
 - **Dependencies:** `swift-docc-plugin` is pinned `from: "1.4.0"` instead of branch `main`.
-- **Tests:** Sendable-metatype warning fixed, wall-clock assertion replaced, credential-named
+- **Docs, second pass:** the boilerplate comments from the first pass ("Creates a `X` with the given values", "Encodes this value into the given encoder") are replaced with parameter, key and error documentation checked against the code. Four existing comments that contradicted the code were corrected.
+- **Tests:** the reconnection-backoff test asserts the 0.5s/1.0s/2.0s schedule through an internal injectable sleep on `NetworkTransport`; Sendable-metatype warning fixed, wall-clock assertion replaced, credential-named
   fixtures renamed, cleartext-URL tests share a helper.
 
 ### Added — MCP `2026-07-28`

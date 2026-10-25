@@ -97,7 +97,7 @@ public struct Tool: Hashable, Codable, Sendable {
         }
 
         /// Creates an annotations value with every hint unset; this is what makes `annotations: nil` work on
-        /// ``Tool/init(name:title:description:inputSchema:annotations:outputSchema:icons:_meta:)``.
+        /// `Tool.init(name:title:description:inputSchema:annotations:outputSchema:icons:_meta:)`.
         ///
         /// - Parameter nilLiteral: Unused placeholder required by the `ExpressibleByNilLiteral` initializer.
         public init(nilLiteral: ()) {}

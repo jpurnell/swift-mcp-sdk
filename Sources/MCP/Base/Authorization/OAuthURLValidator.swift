@@ -34,7 +34,7 @@ public struct OAuthURLValidator: Sendable {
     /// Validates that the URL uses HTTPS or loopback HTTP, and has no fragment.
     ///
     /// Used for MCP endpoints and protected resource metadata URLs. Loopback means `localhost` or a
-    /// loopback address as judged by ``OAuthLoopbackHost``.
+    /// loopback address as judged by `OAuthLoopbackHost`.
     ///
     /// - Parameters:
     ///   - url: The URL to check.

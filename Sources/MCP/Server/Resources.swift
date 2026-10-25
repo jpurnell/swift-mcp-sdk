@@ -217,7 +217,7 @@ public struct Resource: Hashable, Codable, Sendable {
         /// Encodes the contents as an MCP `TextResourceContents` or `BlobResourceContents` object.
         ///
         /// `uri` is always written. `mimeType`, `text`, `blob` and `_meta` are omitted when `nil`; the
-        /// ``text(_:uri:mimeType:_meta:)`` and ``binary(_:uri:mimeType:_meta:)`` factories set exactly one of
+        /// `text(_:uri:mimeType:_meta:)` and `binary(_:uri:mimeType:_meta:)` factories set exactly one of
         /// `text` and `blob`.
         ///
         /// - Parameter encoder: The encoder to write to.
