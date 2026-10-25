@@ -133,14 +133,13 @@ public enum XMCPHeaderPolicy {
         var kept: [Tool] = []
         var rejected: [XMCPHeaderRejection] = []
         for tool in tools {
-            do {
-                _ = try headerNames(in: tool.inputSchema)
+            let outcome = Result { try headerNames(in: tool.inputSchema) }
+            switch outcome {
+            case .success:
                 kept.append(tool)
-            } catch let error as XMCPHeaderError {
-                rejected.append(XMCPHeaderRejection(tool: tool.name, reason: error))
-            } catch {
-                rejected.append(
-                    XMCPHeaderRejection(tool: tool.name, reason: .invalidHeaderName("unknown")))
+            case .failure(let error):
+                let reason = (error as? XMCPHeaderError) ?? .invalidHeaderName("unknown")
+                rejected.append(XMCPHeaderRejection(tool: tool.name, reason: reason))
             }
         }
         return (kept, rejected)

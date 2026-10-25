@@ -11,14 +11,20 @@ import Logging
 /// ## Usage
 ///
 /// ```swift
+/// import Foundation
+/// import MCP
+///
+/// let server = Server(name: "MyServer", version: "1.0.0")
 /// let transport = StatelessHTTPServerTransport()
 ///
 /// // Start the MCP server with this transport
 /// try await server.start(transport: transport)
 ///
 /// // In your HTTP framework handler:
-/// let response = await transport.handleRequest(httpRequest)
-/// // Convert response to your framework's response type and return it
+/// func handle(_ httpRequest: HTTPRequest) async -> HTTPResponse {
+///     // Convert the response to your framework's response type and return it
+///     await transport.handleRequest(httpRequest)
+/// }
 /// ```
 ///
 /// ## When to Use
@@ -37,6 +43,7 @@ import Logging
 /// HTTP 409 and a JSON-RPC `-32600` error rather than silently displacing the first request.
 /// Clients must therefore keep ids unique among their own concurrent in-flight requests.
 public actor StatelessHTTPServerTransport: Transport, HTTPContextProviding {
+    /// Logger for transport-related events.
     public nonisolated let logger: Logger
 
     // MARK: - Dependencies
@@ -95,6 +102,9 @@ public actor StatelessHTTPServerTransport: Transport, HTTPContextProviding {
 
     // MARK: - Transport Conformance
 
+    /// Marks the transport as started.
+    ///
+    /// - Throws: ``MCPError`` if the transport has already been started.
     public func connect() async throws {
         guard !started else {
             throw MCPError.internalError("Transport already started")
@@ -103,6 +113,7 @@ public actor StatelessHTTPServerTransport: Transport, HTTPContextProviding {
         logger.debug("Stateless HTTP server transport started")
     }
 
+    /// Terminates the transport, failing any waiting requests and ending the incoming stream.
     public func disconnect() async {
         await terminate()
     }
@@ -147,6 +158,7 @@ public actor StatelessHTTPServerTransport: Transport, HTTPContextProviding {
         }
     }
 
+    /// The stream of client messages that `handleRequest` forwards to the server.
     public func receive() -> AsyncThrowingStream<Data, Swift.Error> {
         incomingStream
     }
@@ -348,6 +360,9 @@ public actor StatelessHTTPServerTransport: Transport, HTTPContextProviding {
                 metadata: ["requestID": "\(requestID)"]
             )
         } catch {
+            logger.error(
+                "Failed to encode cancellation response",
+                metadata: ["requestID": "\(requestID)", "error": "\(error)"])
             continuation.resume(
                 throwing: MCPError.internalError(
                     "Failed to encode cancellation response: \(error)"))
@@ -356,6 +371,10 @@ public actor StatelessHTTPServerTransport: Transport, HTTPContextProviding {
 
     // MARK: - HTTPContextProviding
 
+    /// Returns the HTTP request for an in-flight JSON-RPC request.
+    ///
+    /// - Parameter id: The JSON-RPC ID of the request.
+    /// - Returns: The originating HTTP request, or `nil` once its response has been delivered.
     public func httpRequestContext(for id: ID) -> HTTPRequest? {
         httpRequestContexts[id.description]
     }

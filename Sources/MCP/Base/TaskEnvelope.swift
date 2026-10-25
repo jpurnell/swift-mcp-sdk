@@ -121,6 +121,10 @@ public struct CreateTaskResult: Hashable, Codable, Sendable {
         self.content = []
     }
 
+    /// Encodes the task fields flat alongside `resultType` and `content`.
+    ///
+    /// - Parameter encoder: The encoder to write to.
+    /// - Throws: Any error raised while encoding a member.
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: TaskEnvelopeKeys.self)
         try task.encodeFlat(into: &container)
@@ -128,6 +132,10 @@ public struct CreateTaskResult: Hashable, Codable, Sendable {
         try container.encode(content, forKey: .content)
     }
 
+    /// Decodes a task-creation result. An absent `resultType` reads as ``ResultType/task``.
+    ///
+    /// - Parameter decoder: The decoder to read from.
+    /// - Throws: `DecodingError` if the task fields are missing or malformed.
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: TaskEnvelopeKeys.self)
         self.task = try MCPTask(flat: container)
@@ -181,6 +189,10 @@ public enum CancelTask: Method {
 
         private enum CodingKeys: String, CodingKey { case resultType }
 
+        /// Decodes the acknowledgement. An absent `resultType` reads as ``ResultType/complete``.
+        ///
+        /// - Parameter decoder: The decoder to read from.
+        /// - Throws: `DecodingError` if `resultType` is present but malformed.
         public init(from decoder: Decoder) throws {
             let container = try decoder.container(keyedBy: CodingKeys.self)
             self.resultType = try container.decodeIfPresent(ResultType.self, forKey: .resultType)
@@ -247,6 +259,10 @@ public struct DetailedTask: Hashable, Codable, Sendable {
         self._meta = _meta
     }
 
+    /// Encodes the task fields flat, followed by whichever optional members are present.
+    ///
+    /// - Parameter encoder: The encoder to write to.
+    /// - Throws: Any error raised while encoding a member.
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: TaskEnvelopeKeys.self)
         try task.encodeFlat(into: &container)
@@ -257,6 +273,10 @@ public struct DetailedTask: Hashable, Codable, Sendable {
         try container.encodeIfPresent(_meta, forKey: ._meta)
     }
 
+    /// Decodes a detailed task from its flat wire form.
+    ///
+    /// - Parameter decoder: The decoder to read from.
+    /// - Throws: `DecodingError` if the task fields are missing or malformed.
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: TaskEnvelopeKeys.self)
         self.task = try MCPTask(flat: container)

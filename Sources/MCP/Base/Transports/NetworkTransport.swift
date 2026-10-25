@@ -41,7 +41,7 @@ import Logging
     /// // Create a TCP connection to a server
     /// let connection = NWConnection(
     ///     host: NWEndpoint.Host("localhost"),
-    ///     port: NWEndpoint.Port(8080)!,
+    ///     port: 8080,
     ///     using: .tcp
     /// )
     ///
@@ -81,6 +81,7 @@ import Logging
 
             // MARK: - RawRepresentable
 
+            /// The raw byte representation of a heartbeat.
             public typealias RawValue = [UInt8]
 
             /// Creates a heartbeat from its raw representation.
@@ -340,6 +341,10 @@ import Logging
             try await connect()
         }
 
+        /// Opens the connection, retrying with backoff according to the reconnection configuration.
+        ///
+        /// - Throws: The underlying connection error once retries are exhausted, or immediately when
+        ///   reconnection is disabled or the transport is stopping.
         public func connect() async throws {
             guard !isConnected else { return }
 
@@ -364,8 +369,11 @@ import Logging
                     reconnectAttempt += 1
                     let delay = reconnectionConfig.backoffDelay(for: reconnectAttempt)
                     logger.debug(
-                        "Attempting reconnection (\(reconnectAttempt)/\(reconnectionConfig.maxAttempts))..."
-                    )
+                        "Attempting reconnection",
+                        metadata: [
+                            "attempt": "\(reconnectAttempt)",
+                            "maxAttempts": "\(reconnectionConfig.maxAttempts)",
+                        ])
 
                     try await Task.sleep(for: .seconds(delay))
                     connection.cancel()
@@ -408,7 +416,7 @@ import Logging
                     return  // Success - exits loop and stream
 
                 case .failed(let error):
-                    logger.error("Connection failed: \(error)")
+                    logger.error("Connection failed", metadata: ["error": "\(error)"])
                     throw error  // Exits loop and stream
 
                 case .cancelled:
@@ -416,7 +424,7 @@ import Logging
                     throw MCPError.internalError("Connection cancelled")
 
                 case .waiting(let error):
-                    logger.debug("Connection waiting: \(error)")
+                    logger.debug("Connection waiting", metadata: ["error": "\(error)"])
 
                 case .preparing:
                     logger.debug("Connection preparing...")
@@ -479,7 +487,7 @@ import Logging
                         try await Task.sleep(for: .seconds(heartbeat.interval))
                     } catch {
                         // If heartbeat fails, log and retry after a shorter interval
-                        log.warning("Heartbeat failed: \(error)")
+                        log.warning("Heartbeat failed", metadata: ["error": "\(error)"])
                         try? await Task.sleep(for: .seconds(2))
                     }
                 }
@@ -581,7 +589,7 @@ import Logging
                             if !sendContinuationResumed.flag {
                                 sendContinuationResumed.flag = true
                                 if let error = error {
-                                    log.error("Send error: \(error)")
+                                    log.error("Send error", metadata: ["error": "\(error)"])
 
                                     // Check if we should attempt to reconnect on send failure
                                     let stopping = await self.isStopping
@@ -606,15 +614,21 @@ import Logging
                                                 Task { [self] in  // Operate on self's executor
                                                     await self.setIsConnected(false)
 
-                                                    try? await Task.sleep(for: .milliseconds(500))
+                                                    do {
+                                                        try await Task.sleep(for: .milliseconds(500))
 
-                                                    // One step on the actor rather than two.
-                                                    // Cancelling and redialling separately leaves
-                                                    // a window in which another path can replace
-                                                    // `connection` between them — and then the
-                                                    // cancel lands on the connection that just
-                                                    // took its place.
-                                                    try? await self.redial()
+                                                        // One step on the actor rather than two.
+                                                        // Cancelling and redialling separately leaves
+                                                        // a window in which another path can replace
+                                                        // `connection` between them — and then the
+                                                        // cancel lands on the connection that just
+                                                        // took its place.
+                                                        try await self.redial()
+                                                    } catch {
+                                                        log.error(
+                                                            "Reconnect after send failure failed",
+                                                            metadata: ["error": "\(error)"])
+                                                    }
                                                 }
                                             }
                                         }
@@ -661,8 +675,8 @@ import Logging
 
                         if consecutiveEmptyReads >= maxConsecutiveEmptyReads {
                             logger.warning(
-                                "Multiple consecutive empty reads (\(consecutiveEmptyReads)), possible connection issue"
-                            )
+                                "Multiple consecutive empty reads, possible connection issue",
+                                metadata: ["consecutiveEmptyReads": "\(consecutiveEmptyReads)"])
 
                             // Check connection state
                             if connection.state != .ready {
@@ -717,8 +731,11 @@ import Logging
                             {
                                 reconnectAttempt += 1
                                 logger.warning(
-                                    "Network connection lost, attempting reconnection (\(reconnectAttempt)/\(reconnectionConfig.maxAttempts))..."
-                                )
+                                    "Network connection lost, attempting reconnection",
+                                    metadata: [
+                                        "attempt": "\(reconnectAttempt)",
+                                        "maxAttempts": "\(reconnectionConfig.maxAttempts)",
+                                    ])
 
                                 // Mark as not connected while attempting reconnection
                                 isConnected = false
@@ -728,13 +745,20 @@ import Logging
                                 // the task: `reconnectAttempt` is what it is now, and reading it
                                 // after a sleep would back off by whatever the count had become.
                                 let delay = reconnectionConfig.backoffDelay(for: reconnectAttempt)
+                                let log = logger
                                 Task {
-                                    try? await Task.sleep(for: .seconds(delay))
-                                    // `redial` is one step on the actor, and it re-reads
-                                    // `isStopping` there rather than trusting a value sampled
-                                    // before the sleep. If connect succeeds a new receive loop
-                                    // starts with it.
-                                    try? await self.redialIfRunning()
+                                    do {
+                                        try await Task.sleep(for: .seconds(delay))
+                                        // `redial` is one step on the actor, and it re-reads
+                                        // `isStopping` there rather than trusting a value sampled
+                                        // before the sleep. If connect succeeds a new receive loop
+                                        // starts with it.
+                                        try await self.redialIfRunning()
+                                    } catch {
+                                        log.error(
+                                            "Reconnect after connection loss failed",
+                                            metadata: ["error": "\(error)"])
+                                    }
                                 }
 
                                 // Exit this receive loop since we're starting a new one after reconnect
@@ -751,7 +775,7 @@ import Logging
                                 try await Task.sleep(for: .milliseconds(100))  // 100ms pause
                                 continue
                             } catch {
-                                logger.error("Failed to sleep after network error: \(error)")
+                                logger.error("Failed to sleep after network error", metadata: ["error": "\(error)"])
                                 break
                             }
                         }
@@ -759,7 +783,7 @@ import Logging
                     break
                 } catch {
                     if !Task.isCancelled && !isStopping {
-                        logger.error("Receive error: \(error)")
+                        logger.error("Receive error", metadata: ["error": "\(error)"])
 
                         if reconnectionConfig.enabled
                             && reconnectAttempt < reconnectionConfig.maxAttempts
@@ -767,15 +791,25 @@ import Logging
                             // Similar reconnection logic for other errors
                             reconnectAttempt += 1
                             logger.warning(
-                                "Error during receive, attempting reconnection (\(reconnectAttempt)/\(reconnectionConfig.maxAttempts))..."
-                            )
+                                "Error during receive, attempting reconnection",
+                                metadata: [
+                                    "attempt": "\(reconnectAttempt)",
+                                    "maxAttempts": "\(reconnectionConfig.maxAttempts)",
+                                ])
 
                             isConnected = false
 
                             let delay = reconnectionConfig.backoffDelay(for: reconnectAttempt)
+                            let log = logger
                             Task {
-                                try? await Task.sleep(for: .seconds(delay))
-                                try? await self.redialIfRunning()
+                                do {
+                                    try await Task.sleep(for: .seconds(delay))
+                                    try await self.redialIfRunning()
+                                } catch {
+                                    log.error(
+                                        "Reconnect after receive error failed",
+                                        metadata: ["error": "\(error)"])
+                                }
                             }
 
                             break

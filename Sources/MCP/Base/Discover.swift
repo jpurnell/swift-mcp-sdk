@@ -91,7 +91,12 @@ public enum Discover: Method {
             instructions = try container.decodeIfPresent(String.self, forKey: .instructions)
             _meta = try container.decodeIfPresent(Metadata.self, forKey: ._meta)
             // An unrecognised tag from a future revision reads as absent rather than throwing.
-            resultType = try? container.decodeIfPresent(ResultType.self, forKey: .resultType)
+            // Read the tag as a free-form value first, so a non-string tag is tolerated too.
+            if case .string(let tag)? = try container.decodeIfPresent(Value.self, forKey: .resultType) {
+                resultType = ResultType(rawValue: tag)
+            } else {
+                resultType = nil
+            }
             ttlMs = try container.decodeIfPresent(Int.self, forKey: .ttlMs)
             cacheScope = try container.decodeIfPresent(CacheScope.self, forKey: .cacheScope)
         }

@@ -13,14 +13,20 @@ import Logging
 /// ## Usage
 ///
 /// ```swift
-/// let transport = StatefulHTTPServerTransport()  // Uses UUID by default
+/// import Foundation
+/// import MCP
+///
+/// let server = Server(name: "MyServer", version: "1.0.0")
+/// let transport = StatefulHTTPServerTransport()  // Random hex session IDs by default
 ///
 /// // Start the MCP server with this transport
 /// try await server.start(transport: transport)
 ///
 /// // In your HTTP framework handler:
-/// let response = await transport.handleRequest(httpRequest)
-/// // Convert response to your framework's response type and return it
+/// func handle(_ httpRequest: HTTPRequest) async -> HTTPResponse {
+///     // Convert the response to your framework's response type and return it
+///     await transport.handleRequest(httpRequest)
+/// }
 /// ```
 ///
 /// ## Framework Integration
@@ -30,6 +36,7 @@ import Logging
 /// For SSE responses, the `.stream` case provides an `AsyncThrowingStream<Data, Error>`
 /// to pipe to the client.
 public actor StatefulHTTPServerTransport: Transport, HTTPContextProviding {
+    /// Logger for transport-related events.
     public nonisolated let logger: Logger
 
     // MARK: - Dependencies
@@ -120,6 +127,9 @@ public actor StatefulHTTPServerTransport: Transport, HTTPContextProviding {
 
     // MARK: - Transport Conformance
 
+    /// Marks the transport as started.
+    ///
+    /// - Throws: ``MCPError`` if the transport has already been started.
     public func connect() async throws {
         guard !started else {
             throw MCPError.internalError("Transport already started")
@@ -128,6 +138,7 @@ public actor StatefulHTTPServerTransport: Transport, HTTPContextProviding {
         logger.debug("Stateful HTTP server transport started")
     }
 
+    /// Terminates the session, closing all active streams.
     public func disconnect() async {
         terminate()
     }
@@ -154,6 +165,7 @@ public actor StatefulHTTPServerTransport: Transport, HTTPContextProviding {
         }
     }
 
+    /// The stream of client messages that `handleRequest` forwards to the server.
     public func receive() -> AsyncThrowingStream<Data, Swift.Error> {
         incomingStream
     }
@@ -510,7 +522,16 @@ public actor StatefulHTTPServerTransport: Transport, HTTPContextProviding {
 
     private func extractProtocolVersion(from body: Data, request: HTTPRequest) -> String {
         // For initialize requests, extract from the request body params
-        if let json = try? JSONSerialization.jsonObject(with: body) as? [String: Any],
+        let parsed: Any?
+        do {
+            parsed = try JSONSerialization.jsonObject(with: body)
+        } catch {
+            logger.debug(
+                "Request body is not JSON; using header for protocol version",
+                metadata: ["error": "\(error)"])
+            parsed = nil
+        }
+        if let json = parsed as? [String: Any],
            let method = json["method"] as? String, method == "initialize",
            let params = json["params"] as? [String: Any],
            let version = params["protocolVersion"] as? String
@@ -551,6 +572,10 @@ public actor StatefulHTTPServerTransport: Transport, HTTPContextProviding {
 
     // MARK: - HTTPContextProviding
 
+    /// Returns the HTTP request for an in-flight JSON-RPC request.
+    ///
+    /// - Parameter id: The JSON-RPC ID of the request.
+    /// - Returns: The originating HTTP request, or `nil` once its response has been delivered or the session has ended.
     public func httpRequestContext(for id: ID) -> HTTPRequest? {
         httpRequestContexts[id.description]
     }

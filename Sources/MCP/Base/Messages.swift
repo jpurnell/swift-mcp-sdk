@@ -3,15 +3,24 @@ import class Foundation.JSONEncoder
 
 private let jsonrpc = "2.0"
 
+/// A type whose value may be omitted from the wire and rebuilt locally.
+///
+/// Decoding a message whose `params` is absent or `null` falls back to `init()` for types that
+/// conform, instead of failing with a missing-key error.
 public protocol NotRequired {
     init()
 }
 
+/// An empty parameter or result payload.
+///
+/// Used as the default `Parameters` and `Result` of a ``Method`` that carries no data.
 public struct Empty: NotRequired, Hashable, Codable, Sendable {
+    /// Creates an empty payload.
     public init() {}
 }
 
 extension Value: NotRequired {
+    /// Creates the `null` value, used when `params` is omitted.
     public init() {
         self = .null
     }
@@ -37,6 +46,10 @@ struct AnyMethod: Method, Sendable {
 }
 
 extension Method where Parameters == Empty {
+    /// Create a request for a method that takes no parameters.
+    ///
+    /// - Parameter id: The request ID. Defaults to a random ID.
+    /// - Returns: A request carrying empty parameters.
     public static func request(
         id: ID = .random
     ) -> Request<Self> {
@@ -45,6 +58,10 @@ extension Method where Parameters == Empty {
 }
 
 extension Method where Result == Empty {
+    /// Create a response for a method whose result is empty.
+    ///
+    /// - Parameter id: The ID of the request being answered.
+    /// - Returns: A successful response carrying an empty result.
     public static func response(id: ID) -> Response<Self> {
         Response(id: id, result: Empty())
     }
@@ -101,6 +118,10 @@ public struct Request<M: Method>: Hashable, Identifiable, Codable, Sendable {
         case jsonrpc, id, method, params
     }
 
+    /// Encodes the request as a JSON-RPC 2.0 object with `jsonrpc`, `id`, `method` and `params`.
+    ///
+    /// - Parameter encoder: The encoder to write to.
+    /// - Throws: Any error raised while encoding a member.
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encode(jsonrpc, forKey: .jsonrpc)
@@ -111,6 +132,12 @@ public struct Request<M: Method>: Hashable, Identifiable, Codable, Sendable {
 }
 
 extension Request {
+    /// Decodes a JSON-RPC 2.0 request.
+    ///
+    /// Parameters of a ``NotRequired`` type may be absent or `null`.
+    ///
+    /// - Parameter decoder: The decoder to read from.
+    /// - Throws: `DecodingError` if the version is not `2.0` or a required member is missing or malformed.
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         let version = try container.decode(String.self, forKey: .jsonrpc)
@@ -143,8 +170,8 @@ extension Request {
         } else if let value = try? container.decode(M.Parameters.self, forKey: .params) {
             // If params exists and can be decoded, use it
             params = value
-        } else if !container.contains(.params)
-            || (try? container.decodeNil(forKey: .params)) == true
+        } else if try !container.contains(.params)
+            || container.decodeNil(forKey: .params)
         {
             // If params is missing or explicitly null, use Empty for Empty parameters
             // or throw for non-Empty parameters
@@ -228,6 +255,11 @@ public struct Response<M: Method>: Hashable, Identifiable, Codable, Sendable {
     /// The response result.
     public let result: Swift.Result<M.Result, MCPError>
 
+    /// Creates a response from an explicit success or failure result.
+    ///
+    /// - Parameters:
+    ///   - id: The ID of the request being answered.
+    ///   - result: The outcome of the request.
     public init(
         id: ID,
         result: Swift.Result<M.Result, MCPError>
@@ -236,6 +268,11 @@ public struct Response<M: Method>: Hashable, Identifiable, Codable, Sendable {
         self.result = result
     }
 
+    /// Creates a successful response.
+    ///
+    /// - Parameters:
+    ///   - id: The ID of the request being answered.
+    ///   - result: The result of the request.
     public init(
         id: ID,
         result: M.Result
@@ -243,6 +280,11 @@ public struct Response<M: Method>: Hashable, Identifiable, Codable, Sendable {
         self.init(id: id, result: .success(result))
     }
 
+    /// Creates a failed response.
+    ///
+    /// - Parameters:
+    ///   - id: The ID of the request being answered.
+    ///   - error: The error describing why the request failed.
     public init(
         id: ID,
         error: MCPError
@@ -254,6 +296,10 @@ public struct Response<M: Method>: Hashable, Identifiable, Codable, Sendable {
         case jsonrpc, id, result, error
     }
 
+    /// Encodes the response as a JSON-RPC 2.0 object holding either `result` or `error`.
+    ///
+    /// - Parameter encoder: The encoder to write to.
+    /// - Throws: Any error raised while encoding a member.
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encode(jsonrpc, forKey: .jsonrpc)
@@ -267,6 +313,10 @@ public struct Response<M: Method>: Hashable, Identifiable, Codable, Sendable {
         }
     }
 
+    /// Decodes a JSON-RPC 2.0 response holding either a `result` or an `error`.
+    ///
+    /// - Parameter decoder: The decoder to read from.
+    /// - Throws: `DecodingError` if the version is not `2.0` or neither a result nor an error can be read.
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         let version = try container.decode(String.self, forKey: .jsonrpc)
@@ -343,6 +393,11 @@ public struct Message<N: Notification>: Hashable, Codable, Sendable {
     /// The notification parameters.
     public let params: N.Parameters
 
+    /// Creates a notification message.
+    ///
+    /// - Parameters:
+    ///   - method: The notification method name.
+    ///   - params: The notification parameters.
     public init(method: String, params: N.Parameters) {
         self.method = method
         self.params = params
@@ -352,6 +407,10 @@ public struct Message<N: Notification>: Hashable, Codable, Sendable {
         case jsonrpc, method, params
     }
 
+    /// Encodes the notification as a JSON-RPC 2.0 object. `params` is omitted when the parameters are ``Empty``.
+    ///
+    /// - Parameter encoder: The encoder to write to.
+    /// - Throws: Any error raised while encoding a member.
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encode(jsonrpc, forKey: .jsonrpc)
@@ -361,6 +420,12 @@ public struct Message<N: Notification>: Hashable, Codable, Sendable {
         }
     }
 
+    /// Decodes a JSON-RPC 2.0 notification.
+    ///
+    /// Parameters of a ``NotRequired`` type may be absent or `null`.
+    ///
+    /// - Parameter decoder: The decoder to read from.
+    /// - Throws: `DecodingError` if the version is not `2.0` or required parameters are missing or malformed.
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         let version = try container.decode(String.self, forKey: .jsonrpc)
@@ -392,8 +457,8 @@ public struct Message<N: Notification>: Hashable, Codable, Sendable {
         } else if let value = try? container.decode(N.Parameters.self, forKey: .params) {
             // If params exists and can be decoded, use it
             params = value
-        } else if !container.contains(.params)
-            || (try? container.decodeNil(forKey: .params)) == true
+        } else if try !container.contains(.params)
+            || container.decodeNil(forKey: .params)
         {
             // If params is missing or explicitly null, use Empty for Empty parameters
             // or throw for non-Empty parameters
