@@ -37,6 +37,9 @@ func testURL(_ string: String, sourceLocation: SourceLocation = #_sourceLocation
     return url
 }
 
+/// The insecure scheme the cleartext tests exercise on purpose.
+private let cleartextScheme = "http"
+
 /// A cleartext-scheme URL string for tests about cleartext being rejected or loopback-allowed.
 ///
 /// Assembled from a scheme constant and a host rather than written as a literal, the same way
@@ -50,7 +53,7 @@ func testURL(_ string: String, sourceLocation: SourceLocation = #_sourceLocation
 /// - Returns: The absolute URL string.
 func cleartextURLString(host: String, port: Int? = nil, path: String = "") -> String {
     var components = URLComponents()
-    components.scheme = "ht" + "tp"
+    components.scheme = cleartextScheme
     components.host = host
     components.port = port
     components.path = path
