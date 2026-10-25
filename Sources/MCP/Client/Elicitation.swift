@@ -65,7 +65,7 @@ public enum Elicitation {
 /// either through a form described by a schema or by sending the user to a URL. The client answers with a
 /// ``CreateElicitation/Result``.
 ///
-/// - SeeAlso: https://modelcontextprotocol.io/specification/2025-06-18/client/elicitation
+/// - SeeAlso: https://modelcontextprotocol.io/specification/2025-11-25/client/elicitation
 public enum CreateElicitation: Method {
     /// The JSON-RPC method name for this request: `elicitation/create`.
     public static let name = "elicitation/create"

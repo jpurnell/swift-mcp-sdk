@@ -26,6 +26,7 @@ merged into the integration branch. See the CHANGELOG entry "quality-gate cleanu
 - `NetworkTransport` takes an internal `backoffSleep`; `testReconnectionBackoff` now asserts the
   waits [0.5, 1.0, 2.0] s (and none when reconnection is disabled). The earlier version only
   checked the schedule function and clean shutdown.
+- Housekeeping: Elicitation spec link now 2025-11-25; stray comment above `Resource.Annotations` removed; `.quality-gate.yml` left untracked (holds a machine-local corpus path).
 - ~250 boilerplate doc comments rewritten against the code; 4 inaccurate pre-existing comments
   corrected (`TokenEndpointAuthentication.==`, a stray timeout line, `StdioTransport.receive`,
   `maxAttempts`). Gate: 0 errors, 0 warnings; 670 tests pass.

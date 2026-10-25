@@ -284,7 +284,6 @@ public struct Resource: Hashable, Codable, Sendable {
         }
     }
 
-    // A resource annotation.
     /// Optional hints that tell clients how a resource should be used or displayed: its intended audience, priority, and last-modified time.
     public struct Annotations: Hashable, Codable, Sendable {
         /// The intended audience for this resource.
