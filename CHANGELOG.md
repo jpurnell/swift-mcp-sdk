@@ -10,6 +10,24 @@ nothing here is tagged, and consumers reach it by path.
 
 ## [Unreleased] — `integration/mcp-2026-07-28`
 
+### Changed — quality-gate cleanup (no overrides)
+
+- **Security:** HTTP session IDs (`UUIDSessionIDGenerator`) and the conformance server's session IDs
+  are now 32 random bytes, hex-encoded, not UUIDs (CWE-340). The OAuth `state` parameter is 32
+  random bytes, base64url. `makePrivateKeyJWTAssertion` rejects non-finite or out-of-range
+  lifetimes instead of trapping. The conformance client checks the IdP token endpoint's host
+  against an allow-list before requesting it (CWE-918).
+- **Determinism:** PKCE verifier/state and the loopback redirect URI take an injectable
+  `RandomNumberGenerator`; the old entry points forward to them.
+- **Logging:** silent `try?` and empty `catch` blocks across the client, server, transports and
+  OAuth code now log or propagate. Two decode paths are stricter: a non-string `resultType` and a
+  non-object sampling/elicitation capability now throw rather than reading as absent.
+- **Docs:** every public declaration now has a doc comment, and doc examples compile with only
+  Foundation and MCP imported.
+- **Dependencies:** `swift-docc-plugin` is pinned `from: "1.4.0"` instead of branch `main`.
+- **Tests:** Sendable-metatype warning fixed, wall-clock assertion replaced, credential-named
+  fixtures renamed, cleartext-URL tests share a helper.
+
 ### Added — MCP `2026-07-28`
 
 - **`server/discover`** and per-request protocol carriage in `_meta` (SEP-2575), the pair that
