@@ -27,7 +27,18 @@ public struct Resource: Hashable, Codable, Sendable {
     /// Metadata fields for the resource (see spec for _meta usage)
     public var _meta: Metadata?
 
-    /// Creates a `Resource` with the given values.
+    /// Creates a resource description to advertise in a `resources/list` result.
+    ///
+    /// - Parameters:
+    ///   - name: Display name of the resource. Required.
+    ///   - uri: The URI clients pass to `resources/read` to fetch the contents. Required.
+    ///   - title: Optional human-readable title.
+    ///   - description: Optional explanation of what the resource contains.
+    ///   - mimeType: Optional MIME type of the contents, such as `"text/plain"`.
+    ///   - size: Optional raw content size in bytes.
+    ///   - annotations: Optional audience, priority and last-modified hints.
+    ///   - icons: Optional icons a client may show in its UI.
+    ///   - _meta: Optional protocol metadata.
     public init(
         name: String,
         uri: String,
@@ -62,7 +73,13 @@ public struct Resource: Hashable, Codable, Sendable {
         case _meta
     }
 
-    /// Creates a `Resource` by decoding it from the given decoder, throwing `DecodingError` if the data is malformed.
+    /// Decodes a resource from an MCP `Resource` object.
+    ///
+    /// `name` and `uri` are required; `title`, `description`, `mimeType`, `size`, `annotations`, `icons` and
+    /// `_meta` are optional and read as `nil` when absent.
+    ///
+    /// - Parameter decoder: The decoder to read from.
+    /// - Throws: `DecodingError` if `name` or `uri` is missing or any present key has the wrong type.
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         name = try container.decode(String.self, forKey: .name)
@@ -76,7 +93,12 @@ public struct Resource: Hashable, Codable, Sendable {
         _meta = try container.decodeIfPresent(Metadata.self, forKey: ._meta)
     }
 
-    /// Encodes this `Resource` into the given encoder using its MCP wire format.
+    /// Encodes the resource as an MCP `Resource` object.
+    ///
+    /// `name` and `uri` are always written; every other key is omitted when `nil`.
+    ///
+    /// - Parameter encoder: The encoder to write to.
+    /// - Throws: Any error thrown by the encoder.
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encode(name, forKey: .name)
@@ -104,6 +126,13 @@ public struct Resource: Hashable, Codable, Sendable {
         public var _meta: Metadata?
 
         /// Creates text resource content (UTF-8 string) for a resource URI.
+        ///
+        /// - Parameters:
+        ///   - content: The text body, stored in `text`.
+        ///   - uri: The URI of the resource this content belongs to.
+        ///   - mimeType: Optional MIME type of the text, such as `"text/markdown"`.
+        ///   - _meta: Optional protocol metadata.
+        /// - Returns: Content with `text` set and `blob` `nil`.
         public static func text(
             _ content: String,
             uri: String,
@@ -114,6 +143,13 @@ public struct Resource: Hashable, Codable, Sendable {
         }
 
         /// Creates binary resource content (delivered base64-encoded) for a resource URI.
+        ///
+        /// - Parameters:
+        ///   - data: The raw bytes; they are base64-encoded into `blob`.
+        ///   - uri: The URI of the resource this content belongs to.
+        ///   - mimeType: Optional MIME type of the data, such as `"image/png"`.
+        ///   - _meta: Optional protocol metadata.
+        /// - Returns: Content with `blob` set and `text` `nil`.
         public static func binary(
             _ data: Data,
             uri: String,
@@ -162,7 +198,13 @@ public struct Resource: Hashable, Codable, Sendable {
             case _meta
         }
 
-        /// Creates a `Resource.Content` by decoding it from the given decoder, throwing `DecodingError` if the data is malformed.
+        /// Decodes resource contents from an MCP `TextResourceContents` or `BlobResourceContents` object.
+        ///
+        /// Only `uri` is required. `mimeType`, `text`, `blob` and `_meta` are optional; the decoder does not
+        /// require exactly one of `text` and `blob` to be present.
+        ///
+        /// - Parameter decoder: The decoder to read from.
+        /// - Throws: `DecodingError` if `uri` is missing or any present key has the wrong type.
         public init(from decoder: Decoder) throws {
             let container = try decoder.container(keyedBy: CodingKeys.self)
             uri = try container.decode(String.self, forKey: .uri)
@@ -172,7 +214,14 @@ public struct Resource: Hashable, Codable, Sendable {
             _meta = try container.decodeIfPresent(Metadata.self, forKey: ._meta)
         }
 
-        /// Encodes this `Resource.Content` into the given encoder using its MCP wire format.
+        /// Encodes the contents as an MCP `TextResourceContents` or `BlobResourceContents` object.
+        ///
+        /// `uri` is always written. `mimeType`, `text`, `blob` and `_meta` are omitted when `nil`; the
+        /// ``text(_:uri:mimeType:_meta:)`` and ``binary(_:uri:mimeType:_meta:)`` factories set exactly one of
+        /// `text` and `blob`.
+        ///
+        /// - Parameter encoder: The encoder to write to.
+        /// - Throws: Any error thrown by the encoder.
         public func encode(to encoder: Encoder) throws {
             var container = encoder.container(keyedBy: CodingKeys.self)
             try container.encode(uri, forKey: .uri)
@@ -202,7 +251,18 @@ public struct Resource: Hashable, Codable, Sendable {
         /// Metadata fields for the template (see spec for _meta usage)
         public var _meta: Metadata?
 
-        /// Creates a `Resource.Template` with the given values.
+        /// Creates a resource template description to advertise in a `resources/templates/list` result.
+        ///
+        /// - Parameters:
+        ///   - uriTemplate: An RFC 6570 URI template, such as `"file:///{path}"`, that clients expand into
+        ///     a URI for `resources/read`. Required.
+        ///   - name: Display name of the template. Required.
+        ///   - title: Optional human-readable title.
+        ///   - description: Optional explanation of what the template yields.
+        ///   - mimeType: Optional MIME type shared by resources matching the template.
+        ///   - annotations: Optional audience, priority and last-modified hints.
+        ///   - icons: Optional icons a client may show in its UI.
+        ///   - _meta: Optional protocol metadata.
         public init(
             uriTemplate: String,
             name: String,
@@ -242,7 +302,12 @@ public struct Resource: Hashable, Codable, Sendable {
         /// An ISO 8601 formatted timestamp indicating when the resource was last modified (e.g., "2025-01-12T15:00:58Z").
         public let lastModified: String?
 
-        /// Creates a `Resource.Annotations` with the given values.
+        /// Creates annotation hints for a resource or template.
+        ///
+        /// - Parameters:
+        ///   - audience: Intended audiences; `nil` leaves it unspecified.
+        ///   - priority: Importance from 0.0 (least) to 1.0 (most). The range is documented, not enforced.
+        ///   - lastModified: ISO 8601 timestamp string of the last modification, such as `"2025-01-12T15:00:58Z"`.
         public init(
             audience: [Audience]? = nil,
             priority: Double? = nil,
@@ -258,6 +323,7 @@ public struct Resource: Hashable, Codable, Sendable {
 // MARK: -
 
 /// To discover available resources, clients send a `resources/list` request.
+/// The response is a page of ``Resource`` descriptions plus an optional cursor for the next page.
 /// - SeeAlso: https://modelcontextprotocol.io/specification/2025-11-25/server/resources/#listing-resources
 public enum ListResources: Method {
     /// The JSON-RPC method name, `resources/list`.
@@ -268,12 +334,14 @@ public enum ListResources: Method {
         /// An opaque pagination cursor returned as `nextCursor` by a previous response; omit to start from the first page.
         public let cursor: String?
 
-        /// Creates an empty `ListResources.Parameters`.
+        /// Creates parameters for the first page of results (no cursor is sent).
         public init() {
             self.cursor = nil
         }
 
-        /// Creates parameters that request the page identified by `cursor`.
+        /// Creates parameters that request a later page of results.
+        ///
+        /// - Parameter cursor: The opaque `nextCursor` value from a previous `resources/list` result.
         public init(cursor: String) {
             self.cursor = cursor
         }
@@ -294,7 +362,15 @@ public enum ListResources: Method {
         /// Whether a shared intermediary may cache this result.
         public var cacheScope: CacheScope?
 
-        /// Creates a `ListResources.Result` with the given values.
+        /// Creates the response to a `resources/list` request.
+        ///
+        /// - Parameters:
+        ///   - resources: The resources on this page.
+        ///   - nextCursor: Opaque cursor for the next page; `nil` when this is the last page.
+        ///   - _meta: Optional protocol metadata.
+        ///   - resultType: How the client should parse the result; defaults to `.complete`.
+        ///   - ttlMs: Optional freshness lifetime for the result, in milliseconds.
+        ///   - cacheScope: Optional hint on whether a shared intermediary may cache the result.
         public init(
             resources: [Resource],
             nextCursor: String? = nil,
@@ -315,7 +391,13 @@ public enum ListResources: Method {
             case resources, nextCursor, _meta, resultType, ttlMs, cacheScope
         }
 
-        /// Encodes this `ListResources.Result` into the given encoder using its MCP wire format.
+        /// Encodes the `resources/list` result.
+        ///
+        /// `resources` is always written. `nextCursor`, `_meta`, `resultType`, `ttlMs` and `cacheScope` are
+        /// omitted when `nil`.
+        ///
+        /// - Parameter encoder: The encoder to write to.
+        /// - Throws: Any error thrown by the encoder.
         public func encode(to encoder: Encoder) throws {
             var container = encoder.container(keyedBy: CodingKeys.self)
             try container.encode(resources, forKey: .resources)
@@ -326,7 +408,14 @@ public enum ListResources: Method {
             try container.encodeIfPresent(cacheScope, forKey: .cacheScope)
         }
 
-        /// Creates a `ListResources.Result` by decoding it from the given decoder, throwing `DecodingError` if the data is malformed.
+        /// Decodes a `resources/list` result.
+        ///
+        /// Only `resources` is required; `nextCursor`, `_meta`, `resultType`, `ttlMs` and `cacheScope` are optional.
+        /// A `resultType` string this SDK does not recognise reads as `nil` rather than throwing.
+        ///
+        /// - Parameter decoder: The decoder to read from.
+        /// - Throws: `DecodingError` if `resources` is missing or any present key has the wrong type
+        ///   (including an unrecognised `cacheScope`).
         public init(from decoder: Decoder) throws {
             let container = try decoder.container(keyedBy: CodingKeys.self)
             resources = try container.decode([Resource].self, forKey: .resources)
@@ -342,7 +431,8 @@ public enum ListResources: Method {
     }
 }
 
-/// To retrieve resource contents, clients send a `resources/read` request:
+/// To retrieve resource contents, clients send a `resources/read` request with the resource's URI;
+/// the response carries one or more text or binary content parts.
 /// - SeeAlso: https://modelcontextprotocol.io/specification/2025-11-25/server/resources/#reading-resources
 public enum ReadResource: Method {
     /// The JSON-RPC method name, `resources/read`.
@@ -353,7 +443,9 @@ public enum ReadResource: Method {
         /// The URI of the resource.
         public let uri: String
 
-        /// Creates a `ReadResource.Parameters` with the given values.
+        /// Creates the parameters of a `resources/read` request.
+        ///
+        /// - Parameter uri: The URI of the resource to read, from a listed resource or an expanded template.
         public init(uri: String) {
             self.uri = uri
         }
@@ -372,7 +464,14 @@ public enum ReadResource: Method {
         /// Whether a shared intermediary may cache this result.
         public var cacheScope: CacheScope?
 
-        /// Creates a `ReadResource.Result` with the given values.
+        /// Creates the response to a `resources/read` request.
+        ///
+        /// - Parameters:
+        ///   - contents: The content parts of the resource (text or binary).
+        ///   - _meta: Optional protocol metadata.
+        ///   - resultType: How the client should parse the result; defaults to `.complete`.
+        ///   - ttlMs: Optional freshness lifetime for the result, in milliseconds.
+        ///   - cacheScope: Optional hint on whether a shared intermediary may cache the result.
         public init(
             contents: [Resource.Content],
             _meta: Metadata? = nil,
@@ -391,7 +490,12 @@ public enum ReadResource: Method {
             case contents, _meta, resultType, ttlMs, cacheScope
         }
 
-        /// Encodes this `ReadResource.Result` into the given encoder using its MCP wire format.
+        /// Encodes the `resources/read` result.
+        ///
+        /// `contents` is always written. `_meta`, `resultType`, `ttlMs` and `cacheScope` are omitted when `nil`.
+        ///
+        /// - Parameter encoder: The encoder to write to.
+        /// - Throws: Any error thrown by the encoder.
         public func encode(to encoder: Encoder) throws {
             var container = encoder.container(keyedBy: CodingKeys.self)
             try container.encode(contents, forKey: .contents)
@@ -401,7 +505,14 @@ public enum ReadResource: Method {
             try container.encodeIfPresent(cacheScope, forKey: .cacheScope)
         }
 
-        /// Creates a `ReadResource.Result` by decoding it from the given decoder, throwing `DecodingError` if the data is malformed.
+        /// Decodes a `resources/read` result.
+        ///
+        /// Only `contents` is required; `_meta`, `resultType`, `ttlMs` and `cacheScope` are optional. A
+        /// `resultType` string this SDK does not recognise reads as `nil` rather than throwing.
+        ///
+        /// - Parameter decoder: The decoder to read from.
+        /// - Throws: `DecodingError` if `contents` is missing or any present key has the wrong type
+        ///   (including an unrecognised `cacheScope`).
         public init(from decoder: Decoder) throws {
             let container = try decoder.container(keyedBy: CodingKeys.self)
             contents = try container.decode([Resource.Content].self, forKey: .contents)
@@ -417,6 +528,7 @@ public enum ReadResource: Method {
 }
 
 /// To discover available resource templates, clients send a `resources/templates/list` request.
+/// The response is a page of ``Resource/Template`` descriptions plus an optional cursor for the next page.
 /// - SeeAlso: https://modelcontextprotocol.io/specification/2025-11-25/server/resources/#resource-templates
 public enum ListResourceTemplates: Method {
     /// The JSON-RPC method name, `resources/templates/list`.
@@ -427,12 +539,14 @@ public enum ListResourceTemplates: Method {
         /// An opaque pagination cursor returned as `nextCursor` by a previous response; omit to start from the first page.
         public let cursor: String?
 
-        /// Creates an empty `ListResourceTemplates.Parameters`.
+        /// Creates parameters for the first page of results (no cursor is sent).
         public init() {
             self.cursor = nil
         }
 
-        /// Creates parameters that request the page identified by `cursor`.
+        /// Creates parameters that request a later page of results.
+        ///
+        /// - Parameter cursor: The opaque `nextCursor` value from a previous `resources/templates/list` result.
         public init(cursor: String) {
             self.cursor = cursor
         }
@@ -453,7 +567,15 @@ public enum ListResourceTemplates: Method {
         /// Whether a shared intermediary may cache this result.
         public var cacheScope: CacheScope?
 
-        /// Creates a `ListResourceTemplates.Result` with the given values.
+        /// Creates the response to a `resources/templates/list` request.
+        ///
+        /// - Parameters:
+        ///   - templates: The templates on this page; encoded under the `resourceTemplates` key.
+        ///   - nextCursor: Opaque cursor for the next page; `nil` when this is the last page.
+        ///   - _meta: Optional protocol metadata.
+        ///   - resultType: How the client should parse the result; defaults to `.complete`.
+        ///   - ttlMs: Optional freshness lifetime for the result, in milliseconds.
+        ///   - cacheScope: Optional hint on whether a shared intermediary may cache the result.
         public init(
             templates: [Resource.Template],
             nextCursor: String? = nil,
@@ -476,7 +598,13 @@ public enum ListResourceTemplates: Method {
             case _meta, resultType, ttlMs, cacheScope
         }
 
-        /// Encodes this `ListResourceTemplates.Result` into the given encoder using its MCP wire format.
+        /// Encodes the `resources/templates/list` result.
+        ///
+        /// `templates` is written under the spec's `resourceTemplates` key and is always present.
+        /// `nextCursor`, `_meta`, `resultType`, `ttlMs` and `cacheScope` are omitted when `nil`.
+        ///
+        /// - Parameter encoder: The encoder to write to.
+        /// - Throws: Any error thrown by the encoder.
         public func encode(to encoder: Encoder) throws {
             var container = encoder.container(keyedBy: CodingKeys.self)
             try container.encode(templates, forKey: .templates)
@@ -487,7 +615,15 @@ public enum ListResourceTemplates: Method {
             try container.encodeIfPresent(cacheScope, forKey: .cacheScope)
         }
 
-        /// Creates a `ListResourceTemplates.Result` by decoding it from the given decoder, throwing `DecodingError` if the data is malformed.
+        /// Decodes a `resources/templates/list` result.
+        ///
+        /// Only `resourceTemplates` (read into ``templates``) is required; `nextCursor`, `_meta`, `resultType`,
+        /// `ttlMs` and `cacheScope` are optional. A `resultType` string this SDK does not recognise reads as
+        /// `nil` rather than throwing.
+        ///
+        /// - Parameter decoder: The decoder to read from.
+        /// - Throws: `DecodingError` if `resourceTemplates` is missing or any present key has the wrong type
+        ///   (including an unrecognised `cacheScope`).
         public init(from decoder: Decoder) throws {
             let container = try decoder.container(keyedBy: CodingKeys.self)
             templates = try container.decode([Resource.Template].self, forKey: .templates)
@@ -556,7 +692,9 @@ public struct ResourceUpdatedNotification: Notification {
         /// The URI of the resource.
         public let uri: String
 
-        /// Creates a `ResourceUpdatedNotification.Parameters` with the given values.
+        /// Creates the parameters of a `notifications/resources/updated` notification.
+        ///
+        /// - Parameter uri: The URI of the resource that changed, matching one the client subscribed to.
         public init(uri: String) {
             self.uri = uri
         }

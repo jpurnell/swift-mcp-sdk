@@ -22,7 +22,15 @@ public struct Prompt: Hashable, Codable, Sendable {
     /// Optional metadata about this prompt
     public var _meta: Metadata?
 
-    /// Creates a `Prompt` with the given values.
+    /// Creates a prompt template description to advertise in a `prompts/list` result.
+    ///
+    /// - Parameters:
+    ///   - name: Unique identifier clients pass to `prompts/get`. Required.
+    ///   - title: Optional human-readable display name.
+    ///   - description: Optional explanation of what the prompt does.
+    ///   - arguments: Optional list of arguments the prompt accepts; `nil` means none are declared.
+    ///   - icons: Optional icons a client may show in its UI.
+    ///   - meta: Optional protocol metadata, stored in and encoded as `_meta`.
     public init(
         name: String,
         title: String? = nil,
@@ -43,7 +51,13 @@ public struct Prompt: Hashable, Codable, Sendable {
         case name, title, description, arguments, icons, _meta
     }
 
-    /// Encodes this `Prompt` into the given encoder using its MCP wire format.
+    /// Encodes the prompt as an MCP `Prompt` object.
+    ///
+    /// `name` is always written. `title`, `description`, `arguments`, `icons` and `_meta` are
+    /// omitted when `nil`.
+    ///
+    /// - Parameter encoder: The encoder to write to.
+    /// - Throws: Any error thrown by the encoder or by an element's own encoding.
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encode(name, forKey: .name)
@@ -54,7 +68,13 @@ public struct Prompt: Hashable, Codable, Sendable {
         try container.encodeIfPresent(_meta, forKey: ._meta)
     }
 
-    /// Creates a `Prompt` by decoding it from the given decoder, throwing `DecodingError` if the data is malformed.
+    /// Decodes a prompt from an MCP `Prompt` object.
+    ///
+    /// Only `name` is required; `title`, `description`, `arguments`, `icons` and `_meta` are optional
+    /// and read as `nil` when absent.
+    ///
+    /// - Parameter decoder: The decoder to read from.
+    /// - Throws: `DecodingError` if `name` is missing or any present key has the wrong type.
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         name = try container.decode(String.self, forKey: .name)
@@ -76,7 +96,14 @@ public struct Prompt: Hashable, Codable, Sendable {
         /// Whether the argument is required
         public let required: Bool?
 
-        /// Creates a `Prompt.Argument` with the given values.
+        /// Creates the declaration of one argument a prompt accepts.
+        ///
+        /// - Parameters:
+        ///   - name: The argument's key in the `arguments` dictionary of `prompts/get`. Required.
+        ///   - title: Optional human-readable display name.
+        ///   - description: Optional explanation of what value to supply.
+        ///   - required: Whether the client must supply this argument; `nil` leaves it unspecified
+        ///     (omitted from the wire) rather than asserting `false`.
         public init(
             name: String,
             title: String? = nil,
@@ -105,7 +132,13 @@ public struct Prompt: Hashable, Codable, Sendable {
         /// The message content
         public let content: Content
 
-        /// Creates a message with the specified role and content
+        /// Creates a message from an explicit role and content.
+        ///
+        /// Deprecated in favor of ``user(_:)`` and ``assistant(_:)``, which state the role at the call site.
+        ///
+        /// - Parameters:
+        ///   - role: Whether the message is from the user or the assistant.
+        ///   - content: The message payload (text, image, audio, embedded resource or resource link).
         @available(
             *, deprecated, message: "Use static factory methods .user(_:) or .assistant(_:) instead"
         )
@@ -114,18 +147,27 @@ public struct Prompt: Hashable, Codable, Sendable {
             self.content = content
         }
 
-        /// Private initializer for convenience methods to avoid deprecation warnings
+        /// Non-deprecated initializer used by ``user(_:)`` and ``assistant(_:)`` so they do not trigger the
+        /// deprecation warning on ``init(role:content:)``.
         private init(_role role: Role, _content content: Content) {
             self.role = role
             self.content = content
         }
 
-        /// Creates a user message with the specified content
+        /// Creates a message with the `user` role.
+        ///
+        /// - Parameter content: The message payload. A plain string literal is accepted because
+        ///   ``Content`` is `ExpressibleByStringLiteral`.
+        /// - Returns: A message whose `role` is ``Role/user``.
         public static func user(_ content: Content) -> Message {
             return Message(_role: .user, _content: content)
         }
 
-        /// Creates an assistant message with the specified content
+        /// Creates a message with the `assistant` role.
+        ///
+        /// - Parameter content: The message payload. A plain string literal is accepted because
+        ///   ``Content`` is `ExpressibleByStringLiteral`.
+        /// - Returns: A message whose `role` is ``Role/assistant``.
         public static func assistant(_ content: Content) -> Message {
             return Message(_role: .assistant, _content: content)
         }
@@ -152,7 +194,11 @@ public struct Prompt: Hashable, Codable, Sendable {
         /// A human-readable prompt title
         public let title: String?
 
-        /// Creates a `Prompt.Reference` with the given values.
+        /// Creates a reference to a prompt, used as the `ref` of a `completion/complete` request.
+        ///
+        /// - Parameters:
+        ///   - name: The name of the prompt being referenced.
+        ///   - title: Optional human-readable display name.
         public init(name: String, title: String? = nil) {
             self.name = name
             self.title = title
@@ -162,7 +208,12 @@ public struct Prompt: Hashable, Codable, Sendable {
             case type, name, title
         }
 
-        /// Encodes this `Prompt.Reference` into the given encoder using its MCP wire format.
+        /// Encodes the reference as an MCP `PromptReference` object.
+        ///
+        /// Always writes `type` as the constant `"ref/prompt"` and `name`; `title` is omitted when `nil`.
+        ///
+        /// - Parameter encoder: The encoder to write to.
+        /// - Throws: Any error thrown by the encoder.
         public func encode(to encoder: Encoder) throws {
             var container = encoder.container(keyedBy: CodingKeys.self)
             try container.encode("ref/prompt", forKey: .type)
@@ -170,7 +221,13 @@ public struct Prompt: Hashable, Codable, Sendable {
             try container.encodeIfPresent(title, forKey: .title)
         }
 
-        /// Creates a `Prompt.Reference` by decoding it from the given decoder, throwing `DecodingError` if the data is malformed.
+        /// Decodes a prompt reference from an MCP `PromptReference` object.
+        ///
+        /// `type` and `name` are required; `title` is optional. The value of `type` must be a string but is
+        /// not checked against `"ref/prompt"`.
+        ///
+        /// - Parameter decoder: The decoder to read from.
+        /// - Throws: `DecodingError` if `type` or `name` is missing or any key has the wrong type.
         public init(from decoder: Decoder) throws {
             let container = try decoder.container(keyedBy: CodingKeys.self)
             _ = try container.decode(String.self, forKey: .type)
@@ -188,7 +245,16 @@ extension Prompt.Message.Content: Codable {
         case uri, name, title, description
     }
 
-    /// Encodes this `Prompt.Message.Content` into the given encoder using its MCP wire format.
+    /// Encodes the content as an MCP content block, discriminated by a `type` key.
+    ///
+    /// - `text`: `type` `"text"` and `text`.
+    /// - `image` / `audio`: `type` `"image"` or `"audio"`, base64 `data` and `mimeType`.
+    /// - `resource`: `type` `"resource"` and the embedded `resource`; `annotations` and `_meta` omitted when `nil`.
+    /// - `resourceLink`: `type` `"resource_link"`, `uri` and `name`; `title`, `description`, `mimeType`
+    ///   and `annotations` omitted when `nil`.
+    ///
+    /// - Parameter encoder: The encoder to write to.
+    /// - Throws: Any error thrown by the encoder or by a nested value's encoding.
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
 
@@ -220,7 +286,16 @@ extension Prompt.Message.Content: Codable {
         }
     }
 
-    /// Creates a `Prompt.Message.Content` by decoding it from the given decoder, throwing `DecodingError` if the data is malformed.
+    /// Decodes a content block, choosing the case from its `type` key.
+    ///
+    /// `type` is required and must be `"text"`, `"image"`, `"audio"`, `"resource"` or `"resource_link"`.
+    /// Required keys per case: `text` needs `text`; `image` and `audio` need `data` and `mimeType`;
+    /// `resource` needs `resource` (`annotations` and `_meta` optional); `resource_link` needs `uri` and `name`
+    /// (`title`, `description`, `mimeType`, `annotations` optional).
+    ///
+    /// - Parameter decoder: The decoder to read from.
+    /// - Throws: `DecodingError` if a required key is missing or mistyped, or if `type` is any other value
+    ///   (a data-corrupted error with the message "Unknown content type").
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         let type = try container.decode(String.self, forKey: .type)
@@ -262,7 +337,9 @@ extension Prompt.Message.Content: Codable {
 // MARK: - ExpressibleByStringLiteral
 
 extension Prompt.Message.Content: ExpressibleByStringLiteral {
-    /// Creates a value from a string literal.
+    /// Creates text content from a string literal, so `"Hello"` can be used wherever a ``Content`` is expected.
+    ///
+    /// - Parameter value: The text; the result is ``text(text:)``.
     public init(stringLiteral value: String) {
         self = .text(text: value)
     }
@@ -271,7 +348,10 @@ extension Prompt.Message.Content: ExpressibleByStringLiteral {
 // MARK: - ExpressibleByStringInterpolation
 
 extension Prompt.Message.Content: ExpressibleByStringInterpolation {
-    /// Creates a value from a string interpolation.
+    /// Creates text content from an interpolated string literal, such as `"Review \(code)"`.
+    ///
+    /// - Parameter stringInterpolation: The interpolation buffer; the result is ``text(text:)`` of the
+    ///   resolved string.
     public init(stringInterpolation: DefaultStringInterpolation) {
         self = .text(text: String(stringInterpolation: stringInterpolation))
     }
@@ -280,6 +360,7 @@ extension Prompt.Message.Content: ExpressibleByStringInterpolation {
 // MARK: -
 
 /// To retrieve available prompts, clients send a `prompts/list` request.
+/// The response is a page of ``Prompt`` descriptions plus an optional cursor for the next page.
 /// - SeeAlso: https://modelcontextprotocol.io/specification/2025-11-25/server/prompts/#listing-prompts
 public enum ListPrompts: Method {
     /// The JSON-RPC method name, `prompts/list`.
@@ -290,12 +371,14 @@ public enum ListPrompts: Method {
         /// An opaque pagination cursor returned as `nextCursor` by a previous response; omit to start from the first page.
         public let cursor: String?
 
-        /// Creates an empty `ListPrompts.Parameters`.
+        /// Creates parameters for the first page of results (no cursor is sent).
         public init() {
             self.cursor = nil
         }
 
-        /// Creates parameters that request the page identified by `cursor`.
+        /// Creates parameters that request a later page of results.
+        ///
+        /// - Parameter cursor: The opaque `nextCursor` value from a previous `prompts/list` result.
         public init(cursor: String) {
             self.cursor = cursor
         }
@@ -316,7 +399,15 @@ public enum ListPrompts: Method {
         /// Whether a shared intermediary may cache this result.
         public var cacheScope: CacheScope?
 
-        /// Creates a `ListPrompts.Result` with the given values.
+        /// Creates the response to a `prompts/list` request.
+        ///
+        /// - Parameters:
+        ///   - prompts: The prompts on this page.
+        ///   - nextCursor: Opaque cursor for the next page; `nil` when this is the last page.
+        ///   - _meta: Optional protocol metadata.
+        ///   - resultType: How the client should parse the result; defaults to `.complete`.
+        ///   - ttlMs: Optional freshness lifetime for the result, in milliseconds.
+        ///   - cacheScope: Optional hint on whether a shared intermediary may cache the result.
         public init(
             prompts: [Prompt],
             nextCursor: String? = nil,
@@ -337,7 +428,13 @@ public enum ListPrompts: Method {
             case prompts, nextCursor, _meta, resultType, ttlMs, cacheScope
         }
 
-        /// Encodes this `ListPrompts.Result` into the given encoder using its MCP wire format.
+        /// Encodes the `prompts/list` result.
+        ///
+        /// `prompts` is always written. `nextCursor`, `_meta`, `resultType`, `ttlMs` and `cacheScope` are
+        /// omitted when `nil`.
+        ///
+        /// - Parameter encoder: The encoder to write to.
+        /// - Throws: Any error thrown by the encoder.
         public func encode(to encoder: Encoder) throws {
             var container = encoder.container(keyedBy: CodingKeys.self)
             try container.encode(prompts, forKey: .prompts)
@@ -348,7 +445,14 @@ public enum ListPrompts: Method {
             try container.encodeIfPresent(cacheScope, forKey: .cacheScope)
         }
 
-        /// Creates a `ListPrompts.Result` by decoding it from the given decoder, throwing `DecodingError` if the data is malformed.
+        /// Decodes a `prompts/list` result.
+        ///
+        /// Only `prompts` is required; `nextCursor`, `_meta`, `resultType`, `ttlMs` and `cacheScope` are optional.
+        /// A `resultType` string this SDK does not recognise reads as `nil` rather than throwing.
+        ///
+        /// - Parameter decoder: The decoder to read from.
+        /// - Throws: `DecodingError` if `prompts` is missing or any present key has the wrong type
+        ///   (including an unrecognised `cacheScope`).
         public init(from decoder: Decoder) throws {
             let container = try decoder.container(keyedBy: CodingKeys.self)
             prompts = try container.decode([Prompt].self, forKey: .prompts)
@@ -364,7 +468,8 @@ public enum ListPrompts: Method {
     }
 }
 
-/// To retrieve a specific prompt, clients send a `prompts/get` request.
+/// To retrieve a specific prompt, clients send a `prompts/get` request naming the prompt and supplying
+/// its argument values; the response carries the rendered messages.
 /// Arguments may be auto-completed through the completion API.
 /// - SeeAlso: https://modelcontextprotocol.io/specification/2025-11-25/server/prompts/#getting-a-prompt
 public enum GetPrompt: Method {
@@ -388,7 +493,15 @@ public enum GetPrompt: Method {
         /// Metadata for this request.
         public let _meta: Metadata?
 
-        /// Creates a `GetPrompt.Parameters` with the given values.
+        /// Creates the parameters of a `prompts/get` request.
+        ///
+        /// - Parameters:
+        ///   - name: The name of the prompt to retrieve, as advertised by `prompts/list`.
+        ///   - arguments: Optional argument values keyed by argument name; all values are strings.
+        ///   - inputResponses: Optional answers to a previous ``InputRequiredResult``, keyed as that result
+        ///     requested. Omit on the first attempt.
+        ///   - requestState: Optional opaque state from that same ``InputRequiredResult``, echoed back unchanged.
+        ///   - _meta: Optional request metadata.
         public init(
             name: String,
             arguments: [String: String]? = nil,
@@ -415,7 +528,13 @@ public enum GetPrompt: Method {
         /// Tells the client how to parse this result.
         public var resultType: ResultType?
 
-        /// Creates a `GetPrompt.Result` with the given values.
+        /// Creates the response to a `prompts/get` request.
+        ///
+        /// - Parameters:
+        ///   - description: Optional description of the rendered prompt.
+        ///   - messages: The messages that make up the prompt, in order.
+        ///   - _meta: Optional protocol metadata.
+        ///   - resultType: How the client should parse the result; defaults to `.complete`.
         public init(
             description: String? = nil,
             messages: [Prompt.Message],
@@ -432,7 +551,12 @@ public enum GetPrompt: Method {
             case description, messages, _meta, resultType
         }
 
-        /// Encodes this `GetPrompt.Result` into the given encoder using its MCP wire format.
+        /// Encodes the `prompts/get` result.
+        ///
+        /// `messages` is always written. `description`, `_meta` and `resultType` are omitted when `nil`.
+        ///
+        /// - Parameter encoder: The encoder to write to.
+        /// - Throws: Any error thrown by the encoder.
         public func encode(to encoder: Encoder) throws {
             var container = encoder.container(keyedBy: CodingKeys.self)
             try container.encodeIfPresent(description, forKey: .description)
@@ -441,7 +565,13 @@ public enum GetPrompt: Method {
             try container.encodeIfPresent(resultType, forKey: .resultType)
         }
 
-        /// Creates a `GetPrompt.Result` by decoding it from the given decoder, throwing `DecodingError` if the data is malformed.
+        /// Decodes a `prompts/get` result.
+        ///
+        /// Only `messages` is required; `description`, `_meta` and `resultType` are optional. A `resultType`
+        /// string this SDK does not recognise reads as `nil` rather than throwing.
+        ///
+        /// - Parameter decoder: The decoder to read from.
+        /// - Throws: `DecodingError` if `messages` is missing or any present key has the wrong type.
         public init(from decoder: Decoder) throws {
             let container = try decoder.container(keyedBy: CodingKeys.self)
             description = try container.decodeIfPresent(String.self, forKey: .description)
