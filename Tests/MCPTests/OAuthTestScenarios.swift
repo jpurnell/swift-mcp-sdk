@@ -1447,9 +1447,9 @@ import Testing
                 let finalResponseData = MockResponses.jsonRPCResult(id: 13)
 
                 let expectedClientID = "pre-registered-client"
-                let expectedFakeSecretValue = "pre-registered-secret"
+                let expectedRegistrationValue = "pre-registered-secret"
                 let expectedBasic = Data(
-                    "\(expectedClientID):\(expectedFakeSecretValue)".utf8
+                    "\(expectedClientID):\(expectedRegistrationValue)".utf8
                 ).base64EncodedString()
 
                 requestHandler = MockResponses.routingHandler(routes: [
@@ -1499,7 +1499,7 @@ import Testing
                     oauthConfiguration: .init(
                         authentication: .clientSecretBasic(
                             clientID: expectedClientID,
-                            clientSecret: expectedFakeSecretValue
+                            clientSecret: expectedRegistrationValue
                         )),
                     messageData: Data(#"{"jsonrpc":"2.0","method":"ping","id":13}"#.utf8),
                     expectedResponseData: finalResponseData,

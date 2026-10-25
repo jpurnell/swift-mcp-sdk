@@ -8,7 +8,9 @@ The fork's name, published version and attribution are still undecided — see
 `SwiftMCPServer/project/plans/proposals/UpstreamingToSwiftSDK.md` §5. Until that is settled,
 nothing here is tagged, and consumers reach it by path.
 
-## [Unreleased] — `integration/mcp-2026-07-28`
+## [Unreleased] — MCP `2026.7.28` (`integration/mcp-2026-07-28`)
+
+<!-- version 2026.7.28 -->
 
 ### Changed — quality-gate cleanup (no overrides)
 

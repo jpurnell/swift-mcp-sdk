@@ -20,7 +20,7 @@ struct SeededGenerator: RandomNumberGenerator {
 
 @Suite("OAuth randomness and assertion lifetime")
 struct OAuthRandomnessAndLifetimeTests {
-    private let endpoint = URL(string: "https://auth.example.com/token")!
+    private let endpoint = testURL("https://auth.example.com/token")
     private let pem = "not-a-real-key"
 
     @Test("Non-finite or absurd lifetimes throw invalidLifetime instead of trapping", arguments: [

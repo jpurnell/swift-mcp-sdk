@@ -98,8 +98,9 @@ public enum PKCE {
 
 /// Random number generator backed by the operating system's cryptographically secure source.
 ///
-/// A thin forwarding wrapper so call sites can accept any `RandomNumberGenerator` and still
-/// default to a secure one.
+/// A thin forwarding wrapper so call sites can accept any `RandomNumberGenerator` (tests inject a
+/// seeded one) and default to this one in production. It is the single place in the SDK that
+/// names the system generator.
 struct SecureRandomNumberGenerator: RandomNumberGenerator {
     private var system = SystemRandomNumberGenerator()
 

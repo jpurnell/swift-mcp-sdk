@@ -38,11 +38,11 @@ public struct UUIDSessionIDGenerator: SessionIDGenerator {
     /// The bytes come from the system's cryptographically secure random number generator, so
     /// IDs are unguessable. Hex digits are within the visible ASCII range (0x21-0x7E).
     public func generateSessionID() -> String {
+        var generator = SecureRandomNumberGenerator()
         var hex = ""
         hex.reserveCapacity(Self.byteCount * 2)
         for _ in 0..<Self.byteCount {
-            // The standard library's default generator is the system CSPRNG.
-            let byte = UInt8.random(in: UInt8.min...UInt8.max)
+            let byte = UInt8.random(in: UInt8.min...UInt8.max, using: &generator)
             hex += byte < 0x10 ? "0" : ""
             hex += String(byte, radix: 16)
         }

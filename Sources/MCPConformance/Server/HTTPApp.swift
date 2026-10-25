@@ -218,17 +218,10 @@ actor HTTPApp {
         func generateSessionID() -> String { sessionID }
     }
 
-    /// A session ID is a bearer capability, so it is 32 random bytes (256 bits) from the system
-    /// CSPRNG, hex-encoded, rather than a UUID whose structure leaves fewer unpredictable bits.
+    /// A session ID is a bearer capability, so it comes from the SDK's generator: 32 random bytes
+    /// from the system CSPRNG, hex-encoded, rather than a UUID.
     private static func generateSessionID() -> String {
-        var generator = SystemRandomNumberGenerator()
-        var id = ""
-        id.reserveCapacity(64)
-        for _ in 0..<32 {
-            let byte = UInt8.random(in: .min ... .max, using: &generator)
-            id += String(byte, radix: 16).leftPadded(to: 2)
-        }
-        return id
+        UUIDSessionIDGenerator().generateSessionID()
     }
 
     private func createSessionAndHandle(_ request: HTTPRequest) async -> HTTPResponse {
@@ -468,11 +461,5 @@ private final class HTTPHandler: ChannelInboundHandler, @unchecked Sendable {
                 ctx.writeAndFlush(self.wrapOutboundOut(.end(nil)), promise: nil)
             }
         }
-    }
-}
-
-private extension String {
-    func leftPadded(to length: Int) -> String {
-        count >= length ? self : String(repeating: "0", count: length - count) + self
     }
 }
