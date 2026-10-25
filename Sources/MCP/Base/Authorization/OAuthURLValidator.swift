@@ -23,6 +23,10 @@ public struct OAuthURLValidator: Sendable {
     /// This is a package-level compatibility option for local test environments.
     public let allowLoopbackHTTPForAuthorizationServer: Bool
 
+    /// Creates a validator.
+    ///
+    /// - Parameter allowLoopbackHTTPForAuthorizationServer: Whether loopback `http` URLs are accepted
+    ///   for authorization server endpoints. Defaults to `false`.
     public init(allowLoopbackHTTPForAuthorizationServer: Bool = false) {
         self.allowLoopbackHTTPForAuthorizationServer = allowLoopbackHTTPForAuthorizationServer
     }

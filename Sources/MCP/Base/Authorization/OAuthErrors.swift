@@ -131,6 +131,7 @@ public enum OAuthAuthorizationError: LocalizedError {
     ///   - actual: The `issuer` field value found in the metadata document.
     case authorizationServerIssuerMismatch(expected: String, actual: String)
 
+    /// A human-readable description of the error, suitable for display or logging.
     public var errorDescription: String? {
         switch self {
         case .missingAuthorizationServer:
@@ -161,7 +162,9 @@ public enum OAuthAuthorizationError: LocalizedError {
                 "No supported client registration mechanism was available; provide pre-registered client credentials"
         case .cimdNotSupported(let clientID):
             return
-                "Authorization server does not support Client ID Metadata Documents; configure pre-registered credentials or ensure the server advertises client_id_metadata_document_supported: \(clientID)"
+                "Authorization server does not support Client ID Metadata Documents; "
+                + "configure pre-registered credentials or ensure the server advertises "
+                + "client_id_metadata_document_supported: \(clientID)"
         case .privateIPAddressBlocked(let context, let url):
             return
                 "\(context) resolves to a private or reserved IP address which is blocked for SSRF protection: \(url)"

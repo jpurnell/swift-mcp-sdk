@@ -1,4 +1,5 @@
 import Foundation
+import Logging
 
 #if canImport(FoundationNetworking)
     import FoundationNetworking
@@ -19,6 +20,7 @@ protocol OAuthDiscoveryFetching: Sendable {
 struct OAuthDiscoveryClient: Sendable {
     let metadataDiscovery: any OAuthMetadataDiscovering
     let urlValidator: OAuthURLValidator
+    private let logger = Logger(label: "mcp.oauth.discovery")
 
     init(
         metadataDiscovery: any OAuthMetadataDiscovering,
@@ -58,6 +60,9 @@ struct OAuthDiscoveryClient: Sendable {
             } catch let error as OAuthAuthorizationError {
                 throw error
             } catch {
+                logger.debug(
+                    "Protected resource metadata candidate failed",
+                    metadata: ["error": "\(type(of: error))"])
                 continue
             }
         }
@@ -84,9 +89,13 @@ struct OAuthDiscoveryClient: Sendable {
         var firstValid: (server: URL, metadata: OAuthAuthorizationServerMetadata)?
 
         for candidateServer in candidates {
-            guard (try? urlValidator.validateAuthorizationServer(
-                candidateServer, context: "Authorization server issuer")) != nil
-            else {
+            do {
+                try urlValidator.validateAuthorizationServer(
+                    candidateServer, context: "Authorization server issuer")
+            } catch {
+                logger.debug(
+                    "Skipping authorization server candidate that failed validation",
+                    metadata: ["error": "\(type(of: error))"])
                 continue
             }
             if let host = URLComponents(url: candidateServer, resolvingAgainstBaseURL: false)?
@@ -127,6 +136,9 @@ struct OAuthDiscoveryClient: Sendable {
                         firstValid = (server: server, metadata: asMetadata)
                     }
                 } catch {
+                    logger.debug(
+                        "Authorization server metadata candidate failed",
+                        metadata: ["error": "\(type(of: error))"])
                     continue
                 }
             }

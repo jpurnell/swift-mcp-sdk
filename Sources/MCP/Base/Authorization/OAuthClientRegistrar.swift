@@ -79,10 +79,10 @@ struct OAuthClientRegistrar: Sendable {
         let responseTypes: [String]
         switch configuration.grantType {
         case .authorizationCode:
-            grantTypes = [OAuthGrantTypeValue.authorizationCode, OAuthGrantTypeValue.refreshToken]
+            grantTypes = [OAuthGrantTypeValue.authorizationCode, OAuthGrantTypeValue.renewalGrant]
             responseTypes = [OAuthParameterName.code]
         case .clientCredentials:
-            grantTypes = [OAuthGrantTypeValue.clientCredentials]
+            grantTypes = [OAuthGrantTypeValue.machineToMachine]
             responseTypes = []
         }
 

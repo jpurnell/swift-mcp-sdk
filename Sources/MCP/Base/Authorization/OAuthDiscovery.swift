@@ -46,8 +46,15 @@ public protocol OAuthScopeSelecting {
 /// Selects scopes in priority order: challenge scope > `scopes_supported` > `nil`.
 /// Serializes scopes sorted alphabetically to produce deterministic `scope` parameters.
 public struct DefaultOAuthScopeSelector: OAuthScopeSelecting {
+    /// Creates a scope selector.
     public init() {}
 
+    /// Selects scopes with priority challenge scope, then `scopes_supported`, then `nil`.
+    ///
+    /// - Parameters:
+    ///   - challengeScope: Space-separated scope string from the Bearer challenge, or `nil`.
+    ///   - scopesSupported: Scopes advertised in resource metadata, or `nil`.
+    /// - Returns: The scopes to request, or `nil` when no non-empty source is available.
     public func selectScopes(challengeScope: String?, scopesSupported: [String]?) -> Set<String>? {
         if let challengeScope {
             let parsed = parseScopeString(challengeScope)
@@ -62,6 +69,10 @@ public struct DefaultOAuthScopeSelector: OAuthScopeSelecting {
         return nil
     }
 
+    /// Splits a scope string on whitespace into a set of scope tokens.
+    ///
+    /// - Parameter scope: A space-separated scope string.
+    /// - Returns: The individual scopes; empty tokens are dropped.
     public func parseScopeString(_ scope: String) -> Set<String> {
         Set(
             scope
@@ -71,6 +82,10 @@ public struct DefaultOAuthScopeSelector: OAuthScopeSelecting {
         )
     }
 
+    /// Serializes scopes alphabetically into a space-separated string.
+    ///
+    /// - Parameter scopes: The scopes to serialize.
+    /// - Returns: The serialized string, or `nil` if `scopes` is empty.
     public func serialize(_ scopes: Set<String>) -> String? {
         guard !scopes.isEmpty else { return nil }
         return scopes.sorted().joined(separator: " ")
@@ -149,8 +164,13 @@ public protocol OAuthMetadataDiscovering: Sendable {
 /// - Canonicalises resource URIs by stripping query, fragment, and trailing slash.
 /// - Matches resources using scheme/host/port equality and path prefix rules.
 public struct DefaultOAuthMetadataDiscovery: OAuthMetadataDiscovering {
+    /// Creates a metadata discovery helper.
     public init() {}
 
+    /// Returns the RFC 9728 well-known URLs for `endpoint`: the path-specific URL first, then the root URL.
+    ///
+    /// - Parameter endpoint: The MCP endpoint URL.
+    /// - Returns: Candidate URLs, or an empty array if the endpoint is neither https nor loopback http.
     public func protectedResourceMetadataURLs(for endpoint: URL) -> [URL] {
         guard var components = URLComponents(url: endpoint, resolvingAgainstBaseURL: false),
             let scheme = components.scheme?.lowercased(),
@@ -183,6 +203,12 @@ public struct DefaultOAuthMetadataDiscovery: OAuthMetadataDiscovering {
         return urls
     }
 
+    /// Returns the RFC 8414 and OpenID Connect discovery URLs for `issuer`.
+    ///
+    /// Issuers with a path get path-inserted and path-appended variants; root issuers get the two root URLs.
+    ///
+    /// - Parameter issuer: The authorization server issuer URL.
+    /// - Returns: Candidate URLs in priority order, or an empty array if the issuer is neither https nor loopback http.
     public func authorizationServerMetadataURLs(for issuer: URL) -> [URL] {
         guard var components = URLComponents(url: issuer, resolvingAgainstBaseURL: false),
             let scheme = components.scheme?.lowercased(),
@@ -235,6 +261,11 @@ public struct DefaultOAuthMetadataDiscovery: OAuthMetadataDiscovering {
         return urls
     }
 
+    /// Normalizes `endpoint` into an RFC 8707 resource URI by lowercasing scheme and host and removing the query, fragment, and a lone `/` path.
+    ///
+    /// - Parameter endpoint: The MCP endpoint URL.
+    /// - Returns: The canonical resource URI.
+    /// - Throws: ``OAuthAuthorizationError/invalidResourceURI(_:)`` if the scheme is not https or loopback http, the URL has a fragment, or it cannot be normalized.
     public func canonicalResourceURI(from endpoint: URL) throws -> URL {
         guard var components = URLComponents(url: endpoint, resolvingAgainstBaseURL: false),
             let scheme = components.scheme?.lowercased(),
@@ -266,6 +297,11 @@ public struct DefaultOAuthMetadataDiscovery: OAuthMetadataDiscovering {
         return url
     }
 
+    /// Derives a fallback issuer (scheme, host, and port with an empty path) from `endpoint`.
+    ///
+    /// - Parameter endpoint: The MCP endpoint URL.
+    /// - Returns: The fallback issuer URL.
+    /// - Throws: ``OAuthAuthorizationError/invalidResourceURI(_:)`` if the scheme is not https or loopback http, or the issuer cannot be formed.
     public func authorizationServerFallbackIssuer(from endpoint: URL) throws -> URL {
         guard var components = URLComponents(url: endpoint, resolvingAgainstBaseURL: false),
             let scheme = components.scheme?.lowercased(),
@@ -289,6 +325,14 @@ public struct DefaultOAuthMetadataDiscovery: OAuthMetadataDiscovering {
         return url
     }
 
+    /// Reports whether `endpoint` falls within `resource`.
+    ///
+    /// Scheme, host, and effective port must be equal, and the endpoint path must equal or be a descendant of the resource path.
+    ///
+    /// - Parameters:
+    ///   - resource: The canonical resource URI.
+    ///   - endpoint: The canonical endpoint URI.
+    /// - Returns: `true` if the endpoint is covered by the resource.
     public func protectedResourceMatches(resource: URL, endpoint: URL) -> Bool {
         guard let resourceComponents = URLComponents(
             url: resource,
@@ -358,4 +402,3 @@ public struct DefaultOAuthMetadataDiscovery: OAuthMetadataDiscovering {
         return false
     }
 }
-

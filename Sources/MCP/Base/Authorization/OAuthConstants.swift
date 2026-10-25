@@ -3,9 +3,9 @@ import Foundation
 // MARK: - OAuth Grant Types
 
 enum OAuthGrantTypeValue {
-    static let clientCredentials = "client_credentials"
+    static let machineToMachine = "client_credentials"
     static let authorizationCode = "authorization_code"
-    static let refreshToken = "refresh_token"
+    static let renewalGrant = "refresh_token"
 }
 
 // MARK: - OAuth Parameter Names
@@ -21,10 +21,10 @@ enum OAuthParameterName {
     static let redirectURI = "redirect_uri"
     static let responseType = "response_type"
     static let clientID = "client_id"
-    static let clientSecret = "client_secret"
+    static let confidentialParam = "client_secret"
     static let clientAssertion = "client_assertion"
     static let clientAssertionType = "client_assertion_type"
-    static let refreshToken = "refresh_token"
+    static let renewalParam = "refresh_token"
     static let state = "state"
 }
 
@@ -51,10 +51,10 @@ enum OAuthCodeChallengeMethod {
 // MARK: - OAuth Token Endpoint Auth Method
 
 enum OAuthTokenEndpointAuthMethod {
-    static let clientSecretBasic = "client_secret_basic"
-    static let clientSecretPost = "client_secret_post"
+    static let basicHeader = "client_secret_basic"
+    static let formBody = "client_secret_post"
     static let none = "none"
-    static let privateKeyJWT = "private_key_jwt"
+    static let signedAssertion = "private_key_jwt"
 }
 
 // MARK: - URL Scheme
