@@ -71,16 +71,17 @@ public struct MCPTask: Hashable, Codable, Sendable {
     /// Suggested polling interval in milliseconds, which clients should honour.
     public var pollIntervalMs: Int?
 
-    /// Creates a task.
+    /// Creates a task record as a server reports it.
     ///
     /// - Parameters:
-    ///   - taskId: Stable identifier.
-    ///   - status: Current status.
-    ///   - statusMessage: Optional human-readable state description.
+    ///   - taskId: Server-assigned identifier that stays stable for the task's lifetime.
+    ///   - status: The task's current status.
+    ///   - statusMessage: Human-readable description of the current state. Defaults to `nil`.
     ///   - createdAt: ISO 8601 creation timestamp.
-    ///   - lastUpdatedAt: ISO 8601 last-update timestamp.
-    ///   - ttlMs: Time-to-live in milliseconds, or `nil` for unlimited.
-    ///   - pollIntervalMs: Suggested polling interval in milliseconds.
+    ///   - lastUpdatedAt: ISO 8601 timestamp of the last update.
+    ///   - ttlMs: Time-to-live from creation in milliseconds, or `nil` for unlimited. Required (no default)
+    ///     because it is always encoded.
+    ///   - pollIntervalMs: Suggested polling interval in milliseconds. Defaults to `nil`.
     public init(
         taskId: String,
         status: TaskStatus,
@@ -104,6 +105,12 @@ public struct MCPTask: Hashable, Codable, Sendable {
     }
 
     /// Encodes the task, writing `ttlMs` as an explicit null when unlimited.
+    ///
+    /// `taskId`, `status`, `createdAt`, `lastUpdatedAt` and `ttlMs` are always written; `statusMessage` and
+    /// `pollIntervalMs` are omitted when `nil`.
+    ///
+    /// - Parameter encoder: The encoder to write to.
+    /// - Throws: Any error raised while encoding a member.
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encode(taskId, forKey: .taskId)
@@ -134,10 +141,10 @@ public enum GetTask: Method {
         /// task it legitimately created would be refused for not having declared the extension.
         public var _meta: Metadata?
 
-        /// Creates the parameters.
+        /// Creates the parameters of a `tasks/get` request.
         ///
         /// - Parameters:
-        ///   - taskId: The task to poll.
+        ///   - taskId: The identifier of the task to poll.
         ///   - _meta: Optional request metadata.
         public init(taskId: String, _meta: Metadata? = nil) {
             self.taskId = taskId
@@ -167,12 +174,12 @@ public enum UpdateTask: Method {
         /// Metadata for this request.
         public var _meta: Metadata?
 
-        /// Creates the parameters.
+        /// Creates the parameters of a `tasks/update` request.
         ///
         /// - Parameters:
-        ///   - taskId: The task being updated.
-        ///   - inputResponses: Answers keyed to the outstanding requests.
-        ///   - _meta: Optional metadata.
+        ///   - taskId: The identifier of the task being updated.
+        ///   - inputResponses: Answers keyed to the task's outstanding input requests. Defaults to `nil`.
+        ///   - _meta: Request metadata. Defaults to `nil`.
         public init(
             taskId: String,
             inputResponses: [String: InputResponse]? = nil,
@@ -196,6 +203,10 @@ public enum UpdateTask: Method {
         /// when one entry was merely surplus.
         ///
         /// `taskId` is decoded strictly: without it there is nothing to update.
+        ///
+        /// - Parameter decoder: The decoder to read from.
+        /// - Throws: `DecodingError` if `taskId` is missing or not a string, or `_meta` is malformed.
+        ///   Unreadable `inputResponses` entries never throw; they are dropped.
         public init(from decoder: Decoder) throws {
             let container = try decoder.container(keyedBy: CodingKeys.self)
             taskId = try container.decode(String.self, forKey: .taskId)

@@ -44,6 +44,15 @@ public enum Discover: Method {
 
         /// Creates a discovery result.
         ///
+        /// - Parameters:
+        ///   - supportedVersions: Protocol version strings the server accepts, newest first.
+        ///   - capabilities: The capabilities the server advertises.
+        ///   - instructions: Optional natural-language usage guidance. Defaults to `nil`.
+        ///   - _meta: Optional result metadata. Defaults to `nil`.
+        ///   - resultType: The result tag. Defaults to ``ResultType/complete``.
+        ///   - ttlMs: Freshness lifetime in milliseconds. Defaults to `nil` (unspecified).
+        ///   - cacheScope: Whether shared intermediaries may cache the result. Defaults to `nil`.
+        ///
         /// The parameter count reflects the schema: `2026-07-28` marks `supportedVersions`,
         /// `capabilities`, `resultType`, `ttlMs` and `cacheScope` all required on this result,
         /// and `instructions` and `_meta` are optional additions. Grouping them into a
@@ -71,7 +80,13 @@ public enum Discover: Method {
             case supportedVersions, capabilities, instructions, _meta, resultType, ttlMs, cacheScope
         }
 
-        /// Encodes the result, omitting any field the server did not set.
+        /// Encodes the result.
+        ///
+        /// `supportedVersions` and `capabilities` are always written; `instructions`, `_meta`,
+        /// `resultType`, `ttlMs` and `cacheScope` are omitted when `nil`.
+        ///
+        /// - Parameter encoder: The encoder to write to.
+        /// - Throws: Any error raised while encoding a member.
         public func encode(to encoder: Encoder) throws {
             var container = encoder.container(keyedBy: CodingKeys.self)
             try container.encode(supportedVersions, forKey: .supportedVersions)
@@ -83,7 +98,13 @@ public enum Discover: Method {
             try container.encodeIfPresent(cacheScope, forKey: .cacheScope)
         }
 
-        /// Decodes a discovery result, tolerating fields an earlier revision omits.
+        /// Decodes a discovery result.
+        ///
+        /// `supportedVersions` and `capabilities` are required; all other keys are optional. An
+        /// unrecognised or non-string `resultType` is read as `nil` rather than rejected.
+        ///
+        /// - Parameter decoder: The decoder to read from.
+        /// - Throws: `DecodingError` if a required key is missing or any present key is malformed.
         public init(from decoder: Decoder) throws {
             let container = try decoder.container(keyedBy: CodingKeys.self)
             supportedVersions = try container.decode([String].self, forKey: .supportedVersions)

@@ -11,9 +11,16 @@ public protocol TokenStorage: AnyObject, Sendable {
     ///
     /// - Parameter token: The access token to store.
     func save(_ token: OAuthAccessToken)
-    /// Returns the stored token, or `nil` if there is none.
+    /// Returns the currently stored token.
+    ///
+    /// The authorizer calls this before requests, so implementations should be cheap and safe to call from
+    /// any thread.
+    ///
+    /// - Returns: The most recently saved token, or `nil` if none has been saved or it was cleared.
     func load() -> OAuthAccessToken?
-    /// Removes the stored token.
+    /// Removes the stored token, for example when the authorization server changes or the token is rejected.
+    ///
+    /// After this call ``load()`` returns `nil` until a new token is saved.
     func clear()
 }
 
@@ -27,7 +34,7 @@ public protocol TokenStorage: AnyObject, Sendable {
 public final class InMemoryTokenStorage: TokenStorage, @unchecked Sendable {
     private var token: OAuthAccessToken?
 
-    /// Creates an empty storage.
+    /// Creates a storage that holds no token.
     public init() {}
 
     /// Stores `token`, replacing any previously stored token.

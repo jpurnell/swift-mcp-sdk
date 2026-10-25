@@ -11,7 +11,6 @@ import Logging
 
 // MARK: - Timeout Helpers
 
-/// Error thrown when an operation times out
 /// An implementation of the MCP Streamable HTTP transport protocol for clients.
 ///
 /// This transport implements the [Streamable HTTP transport](https://spec.modelcontextprotocol.io/specification/2025-11-25/basic/transports#streamable-http)
@@ -54,23 +53,28 @@ import Logging
 /// // and deliver them through the client's notification handlers
 /// ```
 public actor HTTPClientTransport: Transport {
-    /// The server endpoint URL to connect to
+    /// The single MCP endpoint URL that all POST requests (and the optional GET event stream) are sent to.
     public let endpoint: URL
     private let session: URLSession
 
-    /// The session ID assigned by the server, used for maintaining state across requests
+    /// The session ID the server assigned via the `MCP-Session-Id` response header, or `nil` before one is
+    /// issued or after the server reports the session expired (HTTP 404).
+    ///
+    /// Once set, it is sent as a header on every subsequent request.
     public private(set) var sessionID: String?
 
-    /// The negotiated protocol version to send in MCP-Protocol-Version header
+    /// The protocol version sent in the `MCP-Protocol-Version` request header; `nil` omits the header.
+    ///
+    /// Starts as the value passed at initialization; see `updateNegotiatedProtocolVersion(_:)`.
     public var protocolVersion: String?
 
     private let streaming: Bool
     private var streamingTask: Task<Void, Never>?
 
-    /// Logger instance for transport-related events
+    /// The logger that receives this transport's diagnostics. A no-op logger is used if none was supplied.
     public nonisolated let logger: Logger
 
-    /// Maximum time to wait for a session ID before proceeding with SSE connection
+    /// The longest, in seconds, the transport waits for a session ID before opening the SSE stream anyway.
     public let sseInitializationTimeout: TimeInterval
 
     /// Closure to modify requests before they are sent
@@ -96,17 +100,23 @@ public actor HTTPClientTransport: Transport {
     /// Used to trigger reconnection when a POST SSE stream closes without delivering data.
     private var activeGETSessionTask: URLSessionDataTask?
 
-    /// Creates a new HTTP transport client with the specified endpoint
+    /// Creates a Streamable HTTP client transport for one MCP endpoint, backed by its own `URLSession`.
+    ///
+    /// Nothing is sent until ``connect()`` is called.
     ///
     /// - Parameters:
-    ///   - endpoint: The server URL to connect to
-    ///   - configuration: URLSession configuration to use for HTTP requests
-    ///   - streaming: Whether to enable SSE streaming mode (default: true)
-    ///   - sseInitializationTimeout: Maximum time to wait for session ID before proceeding with SSE (default: 10 seconds)
-    ///   - protocolVersion: The MCP protocol version to use (default: "2025-11-25")
-    ///   - authorizer: Optional ``HTTPClientAuthorizer`` for automatic Bearer token acquisition and retries.
-    ///   - requestModifier: Optional closure to customize requests before they are sent (default: no modification)
-    ///   - logger: Optional logger instance for transport events
+    ///   - endpoint: The MCP endpoint URL.
+    ///   - configuration: Configuration for the `URLSession` the transport creates. Defaults to `.default`.
+    ///   - streaming: Whether to open a GET SSE stream for server-to-client messages after connecting.
+    ///     Defaults to `true`; no stream is opened on Linux.
+    ///   - sseInitializationTimeout: Seconds to wait for the server to assign a session ID before the SSE stream
+    ///     is opened regardless. Defaults to 10.
+    ///   - protocolVersion: Value for the `MCP-Protocol-Version` header. Defaults to `Version.latest`.
+    ///   - authorizer: Optional ``HTTPClientAuthorizer`` that supplies the `Authorization` header and handles
+    ///     401/403 challenges by acquiring a token and retrying. Defaults to `nil` (no authorization).
+    ///   - requestModifier: Closure applied to every outgoing request after the SDK's headers are set, for
+    ///     custom headers or signing. Defaults to the identity.
+    ///   - logger: Logger for transport diagnostics. Defaults to `nil`, which discards log output.
     public init(
         endpoint: URL,
         configuration: URLSessionConfiguration = .default,
@@ -180,7 +190,10 @@ public actor HTTPClientTransport: Transport {
         }
     }
 
-    /// Establishes connection with the transport
+    /// Marks the transport connected and, when streaming is enabled, starts the background task that opens the
+    /// GET SSE stream for server-initiated messages.
+    ///
+    /// No network request is made here for the POST path. Calling it while already connected does nothing.
     public func connect() async throws {
         guard !isConnected else { return }
         isConnected = true
@@ -194,7 +207,11 @@ public actor HTTPClientTransport: Transport {
         logger.debug("HTTP transport connected")
     }
 
-    /// Disconnects from the transport
+    /// Stops the SSE task, invalidates and cancels the `URLSession`, and finishes the stream returned by
+    /// ``receive()``.
+    ///
+    /// Calling it while not connected does nothing. The transport is not reusable afterwards, because the
+    /// session and message stream are single-use.
     public func disconnect() async {
         guard isConnected else { return }
         isConnected = false
@@ -214,11 +231,26 @@ public actor HTTPClientTransport: Transport {
     }
 
     /// Updates the protocol version used for `MCP-Protocol-Version` headers on subsequent requests.
+    ///
+    /// Call this once version negotiation has completed so later requests carry the agreed version.
+    ///
+    /// - Parameter version: The negotiated protocol version string, for example `"2025-11-25"`.
     public func updateNegotiatedProtocolVersion(_ version: String) {
         self.protocolVersion = version
     }
 
-    /// Sends data through an HTTP POST request
+    /// Sends one JSON-RPC message to the endpoint as an HTTP POST and routes the reply to ``receive()``.
+    ///
+    /// The request carries `Accept` for JSON and SSE, `Content-Type: application/json`, the protocol version
+    /// and session ID headers when known, and the authorizer's `Authorization` header when configured; the
+    /// `requestModifier` runs last. A JSON reply, or each event of an SSE reply, is yielded to the receive
+    /// stream. A session ID in the response is captured. On a 401 or 403 with an authorizer, the challenge is
+    /// handled and the POST retried up to the authorizer's `maxAuthorizationAttempts`.
+    ///
+    /// - Parameter data: The encoded JSON-RPC message, used as the request body.
+    /// - Throws: `MCPError.internalError` if the transport is not connected, authorization setup or the
+    ///   challenge flow fails, the response is not HTTP, or the status is an error (400, 401/403 without an
+    ///   authorizer, 404 including an expired session, 405, 408, 429, 5xx). Errors from `URLSession` propagate.
     public func send(_ data: Data) async throws {
         guard isConnected else {
             throw MCPError.internalError("Transport not connected")
@@ -482,7 +514,12 @@ public actor HTTPClientTransport: Transport {
         return normalized.isEmpty ? nil : normalized
     }
 
-    /// Receives data in an async sequence
+    /// Returns the stream of inbound messages: JSON replies to POSTs and events from SSE streams.
+    ///
+    /// Every call returns the same underlying stream, so it should be consumed by one reader. The stream
+    /// finishes when ``disconnect()`` is called.
+    ///
+    /// - Returns: A stream yielding one `Data` per received message.
     public func receive() -> AsyncThrowingStream<Data, Swift.Error> {
         return messageStream
     }

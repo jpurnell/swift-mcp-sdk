@@ -36,7 +36,7 @@ import Logging
 /// For SSE responses, the `.stream` case provides an `AsyncThrowingStream<Data, Error>`
 /// to pipe to the client.
 public actor StatefulHTTPServerTransport: Transport, HTTPContextProviding {
-    /// Logger for transport-related events.
+    /// The logger that receives this transport's diagnostics. A no-op logger is used if none was supplied.
     public nonisolated let logger: Logger
 
     // MARK: - Dependencies
@@ -88,18 +88,21 @@ public actor StatefulHTTPServerTransport: Transport, HTTPContextProviding {
 
     // MARK: - Init
 
-    /// Creates a new stateful HTTP server transport.
+    /// Creates a stateful HTTP server transport that serves a single MCP session over Streamable HTTP.
+    ///
+    /// The session itself begins when an `initialize` request arrives through ``handleRequest(_:)``.
     ///
     /// - Parameters:
-    ///   - sessionIDGenerator: Generator for session IDs. The IDs MUST contain
-    ///     only visible ASCII characters (0x21-0x7E) per the MCP specification.
-    ///     Defaults to ``UUIDSessionIDGenerator``.
-    ///   - validationPipeline: Custom validation pipeline. If `nil`, uses sensible defaults:
-    ///     origin validation (localhost), Accept header (SSE required), Content-Type,
-    ///     protocol version, and session validation.
-    ///   - retryInterval: Retry interval in milliseconds for SSE priming events.
-    ///     Controls how long clients wait before attempting to reconnect.
-    ///   - logger: Optional logger. If `nil`, a no-op logger is used.
+    ///   - sessionIDGenerator: Produces the session ID when the session starts. The ID must be non-empty and
+    ///     use only visible ASCII (0x21-0x7E); otherwise initialization fails with a 500. Defaults to
+    ///     ``UUIDSessionIDGenerator``.
+    ///   - validationPipeline: The validators run on every request. Defaults to `nil`, which uses localhost-only
+    ///     origin validation, an `Accept` check requiring SSE, a JSON `Content-Type` check, protocol-version
+    ///     validation and session validation. Pass your own to add authentication or to allow other origins;
+    ///     it replaces the defaults entirely.
+    ///   - retryInterval: Reconnection delay, in milliseconds, advertised to clients in SSE priming events.
+    ///     Defaults to `nil`, which advertises none.
+    ///   - logger: Logger for transport diagnostics. Defaults to `nil`, which discards log output.
     public init(
         sessionIDGenerator: any SessionIDGenerator = UUIDSessionIDGenerator(),
         validationPipeline: (any HTTPRequestValidationPipeline)? = nil,
@@ -127,9 +130,11 @@ public actor StatefulHTTPServerTransport: Transport, HTTPContextProviding {
 
     // MARK: - Transport Conformance
 
-    /// Marks the transport as started.
+    /// Marks the transport as started so the server can use it.
     ///
-    /// - Throws: ``MCPError`` if the transport has already been started.
+    /// No resources are opened; HTTP requests arrive through ``handleRequest(_:)``.
+    ///
+    /// - Throws: `MCPError.internalError` if the transport has already been started.
     public func connect() async throws {
         guard !started else {
             throw MCPError.internalError("Transport already started")
@@ -138,7 +143,8 @@ public actor StatefulHTTPServerTransport: Transport, HTTPContextProviding {
         logger.debug("Stateful HTTP server transport started")
     }
 
-    /// Terminates the session, closing all active streams.
+    /// Terminates the session: every open SSE stream is closed, the stream returned by ``receive()`` is
+    /// finished, and later HTTP requests are answered with 404.
     public func disconnect() async {
         terminate()
     }
@@ -147,6 +153,11 @@ public actor StatefulHTTPServerTransport: Transport, HTTPContextProviding {
     ///
     /// - Responses are routed to the SSE stream matching the response's JSON-RPC ID.
     /// - Notifications and server-initiated requests are routed to the standalone GET stream.
+    ///
+    /// A message that cannot be classified is logged and dropped.
+    ///
+    /// - Parameter data: One encoded outgoing JSON-RPC message.
+    /// - Throws: `MCPError.connectionClosed` if the session has been terminated.
     public func send(_ data: Data) async throws {
         guard !terminated else {
             throw MCPError.connectionClosed
@@ -165,7 +176,12 @@ public actor StatefulHTTPServerTransport: Transport, HTTPContextProviding {
         }
     }
 
-    /// The stream of client messages that `handleRequest` forwards to the server.
+    /// Returns the stream of client messages that ``handleRequest(_:)`` forwards to the server.
+    ///
+    /// Each element is the raw body of an accepted POST (request, notification or response). The stream
+    /// finishes when the session is terminated.
+    ///
+    /// - Returns: The single incoming-message stream; consume it from one reader.
     public func receive() -> AsyncThrowingStream<Data, Swift.Error> {
         incomingStream
     }
@@ -179,6 +195,15 @@ public actor StatefulHTTPServerTransport: Transport, HTTPContextProviding {
     /// - **GET**: Establish standalone SSE stream for server-initiated messages
     /// - **DELETE**: Terminate the session
     /// - Others: 405 Method Not Allowed
+    ///
+    /// Every request passes the validation pipeline first. An `initialize` POST creates the session and returns
+    /// its ID in the `Mcp-Session-Id` header; a second `initialize` is rejected with 400. A POST carrying a
+    /// request is answered with an SSE stream (`.stream`) on which its response is delivered; notifications and
+    /// client responses are forwarded and answered with 202.
+    ///
+    /// - Parameter request: The HTTP request received by the framework adapter.
+    /// - Returns: The response for the adapter to write; 404 once the session is terminated, and 405 with an
+    ///   `Allow` header for unsupported methods.
     public func handleRequest(_ request: HTTPRequest) async -> HTTPResponse {
         if terminated {
             return .error(
@@ -563,6 +588,10 @@ public actor StatefulHTTPServerTransport: Transport, HTTPContextProviding {
     ///
     /// Used to trigger client reconnection mid-call (SEP-1699). The response,
     /// when eventually sent, will be stored and replayed to the reconnected stream.
+    ///
+    /// Does nothing if no stream is open for the request.
+    ///
+    /// - Parameter requestID: The JSON-RPC ID of the request, rendered as a string, whose POST stream to close.
     package func closeSSEStream(forRequestID requestID: String) {
         guard let continuation = requestSSEContinuations[requestID] else { return }
         continuation.finish()
@@ -575,7 +604,8 @@ public actor StatefulHTTPServerTransport: Transport, HTTPContextProviding {
     /// Returns the HTTP request for an in-flight JSON-RPC request.
     ///
     /// - Parameter id: The JSON-RPC ID of the request.
-    /// - Returns: The originating HTTP request, or `nil` once its response has been delivered or the session has ended.
+    /// - Returns: The originating HTTP request, or `nil` once its response has been delivered or the session
+    ///   has ended.
     public func httpRequestContext(for id: ID) -> HTTPRequest? {
         httpRequestContexts[id.description]
     }

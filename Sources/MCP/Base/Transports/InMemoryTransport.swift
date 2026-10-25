@@ -1,7 +1,11 @@
 import Foundation
 import Logging
 
-/// An in-memory transport implementation for direct communication within the same process.
+/// A ``Transport`` that connects a client and a server inside one process by handing message data directly
+/// from one transport actor to its paired peer, with no framing, encoding or I/O.
+///
+/// Obtain a linked pair from ``createConnectedPair(logger:)``; a lone transport cannot connect. Useful for
+/// tests and for embedding a server alongside its client.
 ///
 /// - Example:
 ///   ```swift
@@ -16,7 +20,7 @@ import Logging
 ///   try await server.start(transport: serverTransport)
 ///   ```
 public actor InMemoryTransport: Transport {
-    /// Logger instance for transport-related events
+    /// The logger that receives this transport's diagnostics. A no-op logger is used if none was supplied.
     public nonisolated let logger: Logger
 
     private var isConnected = false
@@ -26,9 +30,11 @@ public actor InMemoryTransport: Transport {
     private var incomingMessages: [Data] = []
     private var messageContinuation: AsyncThrowingStream<Data, Swift.Error>.Continuation?
 
-    /// Creates a new in-memory transport
+    /// Creates an unpaired in-memory transport.
     ///
-    /// - Parameter logger: Optional logger instance for transport events
+    /// It cannot ``connect()`` until it is paired; prefer ``createConnectedPair(logger:)``.
+    ///
+    /// - Parameter logger: Logger for transport diagnostics. Defaults to `nil`, which discards log output.
     public init(logger: Logger? = nil) {
         self.logger =
             logger
@@ -44,8 +50,10 @@ public actor InMemoryTransport: Transport {
     /// within the same process. The returned transports are already paired and ready
     /// to be connected.
     ///
-    /// - Parameter logger: Optional logger instance shared by both transports
-    /// - Returns: A tuple of (clientTransport, serverTransport) ready for use
+    /// - Parameter logger: Logger shared by both transports. Defaults to `nil`, in which case each gets its own
+    ///   no-op logger labelled for the client or server side.
+    /// - Returns: The client-side and server-side transports, paired with each other. Each still needs
+    ///   ``connect()`` to be called.
     public static func createConnectedPair(
         logger: Logger? = nil
     ) async -> (client: InMemoryTransport, server: InMemoryTransport) {
@@ -87,12 +95,12 @@ public actor InMemoryTransport: Transport {
         self.pairedTransport = other
     }
 
-    /// Establishes connection with the transport
+    /// Marks the transport connected after checking that it has a paired peer.
     ///
-    /// For in-memory transports, this validates that the transport is properly
-    /// paired and sets up the message stream.
+    /// Calling it while already connected logs and returns.
     ///
-    /// - Throws: MCPError.internalError if the transport is not paired
+    /// - Throws: `MCPError.internalError` if the transport was not created through
+    ///   ``createConnectedPair(logger:)``.
     public func connect() async throws {
         guard !isConnected else {
             logger.debug("Transport already connected")
@@ -108,9 +116,10 @@ public actor InMemoryTransport: Transport {
         logger.info("Transport connected successfully")
     }
 
-    /// Disconnects from the transport
+    /// Marks the transport disconnected and finishes its receive stream.
     ///
-    /// This closes the message stream and marks the transport as disconnected.
+    /// The paired peer is told, and its receive stream then finishes with `MCPError.connectionClosed`. Calling
+    /// it while not connected does nothing.
     public func disconnect() async {
         guard isConnected else { return }
 
@@ -141,8 +150,11 @@ public actor InMemoryTransport: Transport {
     /// Messages are delivered directly to the paired transport's receive queue
     /// without any additional encoding or framing.
     ///
-    /// - Parameter data: The message data to send
-    /// - Throws: MCPError.internalError if not connected or no paired transport
+    /// If the peer has not yet called ``receive()``, the message is queued and delivered when it does. If the
+    /// peer is disconnected, the message is dropped with a warning.
+    ///
+    /// - Parameter data: The complete encoded message to deliver.
+    /// - Throws: `MCPError.internalError` if this transport is not connected or has no paired peer.
     public func send(_ data: Data) async throws {
         guard isConnected else {
             throw MCPError.internalError("Transport not connected")
@@ -175,9 +187,13 @@ public actor InMemoryTransport: Transport {
         }
     }
 
-    /// Receives messages from the paired transport
+    /// Returns the stream of messages sent by the paired transport.
     ///
-    /// - Returns: An AsyncThrowingStream of Data objects representing messages
+    /// Messages queued before this call are yielded first. Only one stream is live at a time: a later call
+    /// replaces the continuation of an earlier one. The stream finishes on ``disconnect()`` and fails with
+    /// `MCPError.connectionClosed` if the peer disconnects first.
+    ///
+    /// - Returns: A stream yielding one `Data` per message, in send order.
     public func receive() -> AsyncThrowingStream<Data, Swift.Error> {
         return AsyncThrowingStream<Data, Swift.Error> { continuation in
             self.messageContinuation = continuation

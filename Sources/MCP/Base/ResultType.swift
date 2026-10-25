@@ -22,6 +22,9 @@ public enum ResultType: String, Hashable, Codable, Sendable {
     ///
     /// An absent tag is `complete`. Keeping that rule here means every reader gets it, rather
     /// than each call site rediscovering that `nil` is not "unknown".
+    ///
+    /// - Parameter resultType: The tag as decoded, or `nil` if the result carried none.
+    /// - Returns: `resultType` itself, or `.complete` when it is `nil`.
     public static func resolving(_ resultType: ResultType?) -> ResultType {
         resultType ?? .complete
     }

@@ -21,7 +21,16 @@ import Foundation
 /// }
 /// ```
 public protocol HTTPRequestValidator: Sendable {
-    /// Validates the request. Returns an error response if invalid, or `nil` if valid.
+    /// Checks one aspect of an incoming request.
+    ///
+    /// Implementations must be side-effect free and fast: they run synchronously, for every request, before any
+    /// message handling.
+    ///
+    /// - Parameters:
+    ///   - request: The request to check.
+    ///   - context: Facts about the request that were established by the transport, such as the active session.
+    /// - Returns: An error response to send back immediately, which stops the pipeline, or `nil` if this
+    ///   validator is satisfied and the next one should run.
     func validate(_ request: HTTPRequest, context: HTTPValidationContext) -> HTTPResponse?
 }
 
@@ -29,10 +38,10 @@ public protocol HTTPRequestValidator: Sendable {
 
 /// Context provided to validators for making validation decisions.
 public struct HTTPValidationContext: Sendable {
-    /// The HTTP method of the request (GET, POST, DELETE).
+    /// The HTTP method of the request: `"GET"`, `"POST"` or `"DELETE"`.
     public let httpMethod: String
 
-    /// The current session ID, if any (nil in stateless mode or before initialization).
+    /// The session ID the transport has established, or `nil` in stateless mode or before initialization.
     public let sessionID: String?
 
     /// Whether the request body contains an `initialize` JSON-RPC request.
@@ -41,12 +50,12 @@ public struct HTTPValidationContext: Sendable {
     /// The set of protocol versions this server supports.
     public let supportedProtocolVersions: Set<String>
 
-    /// Creates a validation context.
+    /// Creates the context the transport hands to each validator for one request.
     ///
     /// - Parameters:
     ///   - httpMethod: The HTTP method of the request.
-    ///   - sessionID: The active session ID, if any.
-    ///   - isInitializationRequest: Whether the body holds an `initialize` request.
+    ///   - sessionID: The active session ID. Defaults to `nil`.
+    ///   - isInitializationRequest: Whether the body holds an `initialize` request. Defaults to `false`.
     ///   - supportedProtocolVersions: The protocol versions the server accepts. Defaults to ``Version/supported``.
     public init(
         httpMethod: String,
@@ -80,9 +89,10 @@ public struct AcceptHeaderValidator: HTTPRequestValidator {
     /// The response mode this validator enforces.
     public let mode: Mode
 
-    /// Creates an Accept header validator.
+    /// Creates an `Accept` header validator for one response mode.
     ///
-    /// - Parameter mode: Whether SSE must be accepted in addition to JSON.
+    /// - Parameter mode: Whether POST requests must accept SSE in addition to JSON (`.sseRequired`) or only JSON
+    ///   (`.jsonOnly`).
     public init(mode: Mode) {
         self.mode = mode
     }
@@ -148,7 +158,7 @@ public struct AcceptHeaderValidator: HTTPRequestValidator {
 
 /// Validates that POST requests have `Content-Type: application/json`.
 public struct ContentTypeValidator: HTTPRequestValidator {
-    /// Creates a Content-Type validator.
+    /// Creates a validator that requires JSON bodies on POST requests. It has no configuration.
     public init() {}
 
     /// Requires POST requests to carry `Content-Type: application/json`, ignoring parameters such as charset.
@@ -187,14 +197,16 @@ public struct ContentTypeValidator: HTTPRequestValidator {
 /// - If the header is present but unsupported, the server returns 400 Bad Request
 /// - Initialization requests are exempt (protocol version comes from the request body)
 public struct ProtocolVersionValidator: HTTPRequestValidator {
-    /// Creates a protocol version validator.
+    /// Creates a validator that checks the `MCP-Protocol-Version` header against the context's supported
+    /// versions. It has no configuration of its own.
     public init() {}
 
-    /// Rejects a present `MCP-Protocol-Version` header whose value is not supported. A missing header and initialization requests pass.
+    /// Rejects a present `MCP-Protocol-Version` header whose value is not supported. A missing header and
+    /// initialization requests pass.
     ///
     /// - Parameters:
     ///   - request: The request to validate.
-    ///   - context: The validation context.
+    ///   - context: The validation context; its `supportedProtocolVersions` is the accepted set.
     /// - Returns: A 400 error response for an unsupported version, otherwise `nil`.
     public func validate(_ request: HTTPRequest, context: HTTPValidationContext) -> HTTPResponse? {
         // Skip for initialization requests (version is in the body, not the header)
@@ -230,7 +242,8 @@ public struct ProtocolVersionValidator: HTTPRequestValidator {
 /// - Non-initialization requests must include the session ID header
 /// - The session ID must match the active session
 public struct SessionValidator: HTTPRequestValidator {
-    /// Creates a session validator.
+    /// Creates a validator that enforces the `Mcp-Session-Id` header against the context's session. It has no
+    /// configuration of its own.
     public init() {}
 
     /// Checks that a non-initialization request carries the active session ID.
@@ -238,7 +251,8 @@ public struct SessionValidator: HTTPRequestValidator {
     /// - Parameters:
     ///   - request: The request to validate.
     ///   - context: The validation context.
-    /// - Returns: A 400 error if the session is not established or the header is missing, a 404 error if the ID does not match, otherwise `nil`.
+    /// - Returns: A 400 error if the session is not established or the header is missing, a 404 error if the ID
+    ///   does not match, otherwise `nil`.
     public func validate(_ request: HTTPRequest, context: HTTPValidationContext) -> HTTPResponse? {
         // Skip validation for initialization requests
         guard !context.isInitializationRequest else { return nil }
@@ -294,8 +308,8 @@ public struct OriginValidator: HTTPRequestValidator {
     /// Creates a validator that enforces the given allow-lists.
     ///
     /// - Parameters:
-    ///   - allowedHosts: Accepted `Host` header patterns.
-    ///   - allowedOrigins: Accepted `Origin` header patterns.
+    ///   - allowedHosts: Accepted `Host` header patterns, for example `"api.example.com"` or `"localhost:*"`.
+    ///   - allowedOrigins: Accepted `Origin` header patterns, for example `"https://app.example.com"`.
     public init(allowedHosts: [String], allowedOrigins: [String]) {
         self.allowedHosts = allowedHosts
         self.allowedOrigins = allowedOrigins
@@ -310,6 +324,10 @@ public struct OriginValidator: HTTPRequestValidator {
 
     /// Protection for localhost-bound servers.
     /// Allows requests from `localhost`, `127.0.0.1`, and `[::1]` with the specified port.
+    ///
+    /// - Parameter port: The one port to allow, or `nil` (default) to allow any numeric port.
+    /// - Returns: A validator whose hosts are the three loopback names with that port and whose origins are the
+    ///   same names over `http`.
     public static func localhost(port: Int? = nil) -> OriginValidator {
         let portPattern = port.map { String($0) } ?? "*"
         return OriginValidator(
@@ -328,15 +346,18 @@ public struct OriginValidator: HTTPRequestValidator {
 
     /// Disables DNS rebinding protection.
     /// Use for cloud deployments where DNS rebinding is not a threat.
+    ///
+    /// The returned validator accepts every request.
     public static var disabled: OriginValidator {
         OriginValidator(disabled: ())
     }
 
-    /// Checks the `Host` and `Origin` headers against the allow-lists. An absent header passes; a validator created with ``disabled`` accepts everything.
+    /// Checks the `Host` and `Origin` headers against the allow-lists. An absent header passes; a validator
+    /// created with ``disabled`` accepts everything.
     ///
     /// - Parameters:
     ///   - request: The request to validate.
-    ///   - context: The validation context.
+    ///   - context: The validation context; its session ID is echoed on error responses.
     /// - Returns: A 421 error for a disallowed host, a 403 error for a disallowed origin, otherwise `nil`.
     public func validate(_ request: HTTPRequest, context: HTTPValidationContext) -> HTTPResponse? {
         guard enabled else { return nil }
@@ -525,7 +546,11 @@ public enum BearerTokenValidationResult: Sendable, Equatable {
 /// )
 /// ```
 public struct BearerTokenValidator: HTTPRequestValidator {
-    /// Validates a bearer token and returns token info for audience and expiry enforcement.
+    /// The caller-supplied closure that verifies a bearer token (signature, issuer, audience and so on).
+    ///
+    /// It receives the bare token (without the `Bearer ` prefix), the request and the validation context, and
+    /// returns a ``BearerTokenValidationResult``. Return ``BearerTokenValidationResult/valid(_:)`` with a
+    /// ``BearerTokenInfo`` carrying `audience` and `expiresAt` so the validator can enforce them.
     public typealias TokenValidator = @Sendable (
         _ token: String,
         _ request: HTTPRequest,
@@ -558,7 +583,8 @@ public struct BearerTokenValidator: HTTPRequestValidator {
     private let requiresAuthentication: RequirementPredicate
     private let metadataDiscovery: any OAuthMetadataDiscovering
 
-    /// Creates a `BearerTokenValidator`.
+    /// Creates a validator that requires a valid OAuth bearer token on protected requests.
+    ///
     ///
     /// - Parameters:
     ///   - resourceMetadataURL: Included in `WWW-Authenticate` challenge headers as the
@@ -568,6 +594,7 @@ public struct BearerTokenValidator: HTTPRequestValidator {
     ///   - tokenValidator: Validates the Bearer token and returns ``BearerTokenInfo`` with
     ///     claims for SDK-side expiry and audience enforcement.
     ///   - challengeScopeProvider: Optional closure supplying scopes to include in challenge headers.
+    ///     Defaults to `nil`, which omits the `scope` parameter.
     ///   - requiresAuthentication: Predicate controlling which requests require a Bearer token.
     ///     Defaults to requiring authentication on all requests.
     ///   - metadataDiscovery: Used for audience URL matching. Defaults to ``DefaultOAuthMetadataDiscovery``.
@@ -592,7 +619,8 @@ public struct BearerTokenValidator: HTTPRequestValidator {
     /// - Parameters:
     ///   - request: The request to validate.
     ///   - context: The validation context.
-    /// - Returns: An error response with the appropriate challenge when the token is missing, malformed, invalid, expired, for another audience or lacking scope; otherwise `nil`.
+    /// - Returns: An error response with the appropriate challenge when the token is missing, malformed,
+    ///   invalid, expired, for another audience or lacking scope; otherwise `nil`.
     public func validate(_ request: HTTPRequest, context: HTTPValidationContext) -> HTTPResponse? {
         guard requiresAuthentication(request, context) else { return nil }
 
@@ -789,7 +817,11 @@ public struct BearerTokenValidator: HTTPRequestValidator {
 /// or `nil` if all validations pass.
 public protocol HTTPRequestValidationPipeline: Sendable {
     /// Validates the request using the configured pipeline.
-    /// Returns an error response if validation fails, or `nil` if the request is valid.
+    ///
+    /// - Parameters:
+    ///   - request: The request to validate.
+    ///   - context: The validation context.
+    /// - Returns: An error response if validation fails, or `nil` if the request is valid.
     func validate(_ request: HTTPRequest, context: HTTPValidationContext) -> HTTPResponse?
 }
 
@@ -801,8 +833,12 @@ public protocol HTTPRequestValidationPipeline: Sendable {
 public struct StandardValidationPipeline: HTTPRequestValidationPipeline {
     private let validators: [any HTTPRequestValidator]
 
-    /// Creates a pipeline with the given validators.
-    /// Validators are executed in the order provided.
+    /// Creates a pipeline that runs the given validators in order.
+    ///
+    /// Order matters because the first failing validator decides the response: place cheap structural checks
+    /// and unauthenticated discovery endpoints before authentication, and authentication before session checks.
+    ///
+    /// - Parameter validators: The validators to run, first to last.
     public init(validators: [any HTTPRequestValidator]) {
         self.validators = validators
     }

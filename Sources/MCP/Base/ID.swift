@@ -1,6 +1,6 @@
 import struct Foundation.UUID
 
-/// A unique identifier for a request.
+/// The JSON-RPC `id` that correlates a request with its response: either a string or an integer.
 public enum ID: Hashable, Sendable {
     /// A string ID.
     case string(String)
@@ -8,7 +8,7 @@ public enum ID: Hashable, Sendable {
     /// A number ID.
     case number(Int)
 
-    /// Generates a random string ID.
+    /// A fresh string ID built from a random UUID, suitable for correlating a new request.
     public static var random: ID {
         return .string(UUID().uuidString)
     }
@@ -17,7 +17,9 @@ public enum ID: Hashable, Sendable {
 // MARK: - ExpressibleByStringLiteral
 
 extension ID: ExpressibleByStringLiteral {
-    /// Creates a string ID from a string literal.
+    /// Creates a string ID from a string literal, so `let id: ID = "abc"` yields `.string("abc")`.
+    ///
+    /// - Parameter value: The literal text, used verbatim as the ID.
     public init(stringLiteral value: String) {
         self = .string(value)
     }
@@ -26,7 +28,9 @@ extension ID: ExpressibleByStringLiteral {
 // MARK: - ExpressibleByIntegerLiteral
 
 extension ID: ExpressibleByIntegerLiteral {
-    /// Creates a numeric ID from an integer literal.
+    /// Creates a numeric ID from an integer literal, so `let id: ID = 7` yields `.number(7)`.
+    ///
+    /// - Parameter value: The literal integer, used verbatim as the ID.
     public init(integerLiteral value: Int) {
         self = .number(value)
     }

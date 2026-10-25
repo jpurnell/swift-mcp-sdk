@@ -2,20 +2,35 @@ import struct Foundation.Data
 import class Foundation.JSONDecoder
 import class Foundation.JSONEncoder
 
-/// A codable value.
+/// A dynamically typed JSON value, used wherever the protocol carries free-form data.
+///
+/// Mirrors JSON's kinds (null, boolean, number, string, array, object) and adds `data` for binary content,
+/// which is encoded as, and recognised when decoding from, a `data:` URL string.
 public enum Value: Hashable, Sendable {
+    /// JSON `null`.
     case null
+    /// A JSON boolean.
     case bool(Bool)
+    /// A JSON number that decodes as an `Int`.
     case int(Int)
+    /// A JSON number that does not decode as an `Int`.
     case double(Double)
+    /// A JSON string that is not a `data:` URL.
     case string(String)
+    /// Binary content with an optional MIME type, carried on the wire as a `data:` URL string.
     case data(mimeType: String? = nil, Data)
+    /// A JSON array.
     case array([Value])
+    /// A JSON object.
     case object([String: Value])
 
-    /// Create a `Value` from a `Codable` value.
-    /// - Parameter value: The codable value
-    /// - Returns: A value
+    /// Creates a `Value` from any `Codable` value by round-tripping it through JSON.
+    ///
+    /// If `value` is already a `Value` it is used as is; otherwise it is encoded with `JSONEncoder` and
+    /// decoded back as a `Value`.
+    ///
+    /// - Parameter value: The codable value to convert.
+    /// - Throws: Any error from encoding `value` or decoding the resulting JSON.
     public init<T: Codable>(_ value: T) throws {
         if let valueAsValue = value as? Value {
             self = valueAsValue
@@ -172,6 +187,8 @@ extension Value: CustomStringConvertible {
 
 extension Value: ExpressibleByNilLiteral {
     /// Creates the `null` value from a `nil` literal.
+    ///
+    /// - Parameter nilLiteral: Unused; `nil` carries no data.
     public init(nilLiteral: ()) {
         self = .null
     }
@@ -180,7 +197,9 @@ extension Value: ExpressibleByNilLiteral {
 // MARK: - ExpressibleByBooleanLiteral
 
 extension Value: ExpressibleByBooleanLiteral {
-    /// Creates a boolean value from a literal.
+    /// Creates a `.bool` value from a boolean literal.
+    ///
+    /// - Parameter value: The literal boolean.
     public init(booleanLiteral value: Bool) {
         self = .bool(value)
     }
@@ -189,7 +208,9 @@ extension Value: ExpressibleByBooleanLiteral {
 // MARK: - ExpressibleByIntegerLiteral
 
 extension Value: ExpressibleByIntegerLiteral {
-    /// Creates an integer value from a literal.
+    /// Creates an `.int` value from an integer literal.
+    ///
+    /// - Parameter value: The literal integer.
     public init(integerLiteral value: Int) {
         self = .int(value)
     }
@@ -198,7 +219,9 @@ extension Value: ExpressibleByIntegerLiteral {
 // MARK: - ExpressibleByFloatLiteral
 
 extension Value: ExpressibleByFloatLiteral {
-    /// Creates a double value from a literal.
+    /// Creates a `.double` value from a floating-point literal.
+    ///
+    /// - Parameter value: The literal number.
     public init(floatLiteral value: Double) {
         self = .double(value)
     }
@@ -207,7 +230,9 @@ extension Value: ExpressibleByFloatLiteral {
 // MARK: - ExpressibleByStringLiteral
 
 extension Value: ExpressibleByStringLiteral {
-    /// Creates a string value from a literal.
+    /// Creates a `.string` value from a string literal.
+    ///
+    /// - Parameter value: The literal text. It is not parsed as a `data:` URL.
     public init(stringLiteral value: String) {
         self = .string(value)
     }
@@ -216,7 +241,9 @@ extension Value: ExpressibleByStringLiteral {
 // MARK: - ExpressibleByArrayLiteral
 
 extension Value: ExpressibleByArrayLiteral {
-    /// Creates an array value from an array literal.
+    /// Creates an `.array` value from an array literal.
+    ///
+    /// - Parameter elements: The elements, in order.
     public init(arrayLiteral elements: Value...) {
         self = .array(elements)
     }
@@ -225,7 +252,9 @@ extension Value: ExpressibleByArrayLiteral {
 // MARK: - ExpressibleByDictionaryLiteral
 
 extension Value: ExpressibleByDictionaryLiteral {
-    /// Creates an object value from a dictionary literal.
+    /// Creates an `.object` value from a dictionary literal.
+    ///
+    /// - Parameter elements: The key-value pairs. If a key repeats, the last value wins.
     public init(dictionaryLiteral elements: (String, Value)...) {
         var dictionary: [String: Value] = [:]
         for (key, value) in elements {

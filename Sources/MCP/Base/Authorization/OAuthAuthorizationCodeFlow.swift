@@ -68,6 +68,8 @@ public struct OAuthAuthorizationCodeFlow: Sendable {
     ///   - state: The CSRF state nonce.
     ///   - scopeSerializer: Serializes the scope set to a space-separated string.
     /// - Returns: The full authorization request URL with all query parameters.
+    /// - Throws: ``OAuthAuthorizationError/authorizationServerMetadataDiscoveryFailed`` if the endpoint cannot be
+    ///   parsed into URL components or the assembled components do not form a valid URL.
     public func buildURL(
         authorizationEndpoint: URL,
         resource: URL,
@@ -119,6 +121,10 @@ public struct OAuthAuthorizationCodeFlow: Sendable {
     ///   - delegate: Optional user-facing delegate for browser-based flows.
     ///   - session: The `URLSession` used for the no-redirect path.
     /// - Returns: The extracted authorization code.
+    /// - Throws: ``OAuthAuthorizationError`` from ``extractCode(from:expectedRedirectURI:expectedState:)``;
+    ///   `authorizationRequestFailed(statusCode:)` if the no-redirect request returns a status of 400 or above;
+    ///   `authorizationResponseMissingRedirectLocation` if the response is not a 3xx redirect with a usable
+    ///   `Location` header; any error thrown by the delegate or the underlying `URLSession`.
     public func perform(
         authorizationURL: URL,
         redirectURI: URL,
@@ -176,11 +182,18 @@ public struct OAuthAuthorizationCodeFlow: Sendable {
 
     /// Extracts and validates the authorization code from the redirect URL.
     ///
+    /// The redirect's scheme, host, port (defaulting to 80/443 by scheme) and path must match
+    /// `expectedRedirectURI`; the `state` query item must be present and equal `expectedState`; and a
+    /// non-empty `code` query item must be present. Checks run in that order.
+    ///
     /// - Parameters:
     ///   - redirectURL: The redirect URL received from the authorization server.
     ///   - expectedRedirectURI: The redirect URI used in the authorization request.
     ///   - expectedState: The CSRF state nonce sent in the authorization request.
     /// - Returns: The authorization code.
+    /// - Throws: ``OAuthAuthorizationError`` `authorizationResponseRedirectMismatch(expected:actual:)`,
+    ///   `authorizationResponseMissingState`, `authorizationResponseStateMismatch(expected:actual:)` or
+    ///   `authorizationResponseMissingCode`, according to the first check that fails.
     public func extractCode(
         from redirectURL: URL,
         expectedRedirectURI: URL,

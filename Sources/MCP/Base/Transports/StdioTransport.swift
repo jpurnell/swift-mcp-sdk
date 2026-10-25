@@ -50,19 +50,23 @@ import struct Foundation.Data
     public actor StdioTransport: Transport {
         private let input: FileDescriptor
         private let output: FileDescriptor
-        /// Logger instance for transport-related events
+        /// The logger that receives this transport's diagnostics. A no-op logger is used if none was supplied.
         public nonisolated let logger: Logger
 
         private var isConnected = false
         private let messageStream: AsyncThrowingStream<Data, Swift.Error>
         private let messageContinuation: AsyncThrowingStream<Data, Swift.Error>.Continuation
 
-        /// Creates a new stdio transport with the specified file descriptors
+        /// Creates a stdio transport that reads newline-delimited messages from one file descriptor and writes
+        /// them to another.
+        ///
+        /// The descriptors are not touched until ``connect()`` switches them to non-blocking mode. The transport
+        /// does not close them.
         ///
         /// - Parameters:
-        ///   - input: File descriptor for reading (defaults to standard input)
-        ///   - output: File descriptor for writing (defaults to standard output)
-        ///   - logger: Optional logger instance for transport events
+        ///   - input: Descriptor to read inbound messages from. Defaults to standard input.
+        ///   - output: Descriptor to write outbound messages to. Defaults to standard output.
+        ///   - logger: Logger for transport diagnostics. Defaults to `nil`, which discards log output.
         public init(
             input: FileDescriptor = FileDescriptor.standardInput,
             output: FileDescriptor = FileDescriptor.standardOutput,
@@ -82,12 +86,12 @@ import struct Foundation.Data
             self.messageContinuation = continuation
         }
 
-        /// Establishes connection with the transport
+        /// Switches both file descriptors to non-blocking mode and starts the background loop that reads
+        /// messages into the stream returned by ``receive()``.
         ///
-        /// This method configures the file descriptors for non-blocking I/O
-        /// and starts the background message reading loop.
+        /// Calling it while already connected does nothing.
         ///
-        /// - Throws: Error if the file descriptors cannot be configured
+        /// - Throws: `MCPError.transportError` wrapping the `Errno` if `fcntl` fails on either descriptor.
         public func connect() async throws {
             guard !isConnected else { return }
 
@@ -184,9 +188,10 @@ import struct Foundation.Data
             messageContinuation.finish()
         }
 
-        /// Disconnects from the transport
+        /// Marks the transport disconnected and finishes the stream returned by ``receive()``.
         ///
-        /// This stops the message reading loop and releases associated resources.
+        /// The read loop exits at its next iteration. The file descriptors are left open. Calling it while not
+        /// connected does nothing.
         public func disconnect() async {
             guard isConnected else { return }
             isConnected = false
@@ -200,8 +205,12 @@ import struct Foundation.Data
         /// Batches should be encoded as a JSON array containing multiple request/notification objects
         /// according to the JSON-RPC 2.0 specification.
         ///
-        /// - Parameter message: The message data to send (without a trailing newline)
-        /// - Throws: Error if the message cannot be sent
+        /// A newline is appended as the delimiter, so the payload must not itself contain a newline. Writes that
+        /// would block are retried every 10 ms until the whole message is written.
+        ///
+        /// - Parameter message: The encoded message, without a trailing newline.
+        /// - Throws: `MCPError.transportError` wrapping `ENOTCONN` if the transport is not connected, or wrapping
+        ///   the write error; `CancellationError` if the task is cancelled while waiting to retry.
         public func send(_ message: Data) async throws {
             guard isConnected else {
                 throw MCPError.transportError(Errno(rawValue: ENOTCONN))
@@ -233,13 +242,13 @@ import struct Foundation.Data
             }
         }
 
-        /// Receives messages from the transport.
+        /// Returns the stream of inbound messages.
         ///
-        /// Messages may be individual JSON-RPC requests, notifications, responses,
-        /// or batches containing multiple requests/notifications encoded as JSON arrays.
-        /// Each message is guaranteed to be a complete JSON object or array.
+        /// Each element is one non-empty line of input with the newline removed; it is not parsed here, so it is
+        /// whatever the peer wrote (a request, notification, response or batch). The stream finishes on end of
+        /// input, on a read error, or when ``disconnect()`` is called.
         ///
-        /// - Returns: An AsyncThrowingStream of Data objects representing JSON-RPC messages
+        /// - Returns: A stream yielding one `Data` per line, in arrival order.
         public func receive() -> AsyncThrowingStream<Data, Swift.Error> {
             return messageStream
         }

@@ -28,13 +28,15 @@ extension Value: NotRequired {
 
 // MARK: -
 
-/// A method that can be used to send requests and receive responses.
+/// Describes one JSON-RPC method: its wire name and the types of its parameters and result.
+///
+/// Conform an empty enum to declare a method; Request and Response are generic over it.
 public protocol Method: Sendable {
-    /// The parameters of the method.
+    /// The type of the `params` member. Defaults to Empty.
     associatedtype Parameters: Codable, Hashable, Sendable = Empty
-    /// The result of the method.
+    /// The type of the `result` member of a successful response. Defaults to Empty.
     associatedtype Result: Codable, Hashable, Sendable = Empty
-    /// The name of the method.
+    /// The JSON-RPC method string sent on the wire, for example `"tools/list"`.
     static var name: String { get }
 }
 
@@ -68,7 +70,12 @@ extension Method where Result == Empty {
 }
 
 extension Method {
-    /// Create a request with the given parameters.
+    /// Builds a request for this method carrying the given parameters.
+    ///
+    /// - Parameters:
+    ///   - id: The request ID. Defaults to a random ID.
+    ///   - parameters: The method's parameters.
+    /// - Returns: A request whose `method` is this type's `name`.
     public static func request(
         id: ID = .random,
         _ parameters: Self.Parameters
@@ -76,7 +83,12 @@ extension Method {
         Request(id: id, method: name, params: parameters)
     }
 
-    /// Create a response with the given result.
+    /// Builds a successful response to a request for this method.
+    ///
+    /// - Parameters:
+    ///   - id: The ID of the request being answered.
+    ///   - result: The method's result.
+    /// - Returns: A response holding `result` as its success value.
     public static func response(
         id: ID,
         result: Self.Result
@@ -84,7 +96,12 @@ extension Method {
         Response(id: id, result: result)
     }
 
-    /// Create a response with the given error.
+    /// Builds a failed response to a request for this method.
+    ///
+    /// - Parameters:
+    ///   - id: The ID of the request being answered.
+    ///   - error: The error to report to the requester.
+    /// - Returns: A response holding `error` as its failure value.
     public static func response(
         id: ID,
         error: MCPError
@@ -95,13 +112,13 @@ extension Method {
 
 // MARK: -
 
-/// A request message.
+/// A JSON-RPC 2.0 request for method `M`, pairing a caller-chosen ID with the method name and parameters.
 public struct Request<M: Method>: Hashable, Identifiable, Codable, Sendable {
-    /// The request ID.
+    /// The ID the receiver echoes in its response so the caller can correlate the two.
     public let id: ID
-    /// The method name.
+    /// The wire method name, for example `"tools/call"`.
     public let method: String
-    /// The request parameters.
+    /// The method's typed parameters; encoded as the `params` member.
     public let params: M.Parameters
 
     init(
@@ -248,11 +265,11 @@ final class TypedRequestHandler<M: Method>: RequestHandlerBox, @unchecked Sendab
 
 // MARK: -
 
-/// A response message.
+/// A JSON-RPC 2.0 response to a request for method `M`, carrying either a result or an error.
 public struct Response<M: Method>: Hashable, Identifiable, Codable, Sendable {
-    /// The response ID.
+    /// The ID of the request this response answers.
     public let id: ID
-    /// The response result.
+    /// The outcome: the method's result on success, or an `MCPError` on failure.
     public let result: Swift.Result<M.Result, MCPError>
 
     /// Creates a response from an explicit success or failure result.
@@ -386,11 +403,11 @@ extension AnyNotification {
     }
 }
 
-/// A message that can be used to send notifications.
+/// A JSON-RPC 2.0 notification for `N`: a method name and parameters with no ID and no response.
 public struct Message<N: Notification>: Hashable, Codable, Sendable {
-    /// The method name.
+    /// The wire method name, for example `"notifications/initialized"`.
     public let method: String
-    /// The notification parameters.
+    /// The notification's typed parameters; omitted from the wire when the type is Empty.
     public let params: N.Parameters
 
     /// Creates a notification message.
@@ -483,14 +500,19 @@ public struct Message<N: Notification>: Hashable, Codable, Sendable {
 typealias AnyMessage = Message<AnyNotification>
 
 extension Notification where Parameters == Empty {
-    /// Create a message with empty parameters.
+    /// Builds a notification message for a notification that takes no parameters.
+    ///
+    /// - Returns: A message whose `method` is this type's `name` and whose parameters are `Empty`.
     public static func message() -> Message<Self> {
         Message(method: name, params: Empty())
     }
 }
 
 extension Notification {
-    /// Create a message with the given parameters.
+    /// Builds a notification message with the given parameters.
+    ///
+    /// - Parameter parameters: The notification's parameters.
+    /// - Returns: A message whose `method` is this type's `name`.
     public static func message(_ parameters: Parameters) -> Message<Self> {
         Message(method: name, params: parameters)
     }
