@@ -35,13 +35,15 @@ public struct ProgressNotification: Notification {
         /// An optional human-readable message describing the current progress.
         public let message: String?
 
-        /// Creates a new `Parameters`.
+        /// Creates the parameters for a `notifications/progress` notification.
         ///
         /// - Parameters:
-        ///   - progressToken: The progress token from the original request.
-        ///   - progress: The current progress value.
-        ///   - total: The total expected progress value, if known.
-        ///   - message: An optional human-readable message describing the current progress.
+        ///   - progressToken: The `_meta.progressToken` taken from the request being reported on.
+        ///   - progress: Work completed so far; it should increase with each notification. Units are
+        ///     defined by the sender and may be fractional.
+        ///   - total: Total work expected in the same units as `progress`. Defaults to `nil` (unknown) and
+        ///     is omitted from the wire when `nil`.
+        ///   - message: Optional human-readable status text. Defaults to `nil`.
         public init(
             progressToken: ProgressToken,
             progress: Double,
@@ -61,13 +63,18 @@ public struct ProgressNotification: Notification {
 /// Progress tokens can be either strings or integers.
 /// Progress tokens MUST be unique across all active requests.
 public enum ProgressToken: Hashable, Codable, Sendable {
+    /// A string token, encoded as a JSON string.
     case string(String)
+    /// An integer token, encoded as a JSON number.
     case integer(Int)
 
-    /// Creates an instance by decoding from the given decoder.
+    /// Decodes a token from a single JSON value.
+    ///
+    /// A JSON string becomes `.string`; otherwise a JSON integer becomes `.integer`.
     ///
     /// - Parameter decoder: The decoder to read the value from.
-    /// - Throws: `DecodingError` if the data is missing or malformed.
+    /// - Throws: `DecodingError.dataCorrupted` if the value is neither a string nor an integer (for example a
+    ///   boolean, object, or fractional number).
     public init(from decoder: Decoder) throws {
         let container = try decoder.singleValueContainer()
         if let stringValue = try? container.decode(String.self) {
@@ -82,10 +89,10 @@ public enum ProgressToken: Hashable, Codable, Sendable {
         }
     }
 
-    /// Encodes this value into the given encoder.
+    /// Encodes the token as a bare JSON string or integer, matching the `progressToken` wire shape.
     ///
     /// - Parameter encoder: The encoder to write the value to.
-    /// - Throws: An error if encoding fails.
+    /// - Throws: An error if the underlying encoder fails.
     public func encode(to encoder: Encoder) throws {
         var container = encoder.singleValueContainer()
         switch self {
@@ -96,7 +103,7 @@ public enum ProgressToken: Hashable, Codable, Sendable {
         }
     }
 
-    /// Creates a unique progress token using UUID.
+    /// Creates a new string token from a random UUID, suitable for tagging one outgoing request.
     public static func unique() -> ProgressToken {
         .string(UUID().uuidString)
     }
@@ -109,6 +116,7 @@ public enum ProgressToken: Hashable, Codable, Sendable {
 ///
 /// - SeeAlso: https://modelcontextprotocol.io/specification/2025-11-25/basic/utilities/progress
 public struct Metadata: Hashable, Codable, Sendable {
+    /// Returns the value stored under `key` in `fields`, or `nil` if the key is absent.
     public subscript(_ key: String) -> Value? {
         fields[key]
     }
@@ -146,31 +154,33 @@ public struct Metadata: Hashable, Codable, Sendable {
         }
     }
 
-    /// Creates request metadata.
+    /// Creates the `_meta` object for a request's parameters.
     ///
     /// - Parameters:
-    ///   - progressToken: Optional progress token for receiving progress notifications.
-    ///     If specified, the caller is requesting out-of-band progress notifications for this request.
-    ///   - additionalFields: Optional dictionary of additional metadata fields.
-    ///     These fields will be included in the `_meta` object alongside the progress token.
+    ///   - progressToken: If non-nil, stored under `progressToken` to ask the receiver for progress
+    ///     notifications. Defaults to `nil`. A non-nil token overwrites any `progressToken` key in
+    ///     `additionalFields`.
+    ///   - additionalFields: Other `_meta` entries, copied as given. Defaults to empty.
     public init(progressToken: ProgressToken? = nil, additionalFields: [String: Value] = [:]) {
         self.fields = additionalFields
         self.progressToken = progressToken
     }
 
-    /// Creates an instance by decoding from the given decoder.
+    /// Decodes metadata from a single JSON object.
+    ///
+    /// Every key is kept verbatim in `fields`, including `progressToken` and any vendor-specific keys.
     ///
     /// - Parameter decoder: The decoder to read the value from.
-    /// - Throws: `DecodingError` if the data is missing or malformed.
+    /// - Throws: `DecodingError` if the value is not a JSON object whose values are all valid `Value`s.
     public init(from decoder: Decoder) throws {
         let container = try decoder.singleValueContainer()
         self.fields = try container.decode([String: Value].self)
     }
 
-    /// Encodes this value into the given encoder.
+    /// Encodes the metadata as a JSON object containing exactly the entries of `fields`.
     ///
     /// - Parameter encoder: The encoder to write the value to.
-    /// - Throws: An error if encoding fails.
+    /// - Throws: An error if the underlying encoder fails.
     public func encode(to encoder: Encoder) throws {
         var container = encoder.singleValueContainer()
         try container.encode(fields)

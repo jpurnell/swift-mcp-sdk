@@ -9,6 +9,7 @@ public enum Elicitation {
     public struct RequestSchema: Hashable, Codable, Sendable {
         /// Supported top-level types. Currently limited to objects.
         public enum SchemaType: String, Hashable, Codable, Sendable {
+            /// A JSON Schema `object` (wire value `"object"`).
             case object
         }
 
@@ -23,14 +24,15 @@ public enum Elicitation {
         /// Top-level schema type. Defaults to `object`.
         public var type: SchemaType
 
-        /// Creates a new `RequestSchema`.
+        /// Creates the schema describing the form fields a server wants the user to fill in.
         ///
         /// - Parameters:
-        ///   - title: Schema title presented to users.
-        ///   - description: Schema description providing additional guidance.
-        ///   - properties: Raw JSON Schema fragments describing the requested fields.
-        ///   - required: List of required field keys.
-        ///   - type: Top-level schema type. Defaults to `object`.
+        ///   - title: Optional title shown to the user. Defaults to `nil`.
+        ///   - description: Optional guidance text. Defaults to `nil`.
+        ///   - properties: Field name to JSON Schema fragment (e.g. `.object(["type": .string("string")])`).
+        ///     Defaults to empty.
+        ///   - required: Names from `properties` the user must supply. Defaults to `nil` (none required).
+        ///   - type: Top-level schema type; only `.object` exists. Defaults to `.object`.
         public init(
             title: String? = nil,
             description: String? = nil,
@@ -59,7 +61,10 @@ public enum Elicitation {
     }
 }
 
-/// To request information from a user, servers send an `elicitation/create` request.
+/// The `elicitation/create` request. A server sends it to ask the client to collect input from the user,
+/// either through a form described by a schema or by sending the user to a URL. The client answers with a
+/// ``CreateElicitation/Result``.
+///
 /// - SeeAlso: https://modelcontextprotocol.io/specification/2025-06-18/client/elicitation
 public enum CreateElicitation: Method {
     /// The JSON-RPC method name for this request: `elicitation/create`.
@@ -83,13 +88,14 @@ public enum CreateElicitation: Method {
             /// Optional metadata
             public var _meta: Metadata?
 
-            /// Creates a new `FormParameters`.
+            /// Creates parameters for a form-mode `elicitation/create` request.
             ///
             /// - Parameters:
-            ///   - message: Message displayed to the user describing the request
-            ///   - mode: Elicitation mode (optional for backward compatibility, defaults to form)
-            ///   - requestedSchema: Schema describing the expected response content (required per spec)
-            ///   - _meta: Optional metadata
+            ///   - message: Prompt shown to the user explaining what is being requested.
+            ///   - mode: Explicit `.form` marker. Defaults to `nil`, which omits `mode` from the wire (peers
+            ///     treat a missing mode as form).
+            ///   - requestedSchema: Schema of the fields to collect. Defaults to an empty object schema.
+            ///   - _meta: Protocol-reserved metadata. Defaults to `nil`.
             public init(
                 message: String,
                 mode: Elicitation.Mode? = nil,
@@ -116,13 +122,15 @@ public enum CreateElicitation: Method {
             /// Optional metadata
             public var _meta: Metadata?
 
-            /// Creates a new `URLParameters`.
+            /// Creates parameters for a URL-mode `elicitation/create` request, in which the client sends the
+            /// user to an external page. `mode` is fixed to `.url`.
             ///
             /// - Parameters:
-            ///   - message: Message displayed to the user describing the request
-            ///   - url: URL for the user to visit
-            ///   - elicitationId: Unique identifier for this elicitation
-            ///   - _meta: Optional metadata
+            ///   - message: Prompt shown to the user explaining why they are being sent to the URL.
+            ///   - url: The absolute URL the user should open, as a string; not validated.
+            ///   - elicitationId: Server-chosen identifier that later correlates an
+            ///     ``ElicitationCompleteNotification`` with this request.
+            ///   - _meta: Protocol-reserved metadata. Defaults to `nil`.
             public init(
                 message: String,
                 url: String,
@@ -142,8 +150,11 @@ public enum CreateElicitation: Method {
     public struct Result: Hashable, Codable, Sendable {
         /// Indicates how the user responded to the request.
         public enum Action: String, Hashable, Codable, Sendable {
+            /// The user submitted the form or completed the flow.
             case accept
+            /// The user explicitly refused to provide the information.
             case decline
+            /// The user dismissed the request without choosing.
             case cancel
         }
 
@@ -154,12 +165,13 @@ public enum CreateElicitation: Method {
         /// Optional metadata about this result
         public var _meta: Metadata?
 
-        /// Creates a new `Result`.
+        /// Creates the client's response to an `elicitation/create` request.
         ///
         /// - Parameters:
-        ///   - action: Selected action.
-        ///   - content: Submitted content when action is `.accept`.
-        ///   - _meta: Optional metadata about this result
+        ///   - action: How the user responded: accepted, declined, or dismissed.
+        ///   - content: The submitted field values keyed by property name; meaningful only for `.accept`.
+        ///     Defaults to `nil`; omitted from the wire when `nil`.
+        ///   - _meta: Protocol-reserved result metadata. Defaults to `nil`.
         public init(
             action: Action,
             content: [String: Value]? = nil,
@@ -174,10 +186,10 @@ public enum CreateElicitation: Method {
             case action, content, _meta
         }
 
-        /// Encodes this value into the given encoder.
+        /// Encodes `action` always; `content` and `_meta` are omitted when `nil`.
         ///
         /// - Parameter encoder: The encoder to write the value to.
-        /// - Throws: An error if encoding fails.
+        /// - Throws: An error if the underlying encoder fails.
         public func encode(to encoder: Encoder) throws {
             var container = encoder.container(keyedBy: CodingKeys.self)
             try container.encode(action, forKey: .action)
@@ -185,10 +197,13 @@ public enum CreateElicitation: Method {
             try container.encodeIfPresent(_meta, forKey: ._meta)
         }
 
-        /// Creates an instance by decoding from the given decoder.
+        /// Decodes the user's response from a keyed container.
+        ///
+        /// Required: `action`. Optional: `content`, `_meta`.
         ///
         /// - Parameter decoder: The decoder to read the value from.
-        /// - Throws: `DecodingError` if the data is missing or malformed.
+        /// - Throws: `DecodingError` if `action` is missing or not one of `accept`, `decline`, `cancel`, or if
+        ///   `content` is not an object of valid `Value`s.
         public init(from decoder: Decoder) throws {
             let container = try decoder.container(keyedBy: CodingKeys.self)
             action = try container.decode(Action.self, forKey: .action)
@@ -206,10 +221,14 @@ extension CreateElicitation.Parameters: Codable {
         case _meta
     }
 
-    /// Creates an instance by decoding from the given decoder.
+    /// Decodes elicitation parameters, choosing the variant from the `mode` key.
+    ///
+    /// `mode == "url"` decodes `.url`, requiring `message`, `url` and `elicitationId`. Any other case (absent,
+    /// `"form"`) decodes `.form`, requiring `message` and `requestedSchema`. `_meta` is optional in both.
     ///
     /// - Parameter decoder: The decoder to read the value from.
-    /// - Throws: `DecodingError` if the data is missing or malformed.
+    /// - Throws: `DecodingError` if `mode` is present but not a known mode, or a key required by the chosen
+    ///   variant is missing or malformed.
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
 
@@ -242,10 +261,13 @@ extension CreateElicitation.Parameters: Codable {
         }
     }
 
-    /// Encodes this value into the given encoder.
+    /// Encodes the active variant as a flat object.
+    ///
+    /// `.form` writes `message`, `mode` (only if set), `requestedSchema` and `_meta` (if set). `.url` writes
+    /// `message`, `mode` (always `"url"`), `url`, `elicitationId` and `_meta` (if set).
     ///
     /// - Parameter encoder: The encoder to write the value to.
-    /// - Throws: An error if encoding fails.
+    /// - Throws: An error if the underlying encoder fails.
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
 
@@ -265,7 +287,8 @@ extension CreateElicitation.Parameters: Codable {
     }
 }
 
-/// Notification sent when a URL-based elicitation is complete
+/// The `notifications/elicitation/complete` notification, sent by the server to tell the client that a
+/// URL-mode elicitation (identified by its `elicitationId`) has finished out of band.
 public struct ElicitationCompleteNotification: Notification {
     /// The JSON-RPC method name for this notification: `notifications/elicitation/complete`.
     public static let name = "notifications/elicitation/complete"
@@ -275,10 +298,10 @@ public struct ElicitationCompleteNotification: Notification {
         /// The elicitation ID that was completed
         public var elicitationId: String
 
-        /// Creates a new `Parameters`.
+        /// Creates the parameters for an elicitation-complete notification.
         ///
         /// - Parameters:
-        ///   - elicitationId: The elicitation ID that was completed
+        ///   - elicitationId: The `elicitationId` of the URL-mode request that has completed.
         public init(elicitationId: String) {
             self.elicitationId = elicitationId
         }
