@@ -562,38 +562,54 @@ import Testing
             await transport.disconnect()
         }
 
-        @Test("Reconnection Backoff")
+        /// Records the backoff waits a transport asks for instead of sleeping through them.
+        actor BackoffRecorder {
+            private(set) var waits: [Duration] = []
+            func record(_ duration: Duration) { waits.append(duration) }
+        }
+
+        @Test("Reconnection waits out the exponential backoff schedule between attempts")
         func testReconnectionBackoff() async throws {
             let mockConnection = MockNetworkConnection()
+            // Every dial fails from the start, so connect() must retry to exhaustion.
+            mockConnection.simulateFailure(error: NWError.posix(POSIXErrorCode.ECONNRESET))
 
-            let reconnectionConfig = NetworkTransport.ReconnectionConfiguration(
-                enabled: true,
-                maxAttempts: 3,
-                backoffMultiplier: 2.0
-            )
-
-            // The schedule is a pure function of the attempt number: 0.5s, then doubling.
-            let delays = (1...reconnectionConfig.maxAttempts).map {
-                reconnectionConfig.backoffDelay(for: $0)
-            }
-            let expected = [0.5, 1.0, 2.0]
-            #expect(delays.count == expected.count)
-            for (delay, want) in zip(delays, expected) {
-                #expect(abs(delay - want) < 1e-9)
-            }
-
+            let recorder = BackoffRecorder()
             let transport = NetworkTransport(
                 mockConnection,
                 heartbeatConfig: .disabled,
-                reconnectionConfig: reconnectionConfig
+                reconnectionConfig: .init(enabled: true, maxAttempts: 3, backoffMultiplier: 2.0),
+                backoffSleep: { await recorder.record($0) }
             )
 
-            try await transport.connect()
+            await #expect(throws: (any Swift.Error).self) { try await transport.connect() }
+
+            // Three retries after the first failure, each waiting twice as long as the last.
+            let seconds = await recorder.waits.map {
+                Double($0.components.seconds) + Double($0.components.attoseconds) / 1e18
+            }
+            let expected = [0.5, 1.0, 2.0]
+            #expect(seconds.count == expected.count)
+            for (waited, want) in zip(seconds, expected) {
+                #expect(abs(waited - want) < 1e-9)
+            }
+        }
+
+        @Test("Reconnection disabled fails at once without backing off")
+        func testNoBackoffWhenReconnectionDisabled() async throws {
+            let mockConnection = MockNetworkConnection()
             mockConnection.simulateFailure(error: NWError.posix(POSIXErrorCode.ECONNRESET))
 
-            // A failure with reconnection enabled must leave the transport able to disconnect
-            // cleanly; the schedule above is what bounds how long it would keep trying.
-            await transport.disconnect()
+            let recorder = BackoffRecorder()
+            let transport = NetworkTransport(
+                mockConnection,
+                heartbeatConfig: .disabled,
+                reconnectionConfig: .disabled,
+                backoffSleep: { await recorder.record($0) }
+            )
+
+            await #expect(throws: (any Swift.Error).self) { try await transport.connect() }
+            #expect(await recorder.waits.isEmpty)
         }
 
         @Test("Heartbeat Failure Handling")

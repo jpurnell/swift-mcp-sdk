@@ -263,6 +263,10 @@ import Logging
         private let reconnectionConfig: ReconnectionConfiguration
         private let bufferConfig: BufferConfiguration
 
+        /// Waits out a reconnection backoff. Production sleeps; tests substitute a recorder so the
+        /// schedule can be asserted without real time passing.
+        private let backoffSleep: @Sendable (Duration) async throws -> Void
+
         /// Creates a new NetworkTransport with the specified NWConnection
         ///
         /// - Parameters:
@@ -292,8 +296,10 @@ import Logging
             logger: Logger? = nil,
             heartbeatConfig: HeartbeatConfiguration = .default,
             reconnectionConfig: ReconnectionConfiguration = .default,
-            bufferConfig: BufferConfiguration = .default
+            bufferConfig: BufferConfiguration = .default,
+            backoffSleep: @escaping @Sendable (Duration) async throws -> Void = { try await Task.sleep(for: $0) }
         ) {
+            self.backoffSleep = backoffSleep
             self.connection = connection
             self.logger =
                 logger
@@ -375,7 +381,7 @@ import Logging
                             "maxAttempts": "\(reconnectionConfig.maxAttempts)",
                         ])
 
-                    try await Task.sleep(for: .seconds(delay))
+                    try await backoffSleep(.seconds(delay))
                     connection.cancel()
                 }
             }
@@ -748,7 +754,7 @@ import Logging
                                 let log = logger
                                 Task {
                                     do {
-                                        try await Task.sleep(for: .seconds(delay))
+                                        try await backoffSleep(.seconds(delay))
                                         // `redial` is one step on the actor, and it re-reads
                                         // `isStopping` there rather than trusting a value sampled
                                         // before the sleep. If connect succeeds a new receive loop
@@ -803,7 +809,7 @@ import Logging
                             let log = logger
                             Task {
                                 do {
-                                    try await Task.sleep(for: .seconds(delay))
+                                    try await backoffSleep(.seconds(delay))
                                     try await self.redialIfRunning()
                                 } catch {
                                     log.error(
