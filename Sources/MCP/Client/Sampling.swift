@@ -23,7 +23,14 @@ public enum Sampling {
         /// Optional metadata
         public var _meta: Metadata?
 
-        /// Creates a message with the specified role and content
+        /// Creates a message with an explicit role.
+        ///
+        /// Deprecated in favor of ``user(_:_meta:)`` and ``assistant(_:_meta:)``.
+        ///
+        /// - Parameters:
+        ///   - role: Whether the message is from the user or the assistant.
+        ///   - content: The message body, a single block or several.
+        ///   - _meta: Protocol-reserved metadata. Defaults to `nil`.
         @available(
             *, deprecated, message: "Use static factory methods .user(_:) or .assistant(_:) instead"
         )
@@ -40,12 +47,22 @@ public enum Sampling {
             self._meta = _meta
         }
 
-        /// Creates a user message with the specified content
+        /// Creates a message with the `user` role.
+        ///
+        /// - Parameters:
+        ///   - content: The message body, a single block or several.
+        ///   - _meta: Protocol-reserved metadata. Defaults to `nil`.
+        /// - Returns: A message whose `role` is `.user`.
         public static func user(_ content: Content, _meta: Metadata? = nil) -> Message {
             return Message(_role: .user, _content: content, _meta: _meta)
         }
 
-        /// Creates an assistant message with the specified content
+        /// Creates a message with the `assistant` role.
+        ///
+        /// - Parameters:
+        ///   - content: The message body, a single block or several.
+        ///   - _meta: Protocol-reserved metadata. Defaults to `nil`.
+        /// - Returns: A message whose `role` is `.assistant`.
         public static func assistant(_ content: Content, _meta: Metadata? = nil) -> Message {
             return Message(_role: .assistant, _content: content, _meta: _meta)
         }
@@ -87,17 +104,27 @@ public enum Sampling {
                 }
             }
 
-            /// Creates content from a text string (convenience)
+            /// Creates single-block text content.
+            ///
+            /// - Parameter text: The text of the block.
             public static func text(_ text: String) -> Content {
                 .single(.text(text))
             }
 
-            /// Creates content from an image (convenience)
+            /// Creates single-block image content.
+            ///
+            /// - Parameters:
+            ///   - data: Base64-encoded image bytes.
+            ///   - mimeType: The image's MIME type, e.g. `image/png`.
             public static func image(data: String, mimeType: String) -> Content {
                 .single(.image(data: data, mimeType: mimeType))
             }
 
-            /// Creates content from audio (convenience)
+            /// Creates single-block audio content.
+            ///
+            /// - Parameters:
+            ///   - data: Base64-encoded audio bytes.
+            ///   - mimeType: The audio's MIME type, e.g. `audio/wav`.
             public static func audio(data: String, mimeType: String) -> Content {
                 .single(.audio(data: data, mimeType: mimeType))
             }
@@ -111,10 +138,11 @@ public enum Sampling {
             /// Suggested model name/family
             public let name: String?
 
-            /// Creates a new `Hint`.
+            /// Creates a model-name hint for ``ModelPreferences``.
             ///
             /// - Parameters:
-            ///   - name: Suggested model name/family
+            ///   - name: A model name or family substring (e.g. `claude-sonnet`) the client may match against
+            ///     its available models. Defaults to `nil`.
             public init(name: String? = nil) {
                 self.name = name
             }
@@ -129,13 +157,14 @@ public enum Sampling {
         /// Importance of advanced model capabilities (0-1 normalized)
         public let intelligencePriority: UnitInterval?
 
-        /// Creates a new `ModelPreferences`.
+        /// Creates the model-selection preferences a server attaches to a sampling request. These are advisory;
+        /// the client makes the final model choice.
         ///
         /// - Parameters:
-        ///   - hints: Array of model name suggestions that clients can use to select an appropriate model
-        ///   - costPriority: Importance of minimizing costs (0-1 normalized)
-        ///   - speedPriority: Importance of low latency response (0-1 normalized)
-        ///   - intelligencePriority: Importance of advanced model capabilities (0-1 normalized)
+        ///   - hints: Model-name suggestions in order of preference. Defaults to `nil`.
+        ///   - costPriority: How much to favor cheaper models, as a `UnitInterval` in 0...1. Defaults to `nil`.
+        ///   - speedPriority: How much to favor low latency, 0...1. Defaults to `nil`.
+        ///   - intelligencePriority: How much to favor capable models, 0...1. Defaults to `nil`.
         public init(
             hints: [Hint]? = nil,
             costPriority: UnitInterval? = nil,
@@ -172,7 +201,7 @@ public enum Sampling {
     {
         /// The stop reason string as sent on the wire.
         public let rawValue: String
-        /// Creates a stop reason from its wire string.
+        /// Creates a stop reason from its wire string (the `RawRepresentable` initializer).
         ///
         /// - Parameter rawValue: The stop reason string. Any provider-specific value is valid.
         public init(rawValue: String) { self.rawValue = rawValue }
@@ -202,13 +231,13 @@ public enum Sampling {
         /// Optional metadata
         public var _meta: Metadata?
 
-        /// Creates a new `ToolUseContent`.
+        /// Creates a record of the model requesting a tool call.
         ///
         /// - Parameters:
-        ///   - id: Unique identifier for this tool use
-        ///   - name: Name of the tool being invoked
-        ///   - input: Input parameters for the tool
-        ///   - _meta: Optional metadata
+        ///   - id: Identifier for this call; a later ``Sampling/ToolResultContent`` echoes it as `toolUseId`.
+        ///   - name: The name of the tool the model wants to invoke.
+        ///   - input: The arguments for the tool, keyed by parameter name.
+        ///   - _meta: Protocol-reserved metadata. Defaults to `nil`.
         public init(id: String, name: String, input: [String: Value], _meta: Metadata? = nil) {
             self.id = id
             self.name = name
@@ -244,14 +273,14 @@ public enum Sampling {
             case resourceLink(uri: String, name: String, title: String?, description: String?, mimeType: String?, annotations: Resource.Annotations?)
         }
 
-        /// Creates a new `ToolResultContent`.
+        /// Creates the outcome of a tool call to feed back to the model.
         ///
         /// - Parameters:
-        ///   - toolUseId: ID of the tool use this result corresponds to
-        ///   - content: Content blocks from tool execution
-        ///   - structuredContent: Structured data from tool execution
-        ///   - isError: Whether the tool execution resulted in an error
-        ///   - _meta: Optional metadata
+        ///   - toolUseId: The `id` of the ``Sampling/ToolUseContent`` this answers.
+        ///   - content: The tool's output blocks (text, image, audio, resource, or resource link).
+        ///   - structuredContent: Optional structured output as a JSON object. Defaults to `nil`.
+        ///   - isError: `true` if the tool failed. Defaults to `nil` (unspecified).
+        ///   - _meta: Protocol-reserved metadata. Defaults to `nil`.
         public init(
             toolUseId: String,
             content: [ContentBlock],
@@ -275,10 +304,13 @@ extension Sampling.Message: Codable {
         case role, content, _meta
     }
 
-    /// Creates an instance by decoding from the given decoder.
+    /// Decodes a message from a keyed container.
+    ///
+    /// Required: `role` (`user` or `assistant`) and `content` (a single block or an array of blocks).
+    /// Optional: `_meta`.
     ///
     /// - Parameter decoder: The decoder to read the value from.
-    /// - Throws: `DecodingError` if the data is missing or malformed.
+    /// - Throws: `DecodingError` if a required key is missing or malformed.
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         role = try container.decode(Role.self, forKey: .role)
@@ -286,10 +318,10 @@ extension Sampling.Message: Codable {
         _meta = try container.decodeIfPresent(Metadata.self, forKey: ._meta)
     }
 
-    /// Encodes this value into the given encoder.
+    /// Encodes `role` and `content` always; `_meta` is omitted when `nil`.
     ///
     /// - Parameter encoder: The encoder to write the value to.
-    /// - Throws: An error if encoding fails.
+    /// - Throws: An error if the underlying encoder fails.
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encode(role, forKey: .role)
@@ -305,10 +337,16 @@ extension Sampling.Message.Content.ContentBlock: Codable {
         case toolUseId, content, structuredContent, isError
     }
 
-    /// Creates an instance by decoding from the given decoder.
+    /// Decodes one content block, using the `type` key as discriminator.
+    ///
+    /// Recognised types: `text`, `image`, `audio`, `tool_use`, `tool_result`. Required keys per type: `text`
+    /// (`text`); `image`/`audio` (`data`, `mimeType`); `tool_use` (`id`, `name`, `input`); `tool_result`
+    /// (`toolUseId`, `content`). `_meta` is optional on `tool_use`; `structuredContent`, `isError` and `_meta`
+    /// are optional on `tool_result`.
     ///
     /// - Parameter decoder: The decoder to read the value from.
-    /// - Throws: `DecodingError` if the data is missing or malformed.
+    /// - Throws: `DecodingError` if `type` is missing, `DecodingError.dataCorrupted` if it is not a recognised
+    ///   type, or a key required by that type is missing or malformed.
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         let type = try container.decode(String.self, forKey: .type)
@@ -350,10 +388,13 @@ extension Sampling.Message.Content.ContentBlock: Codable {
         }
     }
 
-    /// Encodes this value into the given encoder.
+    /// Encodes the block as a flat object with a `type` discriminator.
+    ///
+    /// Wire types are `text`, `image`, `audio`, `tool_use` (note the underscore) and `tool_result`. Optional
+    /// `_meta` (on `tool_use` and `tool_result`), `structuredContent` and `isError` are omitted when `nil`.
     ///
     /// - Parameter encoder: The encoder to write the value to.
-    /// - Throws: An error if encoding fails.
+    /// - Throws: An error if the underlying encoder fails.
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
 
@@ -457,10 +498,14 @@ extension Sampling.ToolResultContent.ContentBlock: Codable {
         case uri, name, title, description
     }
 
-    /// Creates an instance by decoding from the given decoder.
+    /// Decodes one tool-result content block, using the `type` key as discriminator.
+    ///
+    /// Recognised types: `text`, `image`, `audio`, `resource` (`resource`; optional `annotations`, `_meta`) and
+    /// `resource_link` (`uri`, `name`; optional `title`, `description`, `mimeType`, `annotations`).
     ///
     /// - Parameter decoder: The decoder to read the value from.
-    /// - Throws: `DecodingError` if the data is missing or malformed.
+    /// - Throws: `DecodingError` if `type` is missing, `DecodingError.dataCorrupted` if it is not a recognised
+    ///   type, or a key required by that type is missing or malformed.
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         let type = try container.decode(String.self, forKey: .type)
@@ -499,10 +544,11 @@ extension Sampling.ToolResultContent.ContentBlock: Codable {
         }
     }
 
-    /// Encodes this value into the given encoder.
+    /// Encodes the block as a flat object with a `type` discriminator (`text`, `image`, `audio`, `resource`,
+    /// `resource_link`). Optional fields are omitted when `nil`. A `resource_link` writes no `_meta`.
     ///
     /// - Parameter encoder: The encoder to write the value to.
-    /// - Throws: An error if encoding fails.
+    /// - Throws: An error if the underlying encoder fails.
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
 
@@ -537,7 +583,9 @@ extension Sampling.ToolResultContent.ContentBlock: Codable {
 
 // MARK: -
 
-/// To request sampling from a client, servers send a `sampling/createMessage` request.
+/// The `sampling/createMessage` request. A server sends it to ask the client to generate an LLM completion
+/// from the supplied messages; the client answers with a ``CreateSamplingMessage/Result``.
+///
 /// - SeeAlso: https://modelcontextprotocol.io/docs/concepts/sampling#how-sampling-works
 /// - Warning: The Sampling feature is deprecated by MCP `2026-07-28`. Integrate directly with
 ///   an LLM provider's API instead. See ``Deprecations``.
@@ -560,10 +608,11 @@ public enum CreateSamplingMessage: Method {
         /// The tool choice mode. If omitted, defaults to `.auto`.
         public let mode: Mode?
 
-        /// Creates a new `ToolChoice`.
+        /// Creates a tool-choice setting for a sampling request.
         ///
         /// - Parameters:
-        ///   - mode: The tool choice mode. If omitted, defaults to `.auto`.
+        ///   - mode: Whether the model may (`.auto`), must (`.required`) or must not (`.none`) call tools.
+        ///     Defaults to `.auto`; `nil` is treated the same on the wire.
         public init(mode: Mode? = .auto) {
             self.mode = mode
         }
@@ -572,19 +621,22 @@ public enum CreateSamplingMessage: Method {
             case mode
         }
 
-        /// Creates an instance by decoding from the given decoder.
+        /// Decodes tool choice from a keyed container.
+        ///
+        /// `mode` is optional; when absent the result's `mode` is `.auto`.
         ///
         /// - Parameter decoder: The decoder to read the value from.
-        /// - Throws: `DecodingError` if the data is missing or malformed.
+        /// - Throws: `DecodingError` if `mode` is present but not `auto`, `required` or `none`.
         public init(from decoder: Decoder) throws {
             let container = try decoder.container(keyedBy: CodingKeys.self)
             mode = try container.decodeIfPresent(Mode.self, forKey: .mode) ?? .auto
         }
 
-        /// Encodes this value into the given encoder.
+        /// Encodes `mode` only when it is non-nil and not `.auto`, so `.auto` and `nil` both produce an empty
+        /// object (the spec default).
         ///
         /// - Parameter encoder: The encoder to write the value to.
-        /// - Throws: An error if encoding fails.
+        /// - Throws: An error if the underlying encoder fails.
         public func encode(to encoder: Encoder) throws {
             var container = encoder.container(keyedBy: CodingKeys.self)
             if let mode, mode != .auto {
@@ -618,20 +670,22 @@ public enum CreateSamplingMessage: Method {
         /// Provider-specific metadata to pass to the LLM
         public let metadata: [String: Value]?
 
-        /// Creates a new `Parameters`.
+        /// Creates the parameters for a `sampling/createMessage` request, asking the client to run an LLM
+        /// completion on the server's behalf.
         ///
         /// - Parameters:
-        ///   - messages: The conversation history to send to the LLM
-        ///   - modelPreferences: Model selection preferences
-        ///   - systemPrompt: Optional system prompt
-        ///   - includeContext: What MCP context to include
-        ///   - temperature: Controls randomness (0.0 to 1.0)
-        ///   - maxTokens: Maximum tokens to generate
-        ///   - stopSequences: Array of sequences that stop generation
-        ///   - _meta: Optional request metadata
-        ///   - tools: Tools available for the model to use
-        ///   - toolChoice: Tool choice configuration
-        ///   - metadata: Provider-specific metadata to pass to the LLM
+        ///   - messages: The conversation so far, oldest first.
+        ///   - modelPreferences: Advisory model-selection preferences. Defaults to `nil`.
+        ///   - systemPrompt: System prompt the client may apply. Defaults to `nil`.
+        ///   - includeContext: Which MCP server context to include; deprecated values `thisServer` and
+        ///     `allServers` should be avoided. Defaults to `nil`.
+        ///   - temperature: Sampling temperature, nominally 0.0...1.0. Defaults to `nil` (client decides).
+        ///   - maxTokens: Upper bound on tokens to generate. Required.
+        ///   - stopSequences: Strings that end generation when produced. Defaults to `nil`.
+        ///   - _meta: Protocol-reserved request metadata (e.g. a progress token). Defaults to `nil`.
+        ///   - tools: Tools the model may call during sampling. Defaults to `nil`.
+        ///   - toolChoice: Constraint on tool use. Defaults to `nil`.
+        ///   - metadata: Provider-specific passthrough values. Defaults to `nil`.
         public init(
             messages: [Sampling.Message],
             modelPreferences: Sampling.ModelPreferences? = nil,
@@ -672,14 +726,14 @@ public enum CreateSamplingMessage: Method {
         /// Optional metadata about this result
         public var _meta: Metadata?
 
-        /// Creates a new `Result`.
+        /// Creates the client's response to a `sampling/createMessage` request.
         ///
         /// - Parameters:
-        ///   - model: Name of the model used
-        ///   - stopReason: Why sampling stopped
-        ///   - role: The role of the completion
-        ///   - content: The completion content
-        ///   - _meta: Optional metadata about this result
+        ///   - model: Name of the model that produced the completion.
+        ///   - stopReason: Why generation ended (see ``Sampling/StopReason``). Defaults to `nil`.
+        ///   - role: Role of the generated message; normally `.assistant`.
+        ///   - content: The generated content, a single block or several.
+        ///   - _meta: Protocol-reserved result metadata. Defaults to `nil`.
         public init(
             model: String,
             stopReason: Sampling.StopReason? = nil,
@@ -698,10 +752,10 @@ public enum CreateSamplingMessage: Method {
             case model, stopReason, role, content, _meta
         }
 
-        /// Encodes this value into the given encoder.
+        /// Encodes `model`, `role` and `content` always; `stopReason` and `_meta` are omitted when `nil`.
         ///
         /// - Parameter encoder: The encoder to write the value to.
-        /// - Throws: An error if encoding fails.
+        /// - Throws: An error if the underlying encoder fails.
         public func encode(to encoder: Encoder) throws {
             var container = encoder.container(keyedBy: CodingKeys.self)
             try container.encode(model, forKey: .model)
@@ -711,10 +765,12 @@ public enum CreateSamplingMessage: Method {
             try container.encodeIfPresent(_meta, forKey: ._meta)
         }
 
-        /// Creates an instance by decoding from the given decoder.
+        /// Decodes the `sampling/createMessage` result from a keyed container.
+        ///
+        /// Required: `model`, `role`, `content`. Optional: `stopReason`, `_meta`.
         ///
         /// - Parameter decoder: The decoder to read the value from.
-        /// - Throws: `DecodingError` if the data is missing or malformed.
+        /// - Throws: `DecodingError` if a required key is missing or any key is malformed.
         public init(from decoder: Decoder) throws {
             let container = try decoder.container(keyedBy: CodingKeys.self)
             model = try container.decode(String.self, forKey: .model)

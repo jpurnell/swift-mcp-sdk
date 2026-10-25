@@ -23,11 +23,12 @@ public struct CancelledNotification: Notification {
         /// An optional human-readable reason for the cancellation.
         public let reason: String?
 
-        /// Creates a new `Parameters`.
+        /// Creates the parameters for a `notifications/cancelled` notification.
         ///
         /// - Parameters:
-        ///   - requestId: The ID of the request to cancel.
-        ///   - reason: An optional human-readable reason for the cancellation.
+        ///   - requestId: The ID of the in-flight request to cancel, as originally sent. Defaults to `nil`
+        ///     (the field is optional in the spec); omitted from the wire when `nil`.
+        ///   - reason: Optional human-readable explanation, intended for logging. Defaults to `nil`.
         public init(requestId: ID? = nil, reason: String? = nil) {
             self.requestId = requestId
             self.reason = reason

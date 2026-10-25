@@ -30,11 +30,15 @@ public struct RequestContext<Output: Sendable & Decodable>: Sendable {
         }
     }
 
-    /// Creates a new `RequestContext`.
+    /// Wraps an in-flight request so callers can await its result and know its ID for cancellation.
+    ///
+    /// Normally created by the client or server when it sends a request, not by application code.
     ///
     /// - Parameters:
-    ///   - requestID: The unique identifier for this request.
-    ///   - requestTask: The Task representing the asynchronous work for this request.
+    ///   - requestID: The JSON-RPC ID the request was sent with; use it as the `requestId` of a
+    ///     `CancelledNotification`.
+    ///   - requestTask: The task that completes with the decoded response, or throws if the request
+    ///     fails.
     public init(requestID: ID, requestTask: Task<Output, Error>) {
         self.requestID = requestID
         self.requestTask = requestTask

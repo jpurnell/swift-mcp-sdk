@@ -12,19 +12,19 @@ import Foundation
 ///
 /// - SeeAlso: https://modelcontextprotocol.io/specification/2025-11-25/client/roots
 public struct Root: Hashable, Codable, Sendable {
-    /// The root URI (must use file:// scheme)
+    /// The root URI. The spec requires the `file://` scheme; this type does not enforce it.
     public let uri: String
     /// Optional human-readable name for the root
     public let name: String?
     /// Optional metadata
     public var _meta: Metadata?
 
-    /// Creates a new `Root`.
+    /// Creates a filesystem root to expose to a server in a `roots/list` response.
     ///
     /// - Parameters:
-    ///   - uri: The root URI (must use file:// scheme)
-    ///   - name: Optional human-readable name for the root
-    ///   - _meta: Optional metadata
+    ///   - uri: The root's URI, e.g. `file:///Users/me/project`. The spec requires `file://`; not validated.
+    ///   - name: Human-readable label for display. Defaults to `nil`; omitted from the wire when `nil`.
+    ///   - _meta: Protocol-reserved metadata. Defaults to `nil`; omitted from the wire when `nil`.
     public init(
         uri: String,
         name: String? = nil,
@@ -41,10 +41,12 @@ public struct Root: Hashable, Codable, Sendable {
         case _meta
     }
 
-    /// Creates an instance by decoding from the given decoder.
+    /// Decodes a root from a keyed container.
+    ///
+    /// Required: `uri`. Optional: `name`, `_meta`. The `uri` is not validated for the `file://` scheme.
     ///
     /// - Parameter decoder: The decoder to read the value from.
-    /// - Throws: `DecodingError` if the data is missing or malformed.
+    /// - Throws: `DecodingError` if `uri` is missing or any key has the wrong type.
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         uri = try container.decode(String.self, forKey: .uri)
@@ -52,10 +54,10 @@ public struct Root: Hashable, Codable, Sendable {
         _meta = try container.decodeIfPresent(Metadata.self, forKey: ._meta)
     }
 
-    /// Encodes this value into the given encoder.
+    /// Encodes `uri` always; `name` and `_meta` are omitted when `nil`.
     ///
     /// - Parameter encoder: The encoder to write the value to.
-    /// - Throws: An error if encoding fails.
+    /// - Throws: An error if the underlying encoder fails.
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encode(uri, forKey: .uri)
@@ -66,7 +68,9 @@ public struct Root: Hashable, Codable, Sendable {
 
 // MARK: -
 
-/// To discover available roots, servers send a `roots/list` request to the client.
+/// The `roots/list` request. Servers send it to the client to discover which filesystem roots are exposed;
+/// it carries no parameters and is answered with a ``ListRoots/Result``.
+///
 /// - SeeAlso: https://modelcontextprotocol.io/specification/2025-11-25/client/roots
 /// - Warning: The Roots feature is deprecated by MCP `2026-07-28`. Pass directories or files
 ///   as tool parameters, resource URIs, or server configuration instead. See ``Deprecations``.
@@ -84,11 +88,11 @@ public enum ListRoots: Method {
         /// Optional metadata about this result
         public var _meta: Metadata?
 
-        /// Creates a new `Result`.
+        /// Creates the response to a `roots/list` request.
         ///
         /// - Parameters:
-        ///   - roots: The roots the client exposes.
-        ///   - _meta: Optional metadata about this result
+        ///   - roots: The roots the client exposes; may be empty.
+        ///   - _meta: Protocol-reserved result metadata. Defaults to `nil`; omitted from the wire when `nil`.
         public init(
             roots: [Root],
             _meta: Metadata? = nil
@@ -101,20 +105,22 @@ public enum ListRoots: Method {
             case roots, _meta
         }
 
-        /// Encodes this value into the given encoder.
+        /// Encodes `roots` always; `_meta` is omitted when `nil`.
         ///
         /// - Parameter encoder: The encoder to write the value to.
-        /// - Throws: An error if encoding fails.
+        /// - Throws: An error if the underlying encoder fails.
         public func encode(to encoder: Encoder) throws {
             var container = encoder.container(keyedBy: CodingKeys.self)
             try container.encode(roots, forKey: .roots)
             try container.encodeIfPresent(_meta, forKey: ._meta)
         }
 
-        /// Creates an instance by decoding from the given decoder.
+        /// Decodes the `roots/list` result from a keyed container.
+        ///
+        /// Required: `roots`. Optional: `_meta`.
         ///
         /// - Parameter decoder: The decoder to read the value from.
-        /// - Throws: `DecodingError` if the data is missing or malformed.
+        /// - Throws: `DecodingError` if `roots` is missing or any element is not a valid `Root`.
         public init(from decoder: Decoder) throws {
             let container = try decoder.container(keyedBy: CodingKeys.self)
             roots = try container.decode([Root].self, forKey: .roots)
@@ -123,8 +129,9 @@ public enum ListRoots: Method {
     }
 }
 
-/// When the list of roots changes, clients that declared the `roots` capability
-/// SHOULD send this notification to inform servers.
+/// The `notifications/roots/list_changed` notification. Clients that declared the `roots` capability
+/// SHOULD send it whenever their list of roots changes, so servers can re-issue `roots/list`.
+///
 /// - SeeAlso: https://modelcontextprotocol.io/specification/2025-11-25/client/roots
 public struct RootsListChangedNotification: Notification {
     /// The JSON-RPC method name for this notification: `notifications/roots/list_changed`.
