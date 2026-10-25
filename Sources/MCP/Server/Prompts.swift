@@ -22,6 +22,7 @@ public struct Prompt: Hashable, Codable, Sendable {
     /// Optional metadata about this prompt
     public var _meta: Metadata?
 
+    /// Creates a `Prompt` with the given values.
     public init(
         name: String,
         title: String? = nil,
@@ -42,6 +43,7 @@ public struct Prompt: Hashable, Codable, Sendable {
         case name, title, description, arguments, icons, _meta
     }
 
+    /// Encodes this `Prompt` into the given encoder using its MCP wire format.
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encode(name, forKey: .name)
@@ -52,6 +54,7 @@ public struct Prompt: Hashable, Codable, Sendable {
         try container.encodeIfPresent(_meta, forKey: ._meta)
     }
 
+    /// Creates a `Prompt` by decoding it from the given decoder, throwing `DecodingError` if the data is malformed.
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         name = try container.decode(String.self, forKey: .name)
@@ -73,6 +76,7 @@ public struct Prompt: Hashable, Codable, Sendable {
         /// Whether the argument is required
         public let required: Bool?
 
+        /// Creates a `Prompt.Argument` with the given values.
         public init(
             name: String,
             title: String? = nil,
@@ -148,6 +152,7 @@ public struct Prompt: Hashable, Codable, Sendable {
         /// A human-readable prompt title
         public let title: String?
 
+        /// Creates a `Prompt.Reference` with the given values.
         public init(name: String, title: String? = nil) {
             self.name = name
             self.title = title
@@ -157,6 +162,7 @@ public struct Prompt: Hashable, Codable, Sendable {
             case type, name, title
         }
 
+        /// Encodes this `Prompt.Reference` into the given encoder using its MCP wire format.
         public func encode(to encoder: Encoder) throws {
             var container = encoder.container(keyedBy: CodingKeys.self)
             try container.encode("ref/prompt", forKey: .type)
@@ -164,6 +170,7 @@ public struct Prompt: Hashable, Codable, Sendable {
             try container.encodeIfPresent(title, forKey: .title)
         }
 
+        /// Creates a `Prompt.Reference` by decoding it from the given decoder, throwing `DecodingError` if the data is malformed.
         public init(from decoder: Decoder) throws {
             let container = try decoder.container(keyedBy: CodingKeys.self)
             _ = try container.decode(String.self, forKey: .type)
@@ -181,6 +188,7 @@ extension Prompt.Message.Content: Codable {
         case uri, name, title, description
     }
 
+    /// Encodes this `Prompt.Message.Content` into the given encoder using its MCP wire format.
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
 
@@ -212,6 +220,7 @@ extension Prompt.Message.Content: Codable {
         }
     }
 
+    /// Creates a `Prompt.Message.Content` by decoding it from the given decoder, throwing `DecodingError` if the data is malformed.
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         let type = try container.decode(String.self, forKey: .type)
@@ -253,6 +262,7 @@ extension Prompt.Message.Content: Codable {
 // MARK: - ExpressibleByStringLiteral
 
 extension Prompt.Message.Content: ExpressibleByStringLiteral {
+    /// Creates a value from a string literal.
     public init(stringLiteral value: String) {
         self = .text(text: value)
     }
@@ -261,6 +271,7 @@ extension Prompt.Message.Content: ExpressibleByStringLiteral {
 // MARK: - ExpressibleByStringInterpolation
 
 extension Prompt.Message.Content: ExpressibleByStringInterpolation {
+    /// Creates a value from a string interpolation.
     public init(stringInterpolation: DefaultStringInterpolation) {
         self = .text(text: String(stringInterpolation: stringInterpolation))
     }
@@ -271,23 +282,32 @@ extension Prompt.Message.Content: ExpressibleByStringInterpolation {
 /// To retrieve available prompts, clients send a `prompts/list` request.
 /// - SeeAlso: https://modelcontextprotocol.io/specification/2025-11-25/server/prompts/#listing-prompts
 public enum ListPrompts: Method {
+    /// The JSON-RPC method name, `prompts/list`.
     public static let name: String = "prompts/list"
 
+    /// Parameters for the `prompts/list` request.
     public struct Parameters: NotRequired, Hashable, Codable, Sendable {
+        /// An opaque pagination cursor returned as `nextCursor` by a previous response; omit to start from the first page.
         public let cursor: String?
 
+        /// Creates an empty `ListPrompts.Parameters`.
         public init() {
             self.cursor = nil
         }
 
+        /// Creates parameters that request the page identified by `cursor`.
         public init(cursor: String) {
             self.cursor = cursor
         }
     }
 
+    /// Result returned for the `prompts/list` request.
     public struct Result: Hashable, Codable, Sendable {
+        /// The prompts on this page of results.
         public let prompts: [Prompt]
+        /// An opaque cursor to pass as `cursor` to fetch the next page; `nil` when there are no more results.
         public let nextCursor: String?
+        /// Optional protocol-reserved metadata attached to the result.
         public var _meta: Metadata?
         /// Tells the client how to parse this result.
         public var resultType: ResultType?
@@ -296,6 +316,7 @@ public enum ListPrompts: Method {
         /// Whether a shared intermediary may cache this result.
         public var cacheScope: CacheScope?
 
+        /// Creates a `ListPrompts.Result` with the given values.
         public init(
             prompts: [Prompt],
             nextCursor: String? = nil,
@@ -316,6 +337,7 @@ public enum ListPrompts: Method {
             case prompts, nextCursor, _meta, resultType, ttlMs, cacheScope
         }
 
+        /// Encodes this `ListPrompts.Result` into the given encoder using its MCP wire format.
         public func encode(to encoder: Encoder) throws {
             var container = encoder.container(keyedBy: CodingKeys.self)
             try container.encode(prompts, forKey: .prompts)
@@ -326,6 +348,7 @@ public enum ListPrompts: Method {
             try container.encodeIfPresent(cacheScope, forKey: .cacheScope)
         }
 
+        /// Creates a `ListPrompts.Result` by decoding it from the given decoder, throwing `DecodingError` if the data is malformed.
         public init(from decoder: Decoder) throws {
             let container = try decoder.container(keyedBy: CodingKeys.self)
             prompts = try container.decode([Prompt].self, forKey: .prompts)
@@ -333,7 +356,8 @@ public enum ListPrompts: Method {
             _meta = try container.decodeIfPresent(Metadata.self, forKey: ._meta)
             // An unrecognised tag from a future revision reads as absent rather than
             // throwing, so the rest of the result stays readable.
-            resultType = try? container.decodeIfPresent(ResultType.self, forKey: .resultType)
+            resultType = try container.decodeIfPresent(String.self, forKey: .resultType)
+                .flatMap(ResultType.init(rawValue:))
             ttlMs = try container.decodeIfPresent(Int.self, forKey: .ttlMs)
             cacheScope = try container.decodeIfPresent(CacheScope.self, forKey: .cacheScope)
         }
@@ -344,10 +368,14 @@ public enum ListPrompts: Method {
 /// Arguments may be auto-completed through the completion API.
 /// - SeeAlso: https://modelcontextprotocol.io/specification/2025-11-25/server/prompts/#getting-a-prompt
 public enum GetPrompt: Method {
+    /// The JSON-RPC method name, `prompts/get`.
     public static let name: String = "prompts/get"
 
+    /// Parameters for the `prompts/get` request.
     public struct Parameters: Hashable, Codable, Sendable {
+        /// The name of the item being requested.
         public let name: String
+        /// Optional values for the prompt's templating arguments, keyed by argument name.
         public let arguments: [String: String]?
         /// Answers to a previous ``InputRequiredResult`` from this same request (SEP-2322).
         ///
@@ -360,6 +388,7 @@ public enum GetPrompt: Method {
         /// Metadata for this request.
         public let _meta: Metadata?
 
+        /// Creates a `GetPrompt.Parameters` with the given values.
         public init(
             name: String,
             arguments: [String: String]? = nil,
@@ -375,14 +404,18 @@ public enum GetPrompt: Method {
         }
     }
 
+    /// Result returned for the `prompts/get` request.
     public struct Result: Hashable, Codable, Sendable {
+        /// An optional description of the prompt's result.
         public let description: String?
+        /// The messages that make up the prompt.
         public let messages: [Prompt.Message]
         /// Optional metadata about this result
         public var _meta: Metadata?
         /// Tells the client how to parse this result.
         public var resultType: ResultType?
 
+        /// Creates a `GetPrompt.Result` with the given values.
         public init(
             description: String? = nil,
             messages: [Prompt.Message],
@@ -399,6 +432,7 @@ public enum GetPrompt: Method {
             case description, messages, _meta, resultType
         }
 
+        /// Encodes this `GetPrompt.Result` into the given encoder using its MCP wire format.
         public func encode(to encoder: Encoder) throws {
             var container = encoder.container(keyedBy: CodingKeys.self)
             try container.encodeIfPresent(description, forKey: .description)
@@ -407,6 +441,7 @@ public enum GetPrompt: Method {
             try container.encodeIfPresent(resultType, forKey: .resultType)
         }
 
+        /// Creates a `GetPrompt.Result` by decoding it from the given decoder, throwing `DecodingError` if the data is malformed.
         public init(from decoder: Decoder) throws {
             let container = try decoder.container(keyedBy: CodingKeys.self)
             description = try container.decodeIfPresent(String.self, forKey: .description)
@@ -414,7 +449,8 @@ public enum GetPrompt: Method {
             _meta = try container.decodeIfPresent(Metadata.self, forKey: ._meta)
             // An unrecognised tag from a future revision reads as absent rather than
             // throwing, so the rest of the result stays readable.
-            resultType = try? container.decodeIfPresent(ResultType.self, forKey: .resultType)
+            resultType = try container.decodeIfPresent(String.self, forKey: .resultType)
+                .flatMap(ResultType.init(rawValue:))
         }
     }
 }
@@ -422,5 +458,6 @@ public enum GetPrompt: Method {
 /// When the list of available prompts changes, servers that declared the listChanged capability SHOULD send a notification.
 /// - SeeAlso: https://modelcontextprotocol.io/specification/2025-11-25/server/prompts/#list-changed-notification
 public struct PromptListChangedNotification: Notification {
+    /// The JSON-RPC notification name, `notifications/prompts/list_changed`.
     public static let name: String = "notifications/prompts/list_changed"
 }

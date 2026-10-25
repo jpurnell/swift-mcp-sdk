@@ -17,6 +17,7 @@ public struct ResourceReference: Hashable, Codable, Sendable {
     /// The resource URI
     public let uri: String
 
+    /// Creates a `ResourceReference` with the given values.
     public init(uri: String) {
         self.uri = uri
     }
@@ -25,12 +26,14 @@ public struct ResourceReference: Hashable, Codable, Sendable {
         case type, uri
     }
 
+    /// Encodes this `ResourceReference` into the given encoder using its MCP wire format.
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encode("ref/resource", forKey: .type)
         try container.encode(uri, forKey: .uri)
     }
 
+    /// Creates a `ResourceReference` by decoding it from the given decoder, throwing `DecodingError` if the data is malformed.
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         let type = try container.decode(String.self, forKey: .type)
@@ -56,6 +59,7 @@ public enum CompletionReference: Hashable, Codable, Sendable {
         case type
     }
 
+    /// Creates a `CompletionReference` by decoding it from the given decoder, throwing `DecodingError` if the data is malformed.
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         let type = try container.decode(String.self, forKey: .type)
@@ -74,6 +78,7 @@ public enum CompletionReference: Hashable, Codable, Sendable {
         }
     }
 
+    /// Encodes this `CompletionReference` into the given encoder using its MCP wire format.
     public func encode(to encoder: Encoder) throws {
         switch self {
         case .prompt(let ref):
@@ -89,8 +94,10 @@ public enum CompletionReference: Hashable, Codable, Sendable {
 /// To get completion suggestions, clients send a `completion/complete` request.
 /// - SeeAlso: https://modelcontextprotocol.io/specification/2025-11-25/server/utilities/completion/
 public enum Complete: Method {
+    /// The JSON-RPC method name, `completion/complete`.
     public static let name = "completion/complete"
 
+    /// Parameters for the `completion/complete` request.
     public struct Parameters: Hashable, Codable, Sendable {
         /// The reference to what is being completed
         public let ref: CompletionReference
@@ -99,6 +106,7 @@ public enum Complete: Method {
         /// Optional context with already-resolved arguments
         public let context: Context?
 
+        /// Creates a `Complete.Parameters` with the given values.
         public init(
             ref: CompletionReference,
             argument: Argument,
@@ -116,6 +124,7 @@ public enum Complete: Method {
             /// The current value (partial or complete)
             public let value: String
 
+            /// Creates a `Parameters.Argument` with the given values.
             public init(name: String, value: String) {
                 self.name = name
                 self.value = value
@@ -127,12 +136,14 @@ public enum Complete: Method {
             /// A mapping of already-resolved argument names to their values
             public let arguments: [String: String]
 
+            /// Creates a `Parameters.Context` with the given values.
             public init(arguments: [String: String]) {
                 self.arguments = arguments
             }
         }
     }
 
+    /// Result returned for the `completion/complete` request.
     public struct Result: Hashable, Codable, Sendable {
         /// The completion result
         public let completion: Completion
@@ -141,6 +152,7 @@ public enum Complete: Method {
         /// Tells the client how to parse this result.
         public var resultType: ResultType?
 
+        /// Creates a `Complete.Result` with the given values.
         public init(
             completion: Completion,
             _meta: Metadata? = nil,
@@ -155,6 +167,7 @@ public enum Complete: Method {
             case completion, _meta, resultType
         }
 
+        /// Encodes this `Complete.Result` into the given encoder using its MCP wire format.
         public func encode(to encoder: Encoder) throws {
             var container = encoder.container(keyedBy: CodingKeys.self)
             try container.encode(completion, forKey: .completion)
@@ -162,13 +175,15 @@ public enum Complete: Method {
             try container.encodeIfPresent(resultType, forKey: .resultType)
         }
 
+        /// Creates a `Complete.Result` by decoding it from the given decoder, throwing `DecodingError` if the data is malformed.
         public init(from decoder: Decoder) throws {
             let container = try decoder.container(keyedBy: CodingKeys.self)
             completion = try container.decode(Completion.self, forKey: .completion)
             _meta = try container.decodeIfPresent(Metadata.self, forKey: ._meta)
             // An unrecognised tag from a future revision reads as absent rather than
             // throwing, so the rest of the result stays readable.
-            resultType = try? container.decodeIfPresent(ResultType.self, forKey: .resultType)
+            resultType = try container.decodeIfPresent(String.self, forKey: .resultType)
+                .flatMap(ResultType.init(rawValue:))
         }
 
         /// Completion result containing suggested values
@@ -180,6 +195,7 @@ public enum Complete: Method {
             /// Whether additional results exist
             public let hasMore: Bool?
 
+            /// Creates a `Result.Completion` with the given values.
             public init(
                 values: [String],
                 total: Int? = nil,

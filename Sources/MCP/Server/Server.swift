@@ -41,6 +41,7 @@ public actor Server {
         /// Optional set of sized icons for display in a user interface
         public let icons: [Icon]?
 
+        /// Creates a `Server.Info` with the given values.
         public init(
             name: String,
             version: String,
@@ -67,6 +68,7 @@ public actor Server {
             /// Whether the list of resources has changed
             public var listChanged: Bool?
 
+            /// Creates a `Capabilities.Resources` with the given values.
             public init(
                 subscribe: Bool? = nil,
                 listChanged: Bool? = nil
@@ -81,6 +83,7 @@ public actor Server {
             /// Whether the server notifies clients when tools change
             public var listChanged: Bool?
 
+            /// Creates a `Capabilities.Tools` with the given values.
             public init(listChanged: Bool? = nil) {
                 self.listChanged = listChanged
             }
@@ -91,6 +94,7 @@ public actor Server {
             /// Whether the server notifies clients when prompts change
             public var listChanged: Bool?
 
+            /// Creates a `Capabilities.Prompts` with the given values.
             public init(listChanged: Bool? = nil) {
                 self.listChanged = listChanged
             }
@@ -98,11 +102,13 @@ public actor Server {
 
         /// Logging capabilities
         public struct Logging: Hashable, Codable, Sendable {
+            /// Creates an empty `Capabilities.Logging`.
             public init() {}
         }
 
         /// Completions capabilities
         public struct Completions: Hashable, Codable, Sendable {
+            /// Creates an empty `Capabilities.Completions`.
             public init() {}
         }
 
@@ -130,6 +136,7 @@ public actor Server {
         /// Tools capabilities
         public var tools: Tools?
 
+        /// Creates a `Server.Capabilities` with the given values.
         public init(
             completions: Completions? = nil,
             experimental: [String: Value]? = nil,
@@ -199,6 +206,7 @@ public actor Server {
     /// The task for the message handling loop
     private var task: Task<Void, Never>?
 
+    /// Creates a `Server` with the given values.
     public init(
         name: String,
         version: String,
@@ -241,21 +249,39 @@ public actor Server {
                     do {
                         // Attempt to decode as batch first, then as individual response, request, or notification
                         let decoder = JSONDecoder()
-                        if let batch = try? decoder.decode(Server.Batch.self, from: data) {
+                        if let batch = await decodeCandidate(
+                            Server.Batch.self, from: data, using: decoder)
+                        {
                             try await handleBatch(batch)
-                        } else if let response = try? decoder.decode(AnyResponse.self, from: data) {
+                        } else if let response = await decodeCandidate(
+                            AnyResponse.self, from: data, using: decoder)
+                        {
                             await handleResponse(response)
-                        } else if let request = try? decoder.decode(AnyRequest.self, from: data) {
+                        } else if let request = await decodeCandidate(
+                            AnyRequest.self, from: data, using: decoder)
+                        {
                             // Handle request in a separate task to avoid blocking the receive loop
                             Task {
-                                _ = try? await self.handleRequest(request, sendResponse: true)
+                                do {
+                                    _ = try await self.handleRequest(request, sendResponse: true)
+                                } catch {
+                                    if let logger = await self.logger {
+                                        logger.error(
+                                            "Request handling failed",
+                                            metadata: [
+                                                "id": "\(request.id)", "error": "\(error)",
+                                            ])
+                                    }
+                                }
                             }
-                        } else if let message = try? decoder.decode(AnyMessage.self, from: data) {
+                        } else if let message = await decodeCandidate(
+                            AnyMessage.self, from: data, using: decoder)
+                        {
                             try await handleMessage(message)
                         } else {
                             // Try to extract request ID from raw JSON if possible
-                            if let json = try? JSONDecoder().decode(
-                                [String: Value].self, from: data),
+                            if let json = await decodeCandidate(
+                                [String: Value].self, from: data, using: decoder),
                                 let idValue = json["id"]
                             {
                                 if let strValue = idValue.stringValue {
@@ -268,24 +294,64 @@ public actor Server {
                         }
                     } catch let error where MCPError.isResourceTemporarilyUnavailable(error) {
                         // Resource temporarily unavailable, retry after a short delay
-                        try? await Task.sleep(for: .milliseconds(10))
+                        do {
+                            try await Task.sleep(for: .milliseconds(10))
+                        } catch {
+                            // Only cancellation interrupts the sleep; the loop's cancellation
+                            // check at the top of the next iteration ends the task.
+                            if let logger = await logger {
+                                logger.debug(
+                                    "Retry delay interrupted", metadata: ["error": "\(error)"])
+                            }
+                        }
                         continue
                     } catch {
-                        await logger?.error(
-                            "Error processing message", metadata: ["error": "\(error)"])
+                        if let logger = await logger {
+                            logger.error(
+                                "Error processing message", metadata: ["error": "\(error)"])
+                        }
                         let response = AnyMethod.response(
                             id: requestID ?? .random,
                             error: error as? MCPError
                                 ?? MCPError.internalError(error.localizedDescription)
                         )
-                        try? await send(response)
+                        do {
+                            try await send(response)
+                        } catch {
+                            if let logger = await logger {
+                                logger.error(
+                                    "Failed to send error response",
+                                    metadata: ["error": "\(error)"])
+                            }
+                        }
                     }
                 }
             } catch {
-                await logger?.error(
-                    "Fatal error in message handling loop", metadata: ["error": "\(error)"])
+                if let logger = await logger {
+                    logger.error(
+                        "Fatal error in message handling loop", metadata: ["error": "\(error)"])
+                }
             }
             await logger?.debug("Server finished", metadata: [:])
+        }
+    }
+
+    /// Decodes `data` as `type`, returning `nil` (and tracing the reason) when it does not match.
+    ///
+    /// The receive loop probes several candidate message shapes in turn, so a failed decode
+    /// is the expected way to learn a message is some other shape.
+    private func decodeCandidate<T: Decodable>(
+        _ type: T.Type, from data: Data, using decoder: JSONDecoder
+    ) async -> T? {
+        do {
+            return try decoder.decode(type, from: data)
+        } catch {
+            if let logger = await logger {
+                logger.debug(
+                    "Message did not decode as candidate type",
+                    metadata: ["type": "\(T.self)", "error": "\(error)"])
+            }
+            return nil
         }
     }
 
@@ -307,6 +373,7 @@ public actor Server {
         connection = nil
     }
 
+    /// Suspends until the server has stopped running, either because `stop()` was called or the transport closed.
     public func waitUntilCompleted() async {
         await task?.value
     }
@@ -334,6 +401,7 @@ public actor Server {
         /// path.
         public let httpContext: HTTPRequest?
 
+        /// Creates a `Server.HandlerContext` with the given values.
         public init(id: ID, httpContext: HTTPRequest?) {
             self.id = id
             self.httpContext = httpContext
@@ -349,10 +417,14 @@ public actor Server {
     /// value up front — detached tasks do not inherit task-locals:
     ///
     /// ```swift
+    /// func doWork(with httpContext: HTTPRequest?) async {
+    ///     print(httpContext == nil ? "no HTTP context" : "HTTP request in flight")
+    /// }
+    ///
     /// let ctx = Server.currentHandlerContext
     /// Task.detached { await doWork(with: ctx?.httpContext) }
     /// ```
-    @TaskLocal public static var currentHandlerContext: HandlerContext? = nil
+    @TaskLocal public static var currentHandlerContext: HandlerContext?
 
     // MARK: - Registration
 
@@ -439,6 +511,9 @@ public actor Server {
                 //
                 // `nil` means the response arrived first and the entry is already gone. The
                 // send failed after it was answered, which is not the caller's problem.
+                await connection.logger.error(
+                    "Failed to send request",
+                    metadata: ["id": "\(request.id)", "error": "\(error)"])
                 if let pending = removePendingResponse(id: request.id) {
                     pending.resume(throwing: error)
                 }
@@ -731,6 +806,11 @@ public actor Server {
             } catch {
                 // Only add errors to response for requests (notifications don't have responses)
                 if case .request(let request) = item {
+                    if let logger = await logger {
+                        logger.error(
+                            "Batch item failed",
+                            metadata: ["id": "\(request.id)", "error": "\(error)"])
+                    }
                     let mcpError =
                         error as? MCPError ?? MCPError.internalError(error.localizedDescription)
                     responses.append(AnyMethod.response(id: request.id, error: mcpError))
@@ -824,12 +904,22 @@ public actor Server {
                     return response
                 } catch is CancellationError {
                     // Request was cancelled, don't send a response per MCP spec
-                    await logger?.debug(
-                        "Request cancelled",
-                        metadata: ["id": "\(request.id)", "method": "\(request.method)"]
-                    )
+                    if let logger = await logger {
+                        logger.debug(
+                            "Request cancelled",
+                            metadata: ["id": "\(request.id)", "method": "\(request.method)"]
+                        )
+                    }
                     throw CancellationError()
                 } catch {
+                    if let logger = await logger {
+                        logger.error(
+                            "Request handler failed",
+                            metadata: [
+                                "id": "\(request.id)", "method": "\(request.method)",
+                                "error": "\(error)",
+                            ])
+                    }
                     let mcpError =
                         error as? MCPError ?? MCPError.internalError(error.localizedDescription)
                     return AnyMethod.response(id: request.id, error: mcpError)
@@ -856,9 +946,17 @@ public actor Server {
             return response
         } catch is CancellationError {
             // Request was cancelled, don't send a response per MCP spec
+            if let logger = await logger {
+                logger.debug("Request cancelled", metadata: ["id": "\(request.id)"])
+            }
             return nil
         } catch {
             // This should not happen as errors are caught in the task
+            if let logger = await logger {
+                logger.error(
+                    "Request failed outside handler task",
+                    metadata: ["id": "\(request.id)", "error": "\(error)"])
+            }
             let mcpError = error as? MCPError ?? MCPError.internalError(error.localizedDescription)
             let response = AnyMethod.response(id: request.id, error: mcpError)
 
@@ -931,12 +1029,14 @@ public actor Server {
             do {
                 try await handler(message)
             } catch {
-                await logger?.error(
-                    "Error handling notification",
-                    metadata: [
-                        "method": "\(message.method)",
-                        "error": "\(error)",
-                    ])
+                if let logger = await logger {
+                    logger.error(
+                        "Error handling notification",
+                        metadata: [
+                            "method": "\(message.method)",
+                            "error": "\(error)",
+                        ])
+                }
             }
         }
     }

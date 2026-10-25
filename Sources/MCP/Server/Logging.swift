@@ -33,17 +33,21 @@ public enum LogLevel: String, Hashable, Codable, Sendable, CaseIterable {
 ///   request travels in `_meta` as ``Metadata/logLevel``. The Logging feature as a whole is
 ///   deprecated — log to stderr or use OpenTelemetry. See ``Deprecations``.
 public enum SetLoggingLevel: Method {
+    /// The JSON-RPC method name, `logging/setLevel`.
     public static let name = "logging/setLevel"
 
+    /// Parameters for the `logging/setLevel` request.
     public struct Parameters: Hashable, Codable, Sendable {
         /// The minimum log level to set
         public let level: LogLevel
 
+        /// Creates a `SetLoggingLevel.Parameters` with the given values.
         public init(level: LogLevel) {
             self.level = level
         }
     }
 
+    /// The `logging/setLevel` request returns an empty result on success.
     public typealias Result = Empty
 }
 
@@ -52,8 +56,10 @@ public enum SetLoggingLevel: Method {
 /// Servers send log messages using `notifications/message` notifications.
 /// - SeeAlso: https://modelcontextprotocol.io/specification/2025-11-25/server/utilities/logging/
 public struct LogMessageNotification: Notification {
+    /// The JSON-RPC notification name, `notifications/message`.
     public static let name = "notifications/message"
 
+    /// Parameters for the `notifications/message` notification.
     public struct Parameters: Hashable, Codable, Sendable {
         /// The severity level of the log message
         public let level: LogLevel
@@ -62,6 +68,7 @@ public struct LogMessageNotification: Notification {
         /// Arbitrary JSON-serializable data for the log message
         public let data: Value
 
+        /// Creates a `LogMessageNotification.Parameters` with the given values.
         public init(
             level: LogLevel,
             logger: String? = nil,

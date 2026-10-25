@@ -1,3 +1,4 @@
+import Logging
 import Foundation
 
 /// The Model Context Protocol (MCP) allows servers to expose tools
@@ -69,6 +70,7 @@ public struct Tool: Hashable, Codable, Sendable {
                 && openWorldHint == nil
         }
 
+        /// Creates a `Tool.Annotations` with the given values.
         public init(
             title: String? = nil,
             readOnlyHint: Bool? = nil,
@@ -181,6 +183,7 @@ public struct Tool: Hashable, Codable, Sendable {
             case _meta
         }
 
+        /// Creates a `Tool.Content` by decoding it from the given decoder, throwing `DecodingError` if the data is malformed.
         public init(from decoder: Decoder) throws {
             let container = try decoder.container(keyedBy: CodingKeys.self)
             let type = try container.decode(String.self, forKey: .type)
@@ -225,6 +228,7 @@ public struct Tool: Hashable, Codable, Sendable {
             }
         }
 
+        /// Encodes this `Tool.Content` into the given encoder using its MCP wire format.
         public func encode(to encoder: Encoder) throws {
             var container = encoder.container(keyedBy: CodingKeys.self)
 
@@ -275,6 +279,7 @@ public struct Tool: Hashable, Codable, Sendable {
         case _meta
     }
 
+    /// Creates a `Tool` by decoding it from the given decoder, throwing `DecodingError` if the data is malformed.
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         name = try container.decode(String.self, forKey: .name)
@@ -288,6 +293,7 @@ public struct Tool: Hashable, Codable, Sendable {
         _meta = try container.decodeIfPresent(Metadata.self, forKey: ._meta)
     }
 
+    /// Encodes this `Tool` into the given encoder using its MCP wire format.
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encode(name, forKey: .name)
@@ -308,23 +314,32 @@ public struct Tool: Hashable, Codable, Sendable {
 /// To discover available tools, clients send a `tools/list` request.
 /// - SeeAlso: https://modelcontextprotocol.io/specification/2025-11-25/server/tools/#listing-tools
 public enum ListTools: Method {
+    /// The JSON-RPC method name, `tools/list`.
     public static let name = "tools/list"
 
+    /// Parameters for the `tools/list` request.
     public struct Parameters: NotRequired, Hashable, Codable, Sendable {
+        /// An opaque pagination cursor returned as `nextCursor` by a previous response; omit to start from the first page.
         public let cursor: String?
 
+        /// Creates an empty `ListTools.Parameters`.
         public init() {
             self.cursor = nil
         }
 
+        /// Creates parameters that request the page identified by `cursor`.
         public init(cursor: String) {
             self.cursor = cursor
         }
     }
 
+    /// Result returned for the `tools/list` request.
     public struct Result: Hashable, Codable, Sendable {
+        /// The tools on this page of results.
         public let tools: [Tool]
+        /// An opaque cursor to pass as `cursor` to fetch the next page; `nil` when there are no more results.
         public let nextCursor: String?
+        /// Optional protocol-reserved metadata attached to the result.
         public var _meta: Metadata?
         /// Tells the client how to parse this result.
         public var resultType: ResultType?
@@ -333,6 +348,7 @@ public enum ListTools: Method {
         /// Whether a shared intermediary may cache this result.
         public var cacheScope: CacheScope?
 
+        /// Creates a `ListTools.Result` with the given values.
         public init(
             tools: [Tool],
             nextCursor: String? = nil,
@@ -353,6 +369,7 @@ public enum ListTools: Method {
             case tools, nextCursor, _meta, resultType, ttlMs, cacheScope
         }
 
+        /// Encodes this `ListTools.Result` into the given encoder using its MCP wire format.
         public func encode(to encoder: Encoder) throws {
             var container = encoder.container(keyedBy: CodingKeys.self)
             try container.encode(tools, forKey: .tools)
@@ -363,6 +380,7 @@ public enum ListTools: Method {
             try container.encodeIfPresent(cacheScope, forKey: .cacheScope)
         }
 
+        /// Creates a `ListTools.Result` by decoding it from the given decoder, throwing `DecodingError` if the data is malformed.
         public init(from decoder: Decoder) throws {
             let container = try decoder.container(keyedBy: CodingKeys.self)
             tools = try container.decode([Tool].self, forKey: .tools)
@@ -370,7 +388,8 @@ public enum ListTools: Method {
             _meta = try container.decodeIfPresent(Metadata.self, forKey: ._meta)
             // An unrecognised tag from a future revision reads as absent rather than
             // throwing, so the rest of the result stays readable.
-            resultType = try? container.decodeIfPresent(ResultType.self, forKey: .resultType)
+            resultType = try container.decodeIfPresent(String.self, forKey: .resultType)
+                .flatMap(ResultType.init(rawValue:))
             ttlMs = try container.decodeIfPresent(Int.self, forKey: .ttlMs)
             cacheScope = try container.decodeIfPresent(CacheScope.self, forKey: .cacheScope)
         }
@@ -380,8 +399,10 @@ public enum ListTools: Method {
 /// To call a tool, clients send a `tools/call` request.
 /// - SeeAlso: https://modelcontextprotocol.io/specification/2025-11-25/server/tools/#calling-tools
 public enum CallTool: Method {
+    /// The JSON-RPC method name, `tools/call`.
     public static let name = "tools/call"
 
+    /// Parameters for the `tools/call` request.
     public struct Parameters: Hashable, Codable, Sendable {
         /// Optional request metadata including progress token.
         ///
@@ -409,6 +430,7 @@ public enum CallTool: Method {
         /// interpret or alter it; a server that signs it will notice if one does.
         public let requestState: String?
 
+        /// Creates a `CallTool.Parameters` with the given values.
         public init(
             name: String,
             arguments: [String: Value]? = nil,
@@ -431,6 +453,7 @@ public enum CallTool: Method {
             case requestState
         }
 
+        /// Creates a `CallTool.Parameters` by decoding it from the given decoder, throwing `DecodingError` if the data is malformed.
         public init(from decoder: Decoder) throws {
             let container = try decoder.container(keyedBy: CodingKeys.self)
             _meta = try container.decodeIfPresent(Metadata.self, forKey: ._meta)
@@ -439,11 +462,20 @@ public enum CallTool: Method {
             // Decoded leniently: a malformed answer is the server's to diagnose and re-request,
             // and throwing here would turn a recoverable round into a protocol error the client
             // cannot act on.
-            inputResponses = try? container.decodeIfPresent(
-                [String: InputResponse].self, forKey: .inputResponses)
+            do {
+                inputResponses = try container.decodeIfPresent(
+                    [String: InputResponse].self, forKey: .inputResponses)
+            } catch {
+                let logger = Logger(label: "mcp.tools.call")
+                logger.warning(
+                    "Ignoring malformed inputResponses",
+                    metadata: ["error": "\(error)"])
+                inputResponses = nil
+            }
             requestState = try container.decodeIfPresent(String.self, forKey: .requestState)
         }
 
+        /// Encodes this `CallTool.Parameters` into the given encoder using its MCP wire format.
         public func encode(to encoder: Encoder) throws {
             var container = encoder.container(keyedBy: CodingKeys.self)
             try container.encodeIfPresent(_meta, forKey: ._meta)
@@ -454,15 +486,20 @@ public enum CallTool: Method {
         }
     }
 
+    /// Result returned for the `tools/call` request.
     public struct Result: Hashable, Codable, Sendable {
+        /// The unstructured content blocks produced by the tool call.
         public let content: [Tool.Content]
+        /// Optional structured JSON output of the tool call, conforming to the tool's output schema when one is declared.
         public let structuredContent: Value?
+        /// Whether the tool call ended in an error; when `true`, `content` describes the failure.
         public let isError: Bool?
         /// Optional metadata about this result
         public var _meta: Metadata?
         /// Tells the client how to parse this result.
         public var resultType: ResultType?
 
+        /// Creates a `CallTool.Result` with the given values.
         public init(
             content: [Tool.Content] = [],
             structuredContent: Value? = nil,
@@ -477,6 +514,7 @@ public enum CallTool: Method {
             self.resultType = resultType
         }
 
+        /// Creates a `CallTool.Result` with the given values.
         public init<Output: Codable>(
             content: [Tool.Content] = [],
             structuredContent: Output,
@@ -496,6 +534,7 @@ public enum CallTool: Method {
             case content, structuredContent, isError, _meta, resultType
         }
 
+        /// Encodes this `CallTool.Result` into the given encoder using its MCP wire format.
         public func encode(to encoder: Encoder) throws {
             var container = encoder.container(keyedBy: CodingKeys.self)
             try container.encode(content, forKey: .content)
@@ -505,6 +544,7 @@ public enum CallTool: Method {
             try container.encodeIfPresent(resultType, forKey: .resultType)
         }
 
+        /// Creates a `CallTool.Result` by decoding it from the given decoder, throwing `DecodingError` if the data is malformed.
         public init(from decoder: Decoder) throws {
             let container = try decoder.container(keyedBy: CodingKeys.self)
             content = try container.decode([Tool.Content].self, forKey: .content)
@@ -514,7 +554,8 @@ public enum CallTool: Method {
             _meta = try container.decodeIfPresent(Metadata.self, forKey: ._meta)
             // An unrecognised tag from a future revision reads as absent rather than
             // throwing, so the rest of the result stays readable.
-            resultType = try? container.decodeIfPresent(ResultType.self, forKey: .resultType)
+            resultType = try container.decodeIfPresent(String.self, forKey: .resultType)
+                .flatMap(ResultType.init(rawValue:))
         }
     }
 }
@@ -522,5 +563,6 @@ public enum CallTool: Method {
 /// When the list of available tools changes, servers that declared the listChanged capability SHOULD send a notification:
 /// - SeeAlso: https://spec.modelcontextprotocol.io/specification/2025-06-18/server/tools/#list-changed-notification
 public struct ToolListChangedNotification: Notification {
+    /// The JSON-RPC notification name, `notifications/tools/list_changed`.
     public static let name: String = "notifications/tools/list_changed"
 }
