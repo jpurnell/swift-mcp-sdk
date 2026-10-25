@@ -70,7 +70,18 @@ public struct Tool: Hashable, Codable, Sendable {
                 && openWorldHint == nil
         }
 
-        /// Creates a `Tool.Annotations` with the given values.
+        /// Creates a set of behavioral hints for a tool. Every hint is optional; `nil` means "unspecified" and
+        /// the client falls back to the spec defaults noted on each property.
+        ///
+        /// - Parameters:
+        ///   - title: A human-readable display title for the tool, or `nil` for none.
+        ///   - readOnlyHint: `true` if the tool does not modify its environment.
+        ///   - destructiveHint: `true` if the tool may make destructive (non-additive) updates; only meaningful
+        ///     when `readOnlyHint` is not `true`.
+        ///   - idempotentHint: `true` if repeating a call with the same arguments has no further effect; only
+        ///     meaningful when `readOnlyHint` is not `true`.
+        ///   - openWorldHint: `true` if the tool interacts with an open set of external entities (for example
+        ///     the web), `false` if its domain is closed.
         public init(
             title: String? = nil,
             readOnlyHint: Bool? = nil,
@@ -85,14 +96,28 @@ public struct Tool: Hashable, Codable, Sendable {
             self.openWorldHint = openWorldHint
         }
 
-        /// Initialize an empty annotations object
+        /// Creates an annotations value with every hint unset; this is what makes `annotations: nil` work on
+        /// ``Tool/init(name:title:description:inputSchema:annotations:outputSchema:icons:_meta:)``.
+        ///
+        /// - Parameter nilLiteral: Unused placeholder required by the `ExpressibleByNilLiteral` initializer.
         public init(nilLiteral: ()) {}
     }
 
     /// Annotations that provide display-facing and operational information
     public var annotations: Annotations
 
-    /// Initialize a tool with a name, description, input schema, annotations, and optional icons
+    /// Creates a tool definition to advertise from a server's `tools/list` handler.
+    ///
+    /// - Parameters:
+    ///   - name: The unique identifier clients pass as `name` in a `tools/call` request.
+    ///   - title: Optional human-readable display name; `nil` omits it from the wire form.
+    ///   - description: Human-readable explanation of what the tool does. Required argument, but may be `nil`;
+    ///     a `nil` description is encoded as JSON `null` rather than omitted.
+    ///   - inputSchema: A JSON Schema (as a ``Value``) describing the tool's `arguments` object.
+    ///   - annotations: Behavioral hints; defaults to an empty set, which is omitted when encoding.
+    ///   - outputSchema: Optional JSON Schema for the `structuredContent` the tool returns.
+    ///   - icons: Optional sized icons clients may show in their UI.
+    ///   - _meta: Optional protocol-reserved metadata.
     public init(
         name: String,
         title: String? = nil,
@@ -183,7 +208,14 @@ public struct Tool: Hashable, Codable, Sendable {
             case _meta
         }
 
-        /// Creates a `Tool.Content` by decoding it from the given decoder, throwing `DecodingError` if the data is malformed.
+        /// Decodes a content block, dispatching on the required `type` string.
+        ///
+        /// Recognised types are `text`, `image`, `audio`, `resource` and `resource_link`. `type` is required, and
+        /// each type has its own required keys (`text`; `data` and `mimeType`; `resource`; `uri` and `name`).
+        /// `annotations` and `_meta` are optional on every type except `resource_link`, which ignores `_meta`.
+        ///
+        /// - Throws: `DecodingError` if `type` or a required key is missing or mistyped, or if `type` is not
+        ///   one of the recognised values (a `dataCorrupted` error on the `type` key).
         public init(from decoder: Decoder) throws {
             let container = try decoder.container(keyedBy: CodingKeys.self)
             let type = try container.decode(String.self, forKey: .type)
@@ -228,7 +260,11 @@ public struct Tool: Hashable, Codable, Sendable {
             }
         }
 
-        /// Encodes this `Tool.Content` into the given encoder using its MCP wire format.
+        /// Encodes the block as a JSON object with a `type` discriminator (`text`, `image`, `audio`, `resource`
+        /// or `resource_link`) plus that case's fields.
+        ///
+        /// `annotations` and `_meta` are omitted when `nil`. For `resource_link`, `title`, `description`,
+        /// `mimeType` and `annotations` are likewise omitted when `nil`, and no `_meta` is written.
         public func encode(to encoder: Encoder) throws {
             var container = encoder.container(keyedBy: CodingKeys.self)
 
@@ -279,7 +315,12 @@ public struct Tool: Hashable, Codable, Sendable {
         case _meta
     }
 
-    /// Creates a `Tool` by decoding it from the given decoder, throwing `DecodingError` if the data is malformed.
+    /// Decodes a tool definition from a `tools/list` entry.
+    ///
+    /// `name` and `inputSchema` are required. `title`, `description`, `outputSchema`, `annotations`, `icons`
+    /// and `_meta` are optional; absent `annotations` decode to an empty set.
+    ///
+    /// - Throws: `DecodingError` if a required key is missing or any key has the wrong type.
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         name = try container.decode(String.self, forKey: .name)
@@ -293,7 +334,11 @@ public struct Tool: Hashable, Codable, Sendable {
         _meta = try container.decodeIfPresent(Metadata.self, forKey: ._meta)
     }
 
-    /// Encodes this `Tool` into the given encoder using its MCP wire format.
+    /// Encodes the tool as it appears in a `tools/list` result.
+    ///
+    /// `name` and `inputSchema` are always written, and `description` is always written (as `null` when
+    /// `nil`). `title`, `outputSchema`, `icons` and `_meta` are omitted when `nil`; `annotations` is omitted
+    /// when it has no hints set.
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encode(name, forKey: .name)
@@ -322,12 +367,14 @@ public enum ListTools: Method {
         /// An opaque pagination cursor returned as `nextCursor` by a previous response; omit to start from the first page.
         public let cursor: String?
 
-        /// Creates an empty `ListTools.Parameters`.
+        /// Creates parameters for the first page of results (no cursor).
         public init() {
             self.cursor = nil
         }
 
-        /// Creates parameters that request the page identified by `cursor`.
+        /// Creates parameters that request a later page of results.
+        ///
+        /// - Parameter cursor: The opaque `nextCursor` value from a previous `tools/list` result.
         public init(cursor: String) {
             self.cursor = cursor
         }
@@ -348,7 +395,15 @@ public enum ListTools: Method {
         /// Whether a shared intermediary may cache this result.
         public var cacheScope: CacheScope?
 
-        /// Creates a `ListTools.Result` with the given values.
+        /// Creates a `tools/list` result, typically from a server's list handler.
+        ///
+        /// - Parameters:
+        ///   - tools: The tools on this page.
+        ///   - nextCursor: Opaque cursor for the next page, or `nil` if this is the last page.
+        ///   - _meta: Optional protocol-reserved metadata.
+        ///   - resultType: How the client should parse the result; defaults to `.complete`.
+        ///   - ttlMs: Optional freshness lifetime in milliseconds; `nil` omits it.
+        ///   - cacheScope: Optional hint on whether shared intermediaries may cache the result; `nil` omits it.
         public init(
             tools: [Tool],
             nextCursor: String? = nil,
@@ -369,7 +424,8 @@ public enum ListTools: Method {
             case tools, nextCursor, _meta, resultType, ttlMs, cacheScope
         }
 
-        /// Encodes this `ListTools.Result` into the given encoder using its MCP wire format.
+        /// Encodes the result. `tools` is always written; `nextCursor`, `_meta`, `resultType`, `ttlMs` and
+        /// `cacheScope` are omitted when `nil`.
         public func encode(to encoder: Encoder) throws {
             var container = encoder.container(keyedBy: CodingKeys.self)
             try container.encode(tools, forKey: .tools)
@@ -380,7 +436,12 @@ public enum ListTools: Method {
             try container.encodeIfPresent(cacheScope, forKey: .cacheScope)
         }
 
-        /// Creates a `ListTools.Result` by decoding it from the given decoder, throwing `DecodingError` if the data is malformed.
+        /// Decodes a `tools/list` result.
+        ///
+        /// Only `tools` is required. `nextCursor`, `_meta`, `ttlMs` and `cacheScope` are optional. An
+        /// unrecognised `resultType` string is tolerated and read as `nil` rather than throwing.
+        ///
+        /// - Throws: `DecodingError` if `tools` is missing or any present key has the wrong type.
         public init(from decoder: Decoder) throws {
             let container = try decoder.container(keyedBy: CodingKeys.self)
             tools = try container.decode([Tool].self, forKey: .tools)
@@ -430,7 +491,15 @@ public enum CallTool: Method {
         /// interpret or alter it; a server that signs it will notice if one does.
         public let requestState: String?
 
-        /// Creates a `CallTool.Parameters` with the given values.
+        /// Creates the parameters for a `tools/call` request.
+        ///
+        /// - Parameters:
+        ///   - name: The name of the tool to invoke.
+        ///   - arguments: The tool's arguments keyed by parameter name; `nil` sends none.
+        ///   - inputResponses: Answers to an earlier ``InputRequiredResult`` when retrying that call; `nil`
+        ///     otherwise.
+        ///   - requestState: The opaque state from that ``InputRequiredResult``, echoed back unchanged.
+        ///   - meta: Optional request metadata (for example a `progressToken`); stored as `_meta`.
         public init(
             name: String,
             arguments: [String: Value]? = nil,
@@ -453,7 +522,13 @@ public enum CallTool: Method {
             case requestState
         }
 
-        /// Creates a `CallTool.Parameters` by decoding it from the given decoder, throwing `DecodingError` if the data is malformed.
+        /// Decodes `tools/call` parameters.
+        ///
+        /// Only `name` is required. `_meta`, `arguments` and `requestState` are optional. A malformed
+        /// `inputResponses` does not throw: it is logged as a warning and treated as absent.
+        ///
+        /// - Throws: `DecodingError` if `name` is missing or `_meta`, `arguments` or `requestState` has the
+        ///   wrong type.
         public init(from decoder: Decoder) throws {
             let container = try decoder.container(keyedBy: CodingKeys.self)
             _meta = try container.decodeIfPresent(Metadata.self, forKey: ._meta)
@@ -475,7 +550,8 @@ public enum CallTool: Method {
             requestState = try container.decodeIfPresent(String.self, forKey: .requestState)
         }
 
-        /// Encodes this `CallTool.Parameters` into the given encoder using its MCP wire format.
+        /// Encodes the parameters. `name` is always written; `_meta`, `arguments`, `inputResponses` and
+        /// `requestState` are omitted when `nil`.
         public func encode(to encoder: Encoder) throws {
             var container = encoder.container(keyedBy: CodingKeys.self)
             try container.encodeIfPresent(_meta, forKey: ._meta)
@@ -499,7 +575,15 @@ public enum CallTool: Method {
         /// Tells the client how to parse this result.
         public var resultType: ResultType?
 
-        /// Creates a `CallTool.Result` with the given values.
+        /// Creates a `tools/call` result from already-built content blocks.
+        ///
+        /// - Parameters:
+        ///   - content: The unstructured content blocks to return; defaults to none.
+        ///   - structuredContent: Optional structured JSON output, matching the tool's `outputSchema` if it
+        ///     declares one.
+        ///   - isError: `true` to report that the call failed (with `content` describing why); `nil` omits it.
+        ///   - _meta: Optional result metadata.
+        ///   - resultType: How the client should parse the result; defaults to `.complete`.
         public init(
             content: [Tool.Content] = [],
             structuredContent: Value? = nil,
@@ -514,7 +598,15 @@ public enum CallTool: Method {
             self.resultType = resultType
         }
 
-        /// Creates a `CallTool.Result` with the given values.
+        /// Creates a `tools/call` result whose structured output is any `Codable` value, converted to a
+        /// ``Value`` for you. `resultType` is left at its default of `.complete`.
+        ///
+        /// - Parameters:
+        ///   - content: The unstructured content blocks to return; defaults to none.
+        ///   - structuredContent: The value to encode into `structuredContent`.
+        ///   - isError: `true` to report that the call failed; `nil` omits it.
+        ///   - _meta: Optional result metadata.
+        /// - Throws: Any error raised while converting `structuredContent` to a ``Value``.
         public init<Output: Codable>(
             content: [Tool.Content] = [],
             structuredContent: Output,
@@ -534,7 +626,8 @@ public enum CallTool: Method {
             case content, structuredContent, isError, _meta, resultType
         }
 
-        /// Encodes this `CallTool.Result` into the given encoder using its MCP wire format.
+        /// Encodes the result. `content` is always written (possibly empty); `structuredContent`, `isError`,
+        /// `_meta` and `resultType` are omitted when `nil`.
         public func encode(to encoder: Encoder) throws {
             var container = encoder.container(keyedBy: CodingKeys.self)
             try container.encode(content, forKey: .content)
@@ -544,7 +637,12 @@ public enum CallTool: Method {
             try container.encodeIfPresent(resultType, forKey: .resultType)
         }
 
-        /// Creates a `CallTool.Result` by decoding it from the given decoder, throwing `DecodingError` if the data is malformed.
+        /// Decodes a `tools/call` result.
+        ///
+        /// Only `content` is required. `structuredContent`, `isError` and `_meta` are optional. An
+        /// unrecognised `resultType` string is tolerated and read as `nil` rather than throwing.
+        ///
+        /// - Throws: `DecodingError` if `content` is missing or any present key has the wrong type.
         public init(from decoder: Decoder) throws {
             let container = try decoder.container(keyedBy: CodingKeys.self)
             content = try container.decode([Tool.Content].self, forKey: .content)

@@ -41,7 +41,10 @@ public enum SetLoggingLevel: Method {
         /// The minimum log level to set
         public let level: LogLevel
 
-        /// Creates a `SetLoggingLevel.Parameters` with the given values.
+        /// Creates parameters for a `logging/setLevel` request.
+        ///
+        /// - Parameter level: The minimum severity the server should send; lower-severity messages are
+        ///   expected to be suppressed.
         public init(level: LogLevel) {
             self.level = level
         }
@@ -68,7 +71,12 @@ public struct LogMessageNotification: Notification {
         /// Arbitrary JSON-serializable data for the log message
         public let data: Value
 
-        /// Creates a `LogMessageNotification.Parameters` with the given values.
+        /// Creates the parameters for a `notifications/message` log notification.
+        ///
+        /// - Parameters:
+        ///   - level: The severity of the message.
+        ///   - logger: Optional name of the logger or component that produced it; `nil` for none.
+        ///   - data: The message payload, any JSON-serializable ``Value``.
         public init(
             level: LogLevel,
             logger: String? = nil,

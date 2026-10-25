@@ -41,7 +41,15 @@ public actor Server {
         /// Optional set of sized icons for display in a user interface
         public let icons: [Icon]?
 
-        /// Creates a `Server.Info` with the given values.
+        /// Creates the implementation info a server reports to clients during `initialize` (`serverInfo`).
+        ///
+        /// - Parameters:
+        ///   - name: The server's programmatic name.
+        ///   - version: The server's version string.
+        ///   - title: Optional human-readable display name.
+        ///   - description: Optional description of the server.
+        ///   - websiteUrl: Optional URL of the server's website.
+        ///   - icons: Optional sized icons clients may display.
         public init(
             name: String,
             version: String,
@@ -68,7 +76,12 @@ public actor Server {
             /// Whether the list of resources has changed
             public var listChanged: Bool?
 
-            /// Creates a `Capabilities.Resources` with the given values.
+            /// Creates the `resources` capability declaration.
+            ///
+            /// - Parameters:
+            ///   - subscribe: `true` if clients may subscribe to individual resource updates.
+            ///   - listChanged: `true` if the server sends notifications when the resource list changes.
+            ///   Both default to `nil` (not declared).
             public init(
                 subscribe: Bool? = nil,
                 listChanged: Bool? = nil
@@ -83,7 +96,10 @@ public actor Server {
             /// Whether the server notifies clients when tools change
             public var listChanged: Bool?
 
-            /// Creates a `Capabilities.Tools` with the given values.
+            /// Creates the `tools` capability declaration.
+            ///
+            /// - Parameter listChanged: `true` if the server sends `notifications/tools/list_changed`;
+            ///   `nil` (the default) leaves it undeclared.
             public init(listChanged: Bool? = nil) {
                 self.listChanged = listChanged
             }
@@ -94,7 +110,10 @@ public actor Server {
             /// Whether the server notifies clients when prompts change
             public var listChanged: Bool?
 
-            /// Creates a `Capabilities.Prompts` with the given values.
+            /// Creates the `prompts` capability declaration.
+            ///
+            /// - Parameter listChanged: `true` if the server sends `notifications/prompts/list_changed`;
+            ///   `nil` (the default) leaves it undeclared.
             public init(listChanged: Bool? = nil) {
                 self.listChanged = listChanged
             }
@@ -102,13 +121,15 @@ public actor Server {
 
         /// Logging capabilities
         public struct Logging: Hashable, Codable, Sendable {
-            /// Creates an empty `Capabilities.Logging`.
+            /// Creates the `logging` capability declaration, which carries no options; its presence says the
+            /// server can send log message notifications.
             public init() {}
         }
 
         /// Completions capabilities
         public struct Completions: Hashable, Codable, Sendable {
-            /// Creates an empty `Capabilities.Completions`.
+            /// Creates the `completions` capability declaration, which carries no options; its presence says
+            /// the server supports `completion/complete`.
             public init() {}
         }
 
@@ -136,7 +157,18 @@ public actor Server {
         /// Tools capabilities
         public var tools: Tools?
 
-        /// Creates a `Server.Capabilities` with the given values.
+        /// Creates the capability set a server advertises to clients during `initialize`.
+        ///
+        /// Each parameter is optional and defaults to `nil`, meaning the capability is not declared.
+        ///
+        /// - Parameters:
+        ///   - completions: Argument-completion support.
+        ///   - experimental: Non-standard features, keyed by feature identifier.
+        ///   - extensions: Optional protocol extensions (MCP `2026-07-28`), keyed by extension identifier.
+        ///   - logging: Log-message support.
+        ///   - prompts: Prompt support and its options.
+        ///   - resources: Resource support and its options.
+        ///   - tools: Tool support and its options.
         public init(
             completions: Completions? = nil,
             experimental: [String: Value]? = nil,
@@ -206,7 +238,19 @@ public actor Server {
     /// The task for the message handling loop
     private var task: Task<Void, Never>?
 
-    /// Creates a `Server` with the given values.
+    /// Creates a server. Nothing is sent or received until ``start(transport:initializeHook:)`` is called.
+    ///
+    /// Only `name`, `version` and `title` are copied into the reported ``Server/Info``; its description,
+    /// website and icons are not set by this initializer.
+    ///
+    /// - Parameters:
+    ///   - name: The server's name, reported to clients.
+    ///   - version: The server's version string, reported to clients.
+    ///   - title: Optional human-readable display name.
+    ///   - instructions: Optional usage hints for clients, which may add them to the model's system prompt.
+    ///   - capabilities: The capabilities to advertise; defaults to none.
+    ///   - configuration: Behavior options such as strict initialization; defaults to ``Configuration/default``
+    ///     (non-strict).
     public init(
         name: String,
         version: String,
@@ -221,10 +265,16 @@ public actor Server {
         self.instructions = instructions
     }
 
-    /// Start the server
+    /// Starts the server: registers the default handlers, connects the transport, and begins a background
+    /// loop that receives and dispatches incoming messages. Returns once the loop is running.
+    ///
+    /// Register your handlers with ``withMethodHandler(_:handler:)`` and ``onNotification(_:handler:)`` as well.
+    ///
     /// - Parameters:
-    ///   - transport: The transport to use for the server
-    ///   - initializeHook: An optional hook that runs when the client sends an initialize request
+    ///   - transport: The transport to communicate over; its `connect()` is awaited here.
+    ///   - initializeHook: Optional closure run when the client sends `initialize`, receiving the client's
+    ///     info and capabilities.
+    /// - Throws: Any error thrown by `transport.connect()`.
     public func start(
         transport: any Transport,
         initializeHook: (@Sendable (Client.Info, Client.Capabilities) async throws -> Void)? = nil
@@ -355,7 +405,8 @@ public actor Server {
         }
     }
 
-    /// Stop the server
+    /// Stops the server: cancels the receive loop and disconnects the transport. Safe to call when the server
+    /// is not running.
     public func stop() async {
         task?.cancel()
         task = nil
@@ -401,7 +452,12 @@ public actor Server {
         /// path.
         public let httpContext: HTTPRequest?
 
-        /// Creates a `Server.HandlerContext` with the given values.
+        /// Creates a handler context. The SDK does this when dispatching a request; you would normally only
+        /// construct one in a transport or in tests.
+        ///
+        /// - Parameters:
+        ///   - id: The JSON-RPC id of the request being handled.
+        ///   - httpContext: The originating HTTP request, or `nil` for transports without HTTP context.
         public init(id: ID, httpContext: HTTPRequest?) {
             self.id = id
             self.httpContext = httpContext
@@ -428,7 +484,14 @@ public actor Server {
 
     // MARK: - Registration
 
-    /// Register a method handler
+    /// Registers the handler for requests of method type `M`, keyed by `M.name`. Registering a second handler
+    /// for the same method replaces the first.
+    ///
+    /// - Parameters:
+    ///   - type: The method type to handle, for example ``ListTools`` or ``CallTool``.
+    ///   - handler: Closure that receives the decoded parameters and returns the result, or throws to produce
+    ///     an error response.
+    /// - Returns: The server itself, so registrations can be chained.
     @discardableResult
     public func withMethodHandler<M: Method>(
         _ type: M.Type,
@@ -441,7 +504,13 @@ public actor Server {
         return self
     }
 
-    /// Register a notification handler
+    /// Registers a handler for incoming notifications of type `N`, keyed by `N.name`. Unlike method handlers,
+    /// handlers accumulate: registering again adds another handler rather than replacing the first.
+    ///
+    /// - Parameters:
+    ///   - type: The notification type to observe.
+    ///   - handler: Closure called with each received notification message.
+    /// - Returns: The server itself, so registrations can be chained.
     @discardableResult
     public func onNotification<N: Notification>(
         _ type: N.Type,
@@ -454,7 +523,11 @@ public actor Server {
 
     // MARK: - Sending
 
-    /// Send a response to a request
+    /// Encodes `response` as JSON and sends it over the transport.
+    ///
+    /// - Parameter response: The response to send.
+    /// - Throws: ``MCPError`` (internal error) if the server has no connection; otherwise any encoding or
+    ///   transport error.
     public func send<M: Method>(_ response: Response<M>) async throws {
         guard let connection = connection else {
             throw MCPError.internalError("Server connection not initialized")
@@ -467,7 +540,11 @@ public actor Server {
         try await connection.send(responseData)
     }
 
-    /// Send a notification to connected clients
+    /// Encodes `notification` as JSON and sends it over the transport.
+    ///
+    /// - Parameter notification: The notification to send.
+    /// - Throws: ``MCPError`` (internal error) if the server has no connection; otherwise any encoding or
+    ///   transport error.
     public func notify<N: Notification>(_ notification: Message<N>) async throws {
         guard let connection = connection else {
             throw MCPError.internalError("Server connection not initialized")
