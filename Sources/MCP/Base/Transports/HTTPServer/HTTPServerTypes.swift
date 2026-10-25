@@ -1,4 +1,10 @@
 import Foundation
+import Logging
+
+private let httpTypesLogger = Logger(
+    label: "mcp.transport.http.types",
+    factory: { _ in SwiftLogNoOpLogHandler() }
+)
 
 // MARK: - Session ID Generator
 
@@ -8,21 +14,39 @@ import Foundation
 /// Session IDs **MUST** contain only visible ASCII characters (0x21–0x7E)
 /// per the MCP specification.
 ///
-/// A default implementation using UUID is provided via ``UUIDSessionIDGenerator``.
+/// A default implementation using secure random bytes is provided via ``UUIDSessionIDGenerator``.
 public protocol SessionIDGenerator: Sendable {
     /// Generates a new unique session identifier.
     func generateSessionID() -> String
 }
 
-/// Default session ID generator that produces UUID strings.
+/// Default session ID generator that produces random hexadecimal strings.
 ///
-/// UUID strings consist of hexadecimal characters and hyphens,
-/// which are all within the valid ASCII range (0x21–0x7E).
+/// Each ID is 32 bytes (256 bits) drawn from the system's cryptographically secure random
+/// number generator, written as 64 lowercase hexadecimal digits, which are all within the valid
+/// ASCII range (0x21–0x7E). A UUID is deliberately not used: RFC 9562 forbids treating one as
+/// a security capability, and a session ID is exactly that.
 public struct UUIDSessionIDGenerator: SessionIDGenerator {
+    /// Number of random bytes in each generated ID.
+    private static let byteCount = 32
+
+    /// Creates a generator.
     public init() {}
 
+    /// Generates a session ID from 32 random bytes, rendered as 64 lowercase hexadecimal characters.
+    ///
+    /// The bytes come from the system's cryptographically secure random number generator, so
+    /// IDs are unguessable. Hex digits are within the visible ASCII range (0x21-0x7E).
     public func generateSessionID() -> String {
-        UUID().uuidString
+        var hex = ""
+        hex.reserveCapacity(Self.byteCount * 2)
+        for _ in 0..<Self.byteCount {
+            // The standard library's default generator is the system CSPRNG.
+            let byte = UInt8.random(in: UInt8.min...UInt8.max)
+            hex += byte < 0x10 ? "0" : ""
+            hex += String(byte, radix: 16)
+        }
+        return hex
     }
 }
 
@@ -46,6 +70,13 @@ public struct HTTPRequest: Sendable {
     /// Used by validators that need to match on specific paths.
     public let path: String?
 
+    /// Creates an HTTP request.
+    ///
+    /// - Parameters:
+    ///   - method: The HTTP method.
+    ///   - headers: The request headers. Defaults to none.
+    ///   - body: The request body, if any.
+    ///   - path: The request path, if known.
     public init(method: String, headers: [String: String] = [:], body: Data? = nil, path: String? = nil) {
         self.method = method
         self.headers = headers
@@ -70,12 +101,18 @@ public struct HTTPRequest: Sendable {
 /// or switch on the enum for case-specific handling (e.g., streaming):
 ///
 /// ```swift
-/// let response = await transport.handleRequest(request)
-/// switch response {
-/// case .stream(let sseStream, _):
-///     // Pipe the async stream to the HTTP response body
-/// default:
-///     // Use response.bodyData for the body
+/// import Foundation
+/// import MCP
+///
+/// func describe(_ response: HTTPResponse) -> String {
+///     switch response {
+///     case .stream:
+///         // Pipe the async stream to the HTTP response body
+///         return "streaming body"
+///     default:
+///         // Use response.bodyData for the body
+///         return "\(response.statusCode) with \(response.bodyData?.count ?? 0) bytes"
+///     }
 /// }
 /// ```
 public enum HTTPResponse: Sendable {
@@ -97,6 +134,10 @@ public enum HTTPResponse: Sendable {
 
     // MARK: - Computed Properties
 
+    /// The HTTP status code.
+    ///
+    /// 202 for ``accepted(headers:)``; 200 for ``ok(headers:)``, ``data(_:headers:)`` and
+    /// ``stream(_:headers:)``; the supplied code for ``error(statusCode:_:sessionID:extraHeaders:)``.
     public var statusCode: Int {
         switch self {
         case .accepted: 202
@@ -105,6 +146,7 @@ public enum HTTPResponse: Sendable {
         }
     }
 
+    /// The response headers. For an error response these include a JSON `Content-Type`, the session ID when one was given, and any extra headers, which take precedence.
     public var headers: [String: String] {
         switch self {
         case .accepted(let headers), .ok(let headers), .data(_, let headers), .stream(_, let headers):
@@ -133,7 +175,13 @@ public enum HTTPResponse: Sendable {
                 ],
                 "id": NSNull(),
             ]
-            return try? JSONSerialization.data(withJSONObject: errorBody)
+            do {
+                return try JSONSerialization.data(withJSONObject: errorBody)
+            } catch {
+                httpTypesLogger.error(
+                    "Failed to serialize error response body", metadata: ["error": "\(error)"])
+                return nil
+            }
         }
     }
 }
@@ -142,17 +190,29 @@ public enum HTTPResponse: Sendable {
 
 /// Standard header names used by the MCP Streamable HTTP transport.
 public enum HTTPHeaderName {
+    /// The `MCP-Session-Id` header, which carries the session identifier.
     public static let sessionID = "MCP-Session-Id"
+    /// The `MCP-Protocol-Version` header, which carries the negotiated protocol version.
     public static let protocolVersion = "MCP-Protocol-Version"
+    /// The `Last-Event-ID` header, used to resume an SSE stream after a disconnect.
     public static let lastEventID = "Last-Event-ID"
+    /// The `Accept` header, listing the content types the client can receive.
     public static let accept = "Accept"
+    /// The `Content-Type` header, naming the media type of the body.
     public static let contentType = "Content-Type"
+    /// The `Authorization` header, which carries credentials such as a bearer token.
     public static let authorization = "Authorization"
+    /// The `WWW-Authenticate` header, which carries an authentication challenge.
     public static let wwwAuthenticate = "WWW-Authenticate"
+    /// The `Origin` header, which names the origin of a browser request.
     public static let origin = "Origin"
+    /// The `Host` header, which names the host the request was addressed to.
     public static let host = "Host"
+    /// The `Cache-Control` header, which directs caching behavior.
     public static let cacheControl = "Cache-Control"
+    /// The `Connection` header, which controls whether the connection persists.
     public static let connection = "Connection"
+    /// The `Allow` header, which lists the methods a resource supports.
     public static let allow = "Allow"
 }
 
@@ -240,7 +300,15 @@ package enum JSONRPCMessageKind {
     /// Attempts to classify raw JSON-RPC data.
     /// Returns `nil` if the data cannot be parsed or classified.
     package init?(data: Data) {
-        guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+        let parsed: Any
+        do {
+            parsed = try JSONSerialization.jsonObject(with: data)
+        } catch {
+            httpTypesLogger.debug(
+                "Message is not valid JSON; cannot classify", metadata: ["error": "\(error)"])
+            return nil
+        }
+        guard let json = parsed as? [String: Any] else {
             return nil
         }
 

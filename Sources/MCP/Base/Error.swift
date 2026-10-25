@@ -17,6 +17,13 @@ public struct URLElicitationInfo: Codable, Hashable, Sendable {
     /// Message describing the elicitation
     public var message: String
 
+    /// Creates elicitation information.
+    ///
+    /// - Parameters:
+    ///   - mode: The elicitation mode. Defaults to `"url"`.
+    ///   - elicitationId: A unique identifier for this elicitation.
+    ///   - url: The URL for the user to visit.
+    ///   - message: A message describing the elicitation.
     public init(mode: String = "url", elicitationId: String, url: String, message: String) {
         self.mode = mode
         self.elicitationId = elicitationId
@@ -213,6 +220,7 @@ public enum MCPError: Swift.Error, Sendable {
 // MARK: LocalizedError
 
 extension MCPError: LocalizedError {
+    /// A short, human-readable description of the error.
     public var errorDescription: String? {
         switch self {
         case .parseError(let detail):
@@ -246,6 +254,7 @@ extension MCPError: LocalizedError {
         }
     }
 
+    /// Why the error occurred, when the cause is known.
     public var failureReason: String? {
         switch self {
         case .parseError:
@@ -279,6 +288,7 @@ extension MCPError: LocalizedError {
         }
     }
 
+    /// A suggestion for how the caller might recover, when one exists.
     public var recoverySuggestion: String? {
         switch self {
         case .parseError:
@@ -305,6 +315,7 @@ extension MCPError: LocalizedError {
 // MARK: CustomDebugStringConvertible
 
 extension MCPError: CustomDebugStringConvertible {
+    /// A description for debugging that includes the JSON-RPC code and any underlying error.
     public var debugDescription: String {
         switch self {
         case .transportError(let error):
@@ -324,6 +335,10 @@ extension MCPError: Codable {
         case code, message, data
     }
 
+    /// Encodes the error as a JSON-RPC error object with `code`, `message` and optional `data`.
+    ///
+    /// - Parameter encoder: The encoder to write to.
+    /// - Throws: Any error raised while encoding a member.
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encode(code, forKey: .code)
@@ -377,6 +392,10 @@ extension MCPError: Codable {
         }
     }
 
+    /// Decodes a JSON-RPC error object, mapping well-known codes to their specific cases.
+    ///
+    /// - Parameter decoder: The decoder to read from.
+    /// - Throws: `DecodingError` if `code` or `message` is missing or malformed.
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         let code = try container.decode(Int.self, forKey: .code)
@@ -472,6 +491,7 @@ extension MCPError: Codable {
 // MARK: Equatable
 
 extension MCPError: Equatable {
+    /// Compares two errors by case and associated values. Transport errors compare by their localized descriptions.
     public static func == (lhs: MCPError, rhs: MCPError) -> Bool {
         switch (lhs, rhs) {
         case (.parseError(let a), .parseError(let b)): return a == b
@@ -496,6 +516,9 @@ extension MCPError: Equatable {
 // MARK: Hashable
 
 extension MCPError: Hashable {
+    /// Hashes the JSON-RPC code together with the associated values of the case.
+    ///
+    /// - Parameter hasher: The hasher to feed.
     public func hash(into hasher: inout Hasher) {
         hasher.combine(code)
         switch self {

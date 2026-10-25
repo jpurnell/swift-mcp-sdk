@@ -10,9 +10,11 @@
 /// - Example:
 ///   ```swift
 ///   let zero: UnitInterval = 0 // 0.0
-///   let half = UnitInterval(0.5)! // 0.5
+///   let candidate = 0.5
+///   let half = UnitInterval(candidate) // Optional(0.5)
 ///   let one: UnitInterval = 1.0 // 1.0
-///   let invalid = UnitInterval(1.5) // nil
+///   let outOfRange = 1.5
+///   let invalid = UnitInterval(outOfRange) // nil
 ///   ```
 public struct UnitInterval: Hashable, Sendable {
     private let value: Double
@@ -24,9 +26,12 @@ public struct UnitInterval: Hashable, Sendable {
     ///
     /// - Example:
     ///   ```swift
-    ///   let valid = UnitInterval(0.75) // Optional(0.75)
-    ///   let invalid = UnitInterval(-0.1) // nil
-    ///   let boundary = UnitInterval(1.0) // Optional(1.0)
+    ///   let inside = 0.75
+    ///   let valid = UnitInterval(inside) // Optional(0.75)
+    ///   let below = -0.1
+    ///   let invalid = UnitInterval(below) // nil
+    ///   let top = 1.0
+    ///   let boundary = UnitInterval(top) // Optional(1.0)
     ///   ```
     public init?(_ value: Double) {
         guard (0...1).contains(value) else { return nil }
@@ -45,6 +50,7 @@ public struct UnitInterval: Hashable, Sendable {
 // MARK: - Comparable
 
 extension UnitInterval: Comparable {
+    /// Orders two values by their underlying doubles.
     public static func < (lhs: UnitInterval, rhs: UnitInterval) -> Bool {
         lhs.value < rhs.value
     }
@@ -53,12 +59,17 @@ extension UnitInterval: Comparable {
 // MARK: - CustomStringConvertible
 
 extension UnitInterval: CustomStringConvertible {
+    /// The underlying double rendered as text.
     public var description: String { "\(value)" }
 }
 
 // MARK: - Codable
 
 extension UnitInterval: Codable {
+    /// Decodes a unit interval from a JSON number.
+    ///
+    /// - Parameter decoder: The decoder to read from.
+    /// - Throws: `DecodingError` if the number lies outside 0...1.
     public init(from decoder: Decoder) throws {
         let container = try decoder.singleValueContainer()
         let doubleValue = try container.decode(Double.self)
@@ -72,6 +83,10 @@ extension UnitInterval: Codable {
         self = interval
     }
 
+    /// Encodes the underlying double as a JSON number.
+    ///
+    /// - Parameter encoder: The encoder to write to.
+    /// - Throws: Any error raised while encoding.
     public func encode(to encoder: Encoder) throws {
         var container = encoder.singleValueContainer()
         try container.encode(value)

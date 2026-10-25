@@ -201,8 +201,9 @@ public enum UpdateTask: Method {
             taskId = try container.decode(String.self, forKey: .taskId)
             _meta = try container.decodeIfPresent(Metadata.self, forKey: ._meta)
 
-            guard let raw = (try? container.decodeIfPresent(
-                [String: Value].self, forKey: .inputResponses)) ?? nil
+            // Anything other than an object reads as absent rather than failing the update.
+            guard case .object(let raw)? = try container.decodeIfPresent(
+                Value.self, forKey: .inputResponses)
             else {
                 inputResponses = nil
                 return
@@ -226,4 +227,3 @@ public enum UpdateTask: Method {
     /// the answer to "what happened next".
     public typealias Result = CancelTask.Result
 }
-

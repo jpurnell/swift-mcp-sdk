@@ -170,6 +170,7 @@ import struct Foundation.Data
                         }
                     }
                 } catch let error where MCPError.isResourceTemporarilyUnavailable(error) {
+                    logger.debug("Input not ready; retrying read", metadata: ["error": "\(error)"])
                     try? await Task.sleep(for: .milliseconds(10))
                     continue
                 } catch {
@@ -223,6 +224,7 @@ import struct Foundation.Data
                         remaining = remaining.dropFirst(written)
                     }
                 } catch let error where MCPError.isResourceTemporarilyUnavailable(error) {
+                    logger.debug("Output not ready; retrying write", metadata: ["error": "\(error)"])
                     try await Task.sleep(for: .milliseconds(10))
                     continue
                 } catch {

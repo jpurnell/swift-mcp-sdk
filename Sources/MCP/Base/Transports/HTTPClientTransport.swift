@@ -235,7 +235,13 @@ public actor HTTPClientTransport: Transport {
         }
 
         if let authorizer {
-            try? await authorizer.prepareAuthorization(for: endpoint, session: session)
+            do {
+                try await authorizer.prepareAuthorization(for: endpoint, session: session)
+            } catch {
+                logger.warning(
+                    "Authorization preparation failed; sending request without it",
+                    metadata: ["error": "\(error)"])
+            }
         }
 
         var attempts = 0
@@ -342,7 +348,7 @@ public actor HTTPClientTransport: Transport {
                 logger.trace("Received JSON response", metadata: ["size": "\(data.count)"])
                 messageContinuation.yield(data)
             } else {
-                logger.warning("Unexpected content type: \(contentType)")
+                logger.warning("Unexpected content type", metadata: ["contentType": "\(contentType)"])
             }
         }
     #else
@@ -383,7 +389,7 @@ public actor HTTPClientTransport: Transport {
                 logger.trace("Received JSON response", metadata: ["size": "\(buffer.count)"])
                 messageContinuation.yield(buffer)
             } else {
-                logger.warning("Unexpected content type: \(contentType)")
+                logger.warning("Unexpected content type", metadata: ["contentType": "\(contentType)"])
             }
         }
     #endif
@@ -459,8 +465,14 @@ public actor HTTPClientTransport: Transport {
     }
 
     private func jsonRPCOperationKey(from data: Data) -> String? {
-        guard
-            let jsonObject = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+        let parsed: Any
+        do {
+            parsed = try JSONSerialization.jsonObject(with: data)
+        } catch {
+            logger.debug("Outgoing payload is not JSON; no operation key", metadata: ["error": "\(error)"])
+            return nil
+        }
+        guard let jsonObject = parsed as? [String: Any],
             let method = jsonObject["method"] as? String
         else {
             return nil
@@ -488,7 +500,9 @@ public actor HTTPClientTransport: Transport {
             guard isConnected else { return }
 
             if self.sessionID == nil, let signalTask = self.initialSessionIDSignalTask {
-                logger.debug("⏳ Waiting for session ID to be set (timeout: \(self.sseInitializationTimeout)s)...")
+                logger.debug(
+                    "⏳ Waiting for session ID to be set",
+                    metadata: ["timeoutSeconds": "\(self.sseInitializationTimeout)"])
 
                 let startTime = Date()
                 let timeout = self.sseInitializationTimeout
@@ -508,12 +522,16 @@ public actor HTTPClientTransport: Transport {
                         }
                     }
                 } catch {
-                    logger.warning("⏱️ Timeout waiting for session ID (\(timeout)s). SSE stream will proceed anyway.")
+                    logger.warning(
+                        "⏱️ Timeout waiting for session ID. SSE stream will proceed anyway.",
+                        metadata: ["timeoutSeconds": "\(timeout)", "error": "\(error)"])
                 }
 
                 if self.sessionID != nil {
                     let elapsed = Date().timeIntervalSince(startTime)
-                    logger.debug("✓ Session ID received after \(Int(elapsed * 1000))ms, proceeding with SSE connection")
+                    logger.debug(
+                        "✓ Session ID received, proceeding with SSE connection",
+                        metadata: ["elapsedMs": "\(Int(elapsed * 1000))"])
                 }
             } else {
                 logger.debug("✓ Session ID already available, proceeding with SSE connection immediately")
@@ -543,7 +561,7 @@ public actor HTTPClientTransport: Transport {
                     }
                     isFirstAttempt = false
 
-                    logger.debug("📡 Calling connectToEventStream (attempt #\(attemptCount))")
+                    logger.debug("📡 Calling connectToEventStream", metadata: ["attempt": "\(attemptCount)"])
 
                     try await self.connectToEventStream()
 
@@ -553,7 +571,9 @@ public actor HTTPClientTransport: Transport {
                     ])
                 } catch {
                     if !Task.isCancelled {
-                        logger.error("❌ SSE connection error (attempt #\(attemptCount)): \(error)")
+                        logger.error(
+                            "❌ SSE connection error",
+                            metadata: ["attempt": "\(attemptCount)", "error": "\(error)"])
                     } else {
                         logger.debug("⏹️ SSE task cancelled")
                     }
@@ -592,7 +612,13 @@ public actor HTTPClientTransport: Transport {
             }
 
             if let authorizer {
-                try? await authorizer.prepareAuthorization(for: endpoint, session: session)
+                do {
+                    try await authorizer.prepareAuthorization(for: endpoint, session: session)
+                } catch {
+                    logger.warning(
+                        "Authorization preparation failed; opening SSE stream without it",
+                        metadata: ["error": "\(error)"])
+                }
             }
 
             logger.debug("🔌 Preparing SSE connection request")

@@ -83,6 +83,10 @@ public enum Value: Hashable, Sendable {
 // MARK: - Codable
 
 extension Value: Codable {
+    /// Decodes whichever JSON kind is present: null, bool, integer, double, string (or data URL), array or object.
+    ///
+    /// - Parameter decoder: The decoder to read from.
+    /// - Throws: `DecodingError` if the value matches none of those kinds.
     public init(from decoder: Decoder) throws {
         let container = try decoder.singleValueContainer()
 
@@ -112,6 +116,10 @@ extension Value: Codable {
         }
     }
 
+    /// Encodes the value as the matching JSON kind. Data is written as a data URL.
+    ///
+    /// - Parameter encoder: The encoder to write to.
+    /// - Throws: Any error raised while encoding.
     public func encode(to encoder: Encoder) throws {
         var container = encoder.singleValueContainer()
 
@@ -137,6 +145,7 @@ extension Value: Codable {
 }
 
 extension Value: CustomStringConvertible {
+    /// A plain-text rendering: empty for `null`, the natural text for scalars, and the collection description otherwise.
     public var description: String {
         switch self {
         case .null:
@@ -162,6 +171,7 @@ extension Value: CustomStringConvertible {
 // MARK: - ExpressibleByNilLiteral
 
 extension Value: ExpressibleByNilLiteral {
+    /// Creates the `null` value from a `nil` literal.
     public init(nilLiteral: ()) {
         self = .null
     }
@@ -170,6 +180,7 @@ extension Value: ExpressibleByNilLiteral {
 // MARK: - ExpressibleByBooleanLiteral
 
 extension Value: ExpressibleByBooleanLiteral {
+    /// Creates a boolean value from a literal.
     public init(booleanLiteral value: Bool) {
         self = .bool(value)
     }
@@ -178,6 +189,7 @@ extension Value: ExpressibleByBooleanLiteral {
 // MARK: - ExpressibleByIntegerLiteral
 
 extension Value: ExpressibleByIntegerLiteral {
+    /// Creates an integer value from a literal.
     public init(integerLiteral value: Int) {
         self = .int(value)
     }
@@ -186,6 +198,7 @@ extension Value: ExpressibleByIntegerLiteral {
 // MARK: - ExpressibleByFloatLiteral
 
 extension Value: ExpressibleByFloatLiteral {
+    /// Creates a double value from a literal.
     public init(floatLiteral value: Double) {
         self = .double(value)
     }
@@ -194,6 +207,7 @@ extension Value: ExpressibleByFloatLiteral {
 // MARK: - ExpressibleByStringLiteral
 
 extension Value: ExpressibleByStringLiteral {
+    /// Creates a string value from a literal.
     public init(stringLiteral value: String) {
         self = .string(value)
     }
@@ -202,6 +216,7 @@ extension Value: ExpressibleByStringLiteral {
 // MARK: - ExpressibleByArrayLiteral
 
 extension Value: ExpressibleByArrayLiteral {
+    /// Creates an array value from an array literal.
     public init(arrayLiteral elements: Value...) {
         self = .array(elements)
     }
@@ -210,6 +225,7 @@ extension Value: ExpressibleByArrayLiteral {
 // MARK: - ExpressibleByDictionaryLiteral
 
 extension Value: ExpressibleByDictionaryLiteral {
+    /// Creates an object value from a dictionary literal.
     public init(dictionaryLiteral elements: (String, Value)...) {
         var dictionary: [String: Value] = [:]
         for (key, value) in elements {
@@ -222,23 +238,38 @@ extension Value: ExpressibleByDictionaryLiteral {
 // MARK: - ExpressibleByStringInterpolation
 
 extension Value: ExpressibleByStringInterpolation {
+    /// Accumulates the pieces of an interpolated string literal into a ``Value/string(_:)``.
     public struct StringInterpolation: StringInterpolationProtocol {
         var stringValue: String
 
+        /// Creates an interpolation buffer, reserving room for the expected content.
+        ///
+        /// - Parameters:
+        ///   - literalCapacity: The total length of the literal segments.
+        ///   - interpolationCount: The number of interpolations.
         public init(literalCapacity: Int, interpolationCount: Int) {
             self.stringValue = ""
             self.stringValue.reserveCapacity(literalCapacity + interpolationCount)
         }
 
+        /// Appends a literal segment.
+        ///
+        /// - Parameter literal: The text to append.
         public mutating func appendLiteral(_ literal: String) {
             self.stringValue.append(literal)
         }
 
+        /// Appends an interpolated value using its `description`.
+        ///
+        /// - Parameter value: The value to interpolate.
         public mutating func appendInterpolation<T: CustomStringConvertible>(_ value: T) {
             self.stringValue.append(value.description)
         }
     }
 
+    /// Creates a string value from an interpolated string literal.
+    ///
+    /// - Parameter stringInterpolation: The accumulated interpolation.
     public init(stringInterpolation: StringInterpolation) {
         self = .string(stringInterpolation.stringValue)
     }

@@ -381,8 +381,8 @@ struct StatefulHTTPServerTransportTests {
         await transport.disconnect()
     }
 
-    @Test("Default UUIDSessionIDGenerator produces valid session ID")
-    func testDefaultGeneratorProducesUUID() async throws {
+    @Test("Default UUIDSessionIDGenerator produces a random hex session ID")
+    func testDefaultGeneratorProducesRandomHexID() async throws {
         let transport = makeStatefulTransport()
         try await transport.connect()
 
@@ -392,9 +392,10 @@ struct StatefulHTTPServerTransportTests {
 
         let sessionID = response.headers[HTTPHeaderName.sessionID]
         let sid = try #require(sessionID)
-        // UUID format: 8-4-4-4-12 hex chars
-        #expect(sid.count == 36)
-        #expect(sid.contains("-"))
+        // 32 random bytes rendered as 64 lowercase hex digits (visible ASCII)
+        #expect(sid.count == 64)
+        #expect(sid.allSatisfy { $0.isHexDigit && !$0.isUppercase })
+        #expect(UUIDSessionIDGenerator().generateSessionID() != sid)
 
         if case .stream(let stream, _) = response {
             discardSSEStream(stream)
