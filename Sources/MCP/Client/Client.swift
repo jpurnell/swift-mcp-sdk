@@ -25,6 +25,10 @@ public actor Client {
         /// servers, though this may lead to undefined behavior.
         public var strict: Bool
 
+        /// Creates a new `Configuration`.
+        ///
+        /// - Parameters:
+        ///   - strict: The strict configuration.
         public init(strict: Bool = false) {
             self.strict = strict
         }
@@ -45,6 +49,15 @@ public actor Client {
         /// Optional set of sized icons for display in a user interface
         public var icons: [Icon]?
 
+        /// Creates a new `Info`.
+        ///
+        /// - Parameters:
+        ///   - name: The client name
+        ///   - version: The client version
+        ///   - title: A human-readable title for display purposes
+        ///   - description: Optional description of the client
+        ///   - websiteUrl: Optional website URL for the client
+        ///   - icons: Optional set of sized icons for display in a user interface
         public init(
             name: String,
             version: String,
@@ -69,6 +82,10 @@ public actor Client {
             /// Whether the list of roots has changed
             public var listChanged: Bool?
 
+            /// Creates a new `Roots`.
+            ///
+            /// - Parameters:
+            ///   - listChanged: Whether the list of roots has changed
             public init(listChanged: Bool? = nil) {
                 self.listChanged = listChanged
             }
@@ -78,11 +95,13 @@ public actor Client {
         public struct Sampling: Hashable, Sendable {
             /// Tools sub-capability for sampling
             public struct Tools: Hashable, Codable, Sendable {
+                /// Creates a new `Tools`.
                 public init() {}
             }
 
             /// Context sub-capability for sampling
             public struct Context: Hashable, Codable, Sendable {
+                /// Creates a new `Context`.
                 public init() {}
             }
 
@@ -91,6 +110,11 @@ public actor Client {
             /// Whether context is supported in sampling
             public var context: Context?
 
+            /// Creates a new `Sampling`.
+            ///
+            /// - Parameters:
+            ///   - tools: Whether tools are supported in sampling
+            ///   - context: Whether context is supported in sampling
             public init(tools: Tools? = nil, context: Context? = nil) {
                 self.tools = tools
                 self.context = context
@@ -101,11 +125,13 @@ public actor Client {
         public struct Elicitation: Hashable, Sendable {
             /// Form-based elicitation sub-capability
             public struct Form: Hashable, Codable, Sendable {
+                /// Creates a new `Form`.
                 public init() {}
             }
 
             /// URL-based elicitation sub-capability
             public struct URL: Hashable, Codable, Sendable {
+                /// Creates a new `URL`.
                 public init() {}
             }
 
@@ -114,6 +140,11 @@ public actor Client {
             /// Whether URL-based elicitation is supported
             public var url: URL?
 
+            /// Creates a new `Elicitation`.
+            ///
+            /// - Parameters:
+            ///   - form: Whether form-based elicitation is supported
+            ///   - url: Whether URL-based elicitation is supported
             public init(form: Form? = Form(), url: URL? = nil) {
                 self.form = form
                 self.url = url
@@ -132,6 +163,14 @@ public actor Client {
         /// Whether the client supports roots
         public var roots: Capabilities.Roots?
 
+        /// Creates a new `Capabilities`.
+        ///
+        /// - Parameters:
+        ///   - sampling: Whether the client supports sampling
+        ///   - elicitation: Whether the client supports elicitation
+        ///   - experimental: Experimental features supported by the client
+        ///   - extensions: Capability extensions declared by the client,
+        ///   - roots: Whether the client supports roots
         public init(
             sampling: Sampling? = nil,
             elicitation: Elicitation? = nil,
@@ -190,6 +229,17 @@ public actor Client {
     private let encoder = JSONEncoder()
     private let decoder = JSONDecoder()
 
+    /// Creates a new `Client`.
+    ///
+    /// - Parameters:
+    ///   - name: The client name
+    ///   - version: The client version
+    ///   - title: A human-readable title for display purposes
+    ///   - description: Optional description of the client
+    ///   - websiteUrl: Optional website URL for the client
+    ///   - icons: Optional set of sized icons for display in a user interface
+    ///   - capabilities: The client capabilities
+    ///   - configuration: The client configuration
     public init(
         name: String,
         version: String,
@@ -234,28 +284,33 @@ public actor Client {
                 for try await data in stream {
                     if Task.isCancelled { break }
 
-                    if let batchResponse = try? messageDecoder.decode([AnyResponse].self, from: data) {
+                    switch Client.decodeIncoming(data, using: messageDecoder) {
+                    case .success(.batchResponse(let batchResponse)):
                         await handleBatchResponse(batchResponse)
-                    } else if let response = try? messageDecoder.decode(AnyResponse.self, from: data) {
+                    case .success(.response(let response)):
                         await handleResponse(response)
-                    } else if let request = try? messageDecoder.decode(AnyRequest.self, from: data) {
+                    case .success(.request(let request)):
                         await handleIncomingRequest(request)
-                    } else if let message = try? messageDecoder.decode(AnyMessage.self, from: data) {
+                    case .success(.notification(let message)):
                         await handleMessage(message)
-                    } else {
-                        var metadata: Logger.Metadata = [:]
+                    case .failure(let decodingError):
+                        var metadata: Logger.Metadata = ["error": "\(decodingError)"]
                         if let string = String(data: data, encoding: .utf8) {
                             metadata["message"] = .string(string)
                         }
-                        await logger?.warning(
-                            "Unexpected message received by client (not single/batch response or notification)",
-                            metadata: metadata
-                        )
+                        if let logger = await logger {
+                            logger.warning(
+                                "Unexpected message received by client (not single/batch response or notification)",
+                                metadata: metadata
+                            )
+                        }
                     }
                 }
             } catch {
-                await logger?.error(
-                    "Error in message handling loop", metadata: ["error": "\(error)"])
+                if let logger = await logger {
+                    logger.error(
+                        "Error in message handling loop", metadata: ["error": "\(error)"])
+                }
             }
             await self.logger?.debug("Client message handling loop task is terminating.")
         }
@@ -285,6 +340,36 @@ public actor Client {
 
         // Automatically initialize after connecting
         return try await _initialize()
+    }
+
+    /// A message received from the server, classified by shape.
+    private enum IncomingMessage {
+        case batchResponse([AnyResponse])
+        case response(AnyResponse)
+        case request(AnyRequest)
+        case notification(AnyMessage)
+    }
+
+    /// Classifies raw bytes from the server by trying each message shape in turn.
+    ///
+    /// The shapes are probed in a fixed order (batch response, response, request,
+    /// notification), so a failed probe is expected and not an error in itself. Only when
+    /// every probe fails is the data unrecognizable, and the last probe's error is returned
+    /// so the caller can log it.
+    private static func decodeIncoming(
+        _ data: Data, using decoder: JSONDecoder
+    ) -> Result<IncomingMessage, any Error> {
+        if case .success(let batch) = Result(catching: { try decoder.decode([AnyResponse].self, from: data) }) {
+            return .success(.batchResponse(batch))
+        }
+        if case .success(let response) = Result(catching: { try decoder.decode(AnyResponse.self, from: data) }) {
+            return .success(.response(response))
+        }
+        if case .success(let request) = Result(catching: { try decoder.decode(AnyRequest.self, from: data) }) {
+            return .success(.request(request))
+        }
+        return Result(catching: { try decoder.decode(AnyMessage.self, from: data) })
+            .map(IncomingMessage.notification)
     }
 
     /// Disconnect the client and cancel all pending requests
@@ -382,11 +467,13 @@ public actor Client {
     ///
     /// Example:
     /// ```swift
-    /// let context = try await client.send(request)
-    /// // Later, to cancel:
-    /// try await client.cancelRequest(context.requestID, reason: "User cancelled")
-    /// // Await the result:
-    /// let result = try await context.value
+    /// func pingWithCancellation(client: Client) async throws {
+    ///     let context = try await client.send(Ping.request())
+    ///     // Later, to cancel:
+    ///     try await client.cancelRequest(context.requestID, reason: "User cancelled")
+    ///     // Await the result:
+    ///     _ = try await context.value
+    /// }
     /// ```
     ///
     /// - Parameter request: The request to send
@@ -414,6 +501,11 @@ public actor Client {
             do {
                 try await connection.send(requestData)
             } catch {
+                if let logger = await logger {
+                    logger.error(
+                        "Failed to send request",
+                        metadata: ["id": "\(request.id)", "error": "\(error)"])
+                }
                 // The pending entry carries its own continuation, so the failure path resumes
                 // through it and the send can live here rather than in a second, nested task.
                 // `nil` means the response arrived first and the entry is already gone.
@@ -552,54 +644,71 @@ public actor Client {
     ///
     /// Example 1: Batching multiple tool calls and collecting typed tasks:
     /// ```swift
-    /// // Array to hold the task handles for each tool call
-    /// var toolTasks: [Task<CallTool.Result, Error>] = []
-    /// try await client.withBatch { batch in
-    ///     for i in 0..<10 {
-    ///         toolTasks.append(
-    ///             try await batch.addRequest(
-    ///                 CallTool.request(.init(name: "square", arguments: ["n": i]))
-    ///             )
-    ///         )
-    ///     }
+    /// // A small actor to hold the task handles for each tool call
+    /// actor ToolTasks {
+    ///     var tasks: [Task<CallTool.Result, Error>] = []
+    ///     func append(_ task: Task<CallTool.Result, Error>) { tasks.append(task) }
     /// }
     ///
-    /// // Process results after the batch is sent
-    /// print("Processing \(toolTasks.count) tool results...")
-    /// for (index, task) in toolTasks.enumerated() {
-    ///     do {
-    ///         let result = try await task.value
-    ///         print("\(index): \(result.content)")
-    ///     } catch {
-    ///         print("\(index) failed: \(error)")
+    /// func squareBatch(client: Client) async throws {
+    ///     let collected = ToolTasks()
+    ///     try await client.withBatch { batch in
+    ///         for i in 0..<10 {
+    ///             let task = try await batch.addRequest(
+    ///                 CallTool.request(.init(name: "square", arguments: ["n": .int(i)]))
+    ///             )
+    ///             await collected.append(task)
+    ///         }
+    ///     }
+    ///
+    ///     // Process results after the batch is sent
+    ///     let toolTasks = await collected.tasks
+    ///     print("Processing \(toolTasks.count) tool results...")
+    ///     for (index, task) in toolTasks.enumerated() {
+    ///         do {
+    ///             let result = try await task.value
+    ///             print("\(index): \(result.content)")
+    ///         } catch {
+    ///             print("\(index) failed: \(error)")
+    ///         }
     ///     }
     /// }
     /// ```
     ///
     /// Example 2: Batching different request types and awaiting individual tasks:
     /// ```swift
-    /// // Declare optional task variables beforehand
-    /// var pingTask: Task<Ping.Result, Error>?
-    /// var promptTask: Task<GetPrompt.Result, Error>?
-    ///
-    /// try await client.withBatch { batch in
-    ///     // Assign the tasks within the batch closure
-    ///     pingTask = try await batch.addRequest(Ping.request())
-    ///     promptTask = try await batch.addRequest(GetPrompt.request(.init(name: "greeting")))
+    /// // A small actor to hold the task handles created inside the batch closure
+    /// actor BatchTasks {
+    ///     var ping: Task<Ping.Result, Error>?
+    ///     var prompt: Task<GetPrompt.Result, Error>?
+    ///     func set(ping: Task<Ping.Result, Error>, prompt: Task<GetPrompt.Result, Error>) {
+    ///         self.ping = ping
+    ///         self.prompt = prompt
+    ///     }
     /// }
     ///
-    /// // Await the results after the batch is sent
-    /// do {
-    ///     if let pingTask = pingTask {
-    ///         try await pingTask.value // Await ping result (throws if ping failed)
-    ///         print("Ping successful")
+    /// func pingAndGreet(client: Client) async throws {
+    ///     let collected = BatchTasks()
+    ///
+    ///     try await client.withBatch { batch in
+    ///         let ping = try await batch.addRequest(Ping.request())
+    ///         let prompt = try await batch.addRequest(GetPrompt.request(.init(name: "greeting")))
+    ///         await collected.set(ping: ping, prompt: prompt)
     ///     }
-    ///     if let promptTask = promptTask {
-    ///         let promptResult = try await promptTask.value // Await prompt result
-    ///         print("Prompt description: \(promptResult.description ?? "None")")
+    ///
+    ///     // Await the results after the batch is sent
+    ///     do {
+    ///         if let pingTask = await collected.ping {
+    ///             _ = try await pingTask.value  // Throws if the ping failed
+    ///             print("Ping successful")
+    ///         }
+    ///         if let promptTask = await collected.prompt {
+    ///             let promptResult = try await promptTask.value
+    ///             print("Prompt description: \(promptResult.description ?? "None")")
+    ///         }
+    ///     } catch {
+    ///         print("Error processing batch results: \(error)")
     ///     }
-    /// } catch {
-    ///     print("Error processing batch results: \(error)")
     /// }
     /// ```
     ///
@@ -680,6 +789,12 @@ public actor Client {
         return result
     }
 
+    /// Sends a `ping` request and waits for the server to respond.
+    ///
+    /// Use this to verify that the connection is alive and the server is responsive.
+    ///
+    /// - Throws: ``MCPError`` if the client is not connected or the server returns an error.
+    /// - SeeAlso: https://modelcontextprotocol.io/specification/2025-11-25/basic/utilities/ping
     public func ping() async throws {
         let request = Ping.request()
         _ = try await sendAndAwait(request)
@@ -687,6 +802,14 @@ public actor Client {
 
     // MARK: - Prompts
 
+    /// Retrieves a prompt from the server, filling in its arguments.
+    ///
+    /// - Parameters:
+    ///   - name: The name of the prompt to retrieve.
+    ///   - arguments: Values for the prompt's arguments, keyed by argument name.
+    /// - Returns: The prompt's optional description and its rendered messages.
+    /// - Throws: ``MCPError`` if the server does not advertise the `prompts` capability (in strict mode), the client is not connected, or the server returns an error.
+    /// - SeeAlso: https://modelcontextprotocol.io/specification/2025-11-25/server/prompts
     public func getPrompt(name: String, arguments: [String: String]? = nil) async throws
         -> (description: String?, messages: [Prompt.Message])
     {
@@ -696,6 +819,12 @@ public actor Client {
         return (description: result.description, messages: result.messages)
     }
 
+    /// Lists the prompts the server offers.
+    ///
+    /// - Parameter cursor: An opaque pagination cursor from a previous call's `nextCursor`, or `nil` for the first page.
+    /// - Returns: The prompts on this page and a cursor for the next page, or `nil` if there are no more.
+    /// - Throws: ``MCPError`` if the server does not advertise the `prompts` capability (in strict mode), the client is not connected, or the server returns an error.
+    /// - SeeAlso: https://modelcontextprotocol.io/specification/2025-11-25/server/prompts
     public func listPrompts(cursor: String? = nil) async throws
         -> (prompts: [Prompt], nextCursor: String?)
     {
@@ -712,6 +841,12 @@ public actor Client {
 
     // MARK: - Resources
 
+    /// Reads the contents of a resource from the server.
+    ///
+    /// - Parameter uri: The URI of the resource to read.
+    /// - Returns: The contents of the resource. A single URI may yield several content items.
+    /// - Throws: ``MCPError`` if the server does not advertise the `resources` capability (in strict mode), the client is not connected, or the server returns an error.
+    /// - SeeAlso: https://modelcontextprotocol.io/specification/2025-11-25/server/resources
     public func readResource(uri: String) async throws -> [Resource.Content] {
         try validateServerCapability(\.resources, "Resources")
         let request = ReadResource.request(.init(uri: uri))
@@ -719,6 +854,12 @@ public actor Client {
         return result.contents
     }
 
+    /// Lists the resources the server offers.
+    ///
+    /// - Parameter cursor: An opaque pagination cursor from a previous call's `nextCursor`, or `nil` for the first page.
+    /// - Returns: The resources on this page and a cursor for the next page, or `nil` if there are no more.
+    /// - Throws: ``MCPError`` if the server does not advertise the `resources` capability (in strict mode), the client is not connected, or the server returns an error.
+    /// - SeeAlso: https://modelcontextprotocol.io/specification/2025-11-25/server/resources
     public func listResources(cursor: String? = nil) async throws -> (
         resources: [Resource], nextCursor: String?
     ) {
@@ -733,12 +874,27 @@ public actor Client {
         return (resources: result.resources, nextCursor: result.nextCursor)
     }
 
+    /// Subscribes to change notifications for a resource.
+    ///
+    /// The server sends `notifications/resources/updated` when the resource changes.
+    ///
+    /// - Parameter uri: The URI of the resource to subscribe to.
+    /// - Throws: ``MCPError`` if the server does not advertise resource subscriptions (in strict mode), the client is not connected, or the server returns an error.
+    /// - SeeAlso: https://modelcontextprotocol.io/specification/2025-11-25/server/resources#subscriptions
     public func subscribeToResource(uri: String) async throws {
         try validateServerCapability(\.resources?.subscribe, "Resource subscription")
         let request = ResourceSubscribe.request(.init(uri: uri))
         _ = try await sendAndAwait(request)
     }
 
+    /// Lists the resource templates the server offers.
+    ///
+    /// Resource templates are URI templates (RFC 6570) describing families of resources.
+    ///
+    /// - Parameter cursor: An opaque pagination cursor from a previous call's `nextCursor`, or `nil` for the first page.
+    /// - Returns: The templates on this page and a cursor for the next page, or `nil` if there are no more.
+    /// - Throws: ``MCPError`` if the server does not advertise the `resources` capability (in strict mode), the client is not connected, or the server returns an error.
+    /// - SeeAlso: https://modelcontextprotocol.io/specification/2025-11-25/server/resources#resource-templates
     public func listResourceTemplates(cursor: String? = nil) async throws -> (
         templates: [Resource.Template], nextCursor: String?
     ) {
@@ -755,6 +911,12 @@ public actor Client {
 
     // MARK: - Tools
 
+    /// Lists the tools the server offers.
+    ///
+    /// - Parameter cursor: An opaque pagination cursor from a previous call's `nextCursor`, or `nil` for the first page.
+    /// - Returns: The tools on this page and a cursor for the next page, or `nil` if there are no more.
+    /// - Throws: ``MCPError`` if the server does not advertise the `tools` capability (in strict mode), the client is not connected, or the server returns an error.
+    /// - SeeAlso: https://modelcontextprotocol.io/specification/2025-11-25/server/tools
     public func listTools(cursor: String? = nil) async throws -> (
         tools: [Tool], nextCursor: String?
     ) {
@@ -1012,12 +1174,14 @@ public actor Client {
             do {
                 try await handler(message)
             } catch {
-                await logger?.error(
-                    "Error handling notification",
-                    metadata: [
-                        "method": "\(message.method)",
-                        "error": "\(error)",
-                    ])
+                if let logger = await logger {
+                    logger.error(
+                        "Error handling notification",
+                        metadata: [
+                            "method": "\(message.method)",
+                            "error": "\(error)",
+                        ])
+                }
             }
         }
     }
@@ -1036,9 +1200,11 @@ public actor Client {
             do {
                 try await send(response)
             } catch {
-                await logger?.error(
-                    "Failed to send error response",
-                    metadata: ["error": "\(error)"])
+                if let logger = await logger {
+                    logger.error(
+                        "Failed to send error response",
+                        metadata: ["error": "\(error)"])
+                }
             }
             return
         }
@@ -1047,14 +1213,21 @@ public actor Client {
             let response = try await handler(request)
             try await send(response)
         } catch {
+            if let logger = await logger {
+                logger.error(
+                    "Handler for server request failed",
+                    metadata: ["method": "\(request.method)", "error": "\(error)"])
+            }
             let mcpError = error as? MCPError ?? MCPError.internalError(error.localizedDescription)
             let response = AnyMethod.response(id: request.id, error: mcpError)
             do {
                 try await send(response)
             } catch {
-                await logger?.error(
-                    "Failed to send error response",
-                    metadata: ["error": "\(error)"])
+                if let logger = await logger {
+                    logger.error(
+                        "Failed to send error response",
+                        metadata: ["error": "\(error)"])
+                }
             }
         }
     }
@@ -1112,18 +1285,19 @@ extension Client.Capabilities.Sampling: Codable {
         case tools, context
     }
 
+    /// Creates the sampling capabilities from their JSON object form.
+    ///
+    /// An empty object (`{}`) decodes to no sub-capabilities.
     public init(from decoder: Decoder) throws {
-        // Handle both empty object {} and object with sub-capabilities
-        if let container = try? decoder.container(keyedBy: CodingKeys.self) {
-            self.tools = try container.decodeIfPresent(Tools.self, forKey: .tools)
-            self.context = try container.decodeIfPresent(Context.self, forKey: .context)
-        } else {
-            // Empty object - no capabilities
-            self.tools = nil
-            self.context = nil
-        }
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.tools = try container.decodeIfPresent(Tools.self, forKey: .tools)
+        self.context = try container.decodeIfPresent(Context.self, forKey: .context)
     }
 
+    /// Encodes this value into the given encoder.
+    ///
+    /// - Parameter encoder: The encoder to write the value to.
+    /// - Throws: An error if encoding fails.
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encodeIfPresent(tools, forKey: .tools)
@@ -1136,22 +1310,24 @@ extension Client.Capabilities.Elicitation: Codable {
         case form, url
     }
 
+    /// Creates the elicitation capabilities from their JSON object form.
+    ///
+    /// An empty object (`{}`), or one declaring neither `form` nor `url`, decodes to
+    /// form-only support for backward compatibility.
     public init(from decoder: Decoder) throws {
-        // Handle both empty object {} and object with sub-capabilities
-        if let container = try? decoder.container(keyedBy: CodingKeys.self) {
-            self.form = try container.decodeIfPresent(Form.self, forKey: .form)
-            self.url = try container.decodeIfPresent(URL.self, forKey: .url)
-            // If both are nil, default to form for backward compatibility
-            if self.form == nil && self.url == nil {
-                self.form = Form()
-            }
-        } else {
-            // Empty object - default to form-only for backward compatibility
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.form = try container.decodeIfPresent(Form.self, forKey: .form)
+        self.url = try container.decodeIfPresent(URL.self, forKey: .url)
+        // If both are nil, default to form for backward compatibility
+        if self.form == nil && self.url == nil {
             self.form = Form()
-            self.url = nil
         }
     }
 
+    /// Encodes this value into the given encoder.
+    ///
+    /// - Parameter encoder: The encoder to write the value to.
+    /// - Throws: An error if encoding fails.
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encodeIfPresent(form, forKey: .form)

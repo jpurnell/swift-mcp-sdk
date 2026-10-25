@@ -23,6 +23,14 @@ public enum Elicitation {
         /// Top-level schema type. Defaults to `object`.
         public var type: SchemaType
 
+        /// Creates a new `RequestSchema`.
+        ///
+        /// - Parameters:
+        ///   - title: Schema title presented to users.
+        ///   - description: Schema description providing additional guidance.
+        ///   - properties: Raw JSON Schema fragments describing the requested fields.
+        ///   - required: List of required field keys.
+        ///   - type: Top-level schema type. Defaults to `object`.
         public init(
             title: String? = nil,
             description: String? = nil,
@@ -54,8 +62,10 @@ public enum Elicitation {
 /// To request information from a user, servers send an `elicitation/create` request.
 /// - SeeAlso: https://modelcontextprotocol.io/specification/2025-06-18/client/elicitation
 public enum CreateElicitation: Method {
+    /// The JSON-RPC method name for this request: `elicitation/create`.
     public static let name = "elicitation/create"
 
+    /// Parameters for the `CreateElicitation` request.
     public enum Parameters: Hashable, Sendable {
         /// Form-based elicitation parameters
         case form(FormParameters)
@@ -73,6 +83,13 @@ public enum CreateElicitation: Method {
             /// Optional metadata
             public var _meta: Metadata?
 
+            /// Creates a new `FormParameters`.
+            ///
+            /// - Parameters:
+            ///   - message: Message displayed to the user describing the request
+            ///   - mode: Elicitation mode (optional for backward compatibility, defaults to form)
+            ///   - requestedSchema: Schema describing the expected response content (required per spec)
+            ///   - _meta: Optional metadata
             public init(
                 message: String,
                 mode: Elicitation.Mode? = nil,
@@ -99,6 +116,13 @@ public enum CreateElicitation: Method {
             /// Optional metadata
             public var _meta: Metadata?
 
+            /// Creates a new `URLParameters`.
+            ///
+            /// - Parameters:
+            ///   - message: Message displayed to the user describing the request
+            ///   - url: URL for the user to visit
+            ///   - elicitationId: Unique identifier for this elicitation
+            ///   - _meta: Optional metadata
             public init(
                 message: String,
                 url: String,
@@ -114,6 +138,7 @@ public enum CreateElicitation: Method {
         }
     }
 
+    /// The result returned in response to the `CreateElicitation` request.
     public struct Result: Hashable, Codable, Sendable {
         /// Indicates how the user responded to the request.
         public enum Action: String, Hashable, Codable, Sendable {
@@ -129,6 +154,12 @@ public enum CreateElicitation: Method {
         /// Optional metadata about this result
         public var _meta: Metadata?
 
+        /// Creates a new `Result`.
+        ///
+        /// - Parameters:
+        ///   - action: Selected action.
+        ///   - content: Submitted content when action is `.accept`.
+        ///   - _meta: Optional metadata about this result
         public init(
             action: Action,
             content: [String: Value]? = nil,
@@ -143,6 +174,10 @@ public enum CreateElicitation: Method {
             case action, content, _meta
         }
 
+        /// Encodes this value into the given encoder.
+        ///
+        /// - Parameter encoder: The encoder to write the value to.
+        /// - Throws: An error if encoding fails.
         public func encode(to encoder: Encoder) throws {
             var container = encoder.container(keyedBy: CodingKeys.self)
             try container.encode(action, forKey: .action)
@@ -150,6 +185,10 @@ public enum CreateElicitation: Method {
             try container.encodeIfPresent(_meta, forKey: ._meta)
         }
 
+        /// Creates an instance by decoding from the given decoder.
+        ///
+        /// - Parameter decoder: The decoder to read the value from.
+        /// - Throws: `DecodingError` if the data is missing or malformed.
         public init(from decoder: Decoder) throws {
             let container = try decoder.container(keyedBy: CodingKeys.self)
             action = try container.decode(Action.self, forKey: .action)
@@ -167,6 +206,10 @@ extension CreateElicitation.Parameters: Codable {
         case _meta
     }
 
+    /// Creates an instance by decoding from the given decoder.
+    ///
+    /// - Parameter decoder: The decoder to read the value from.
+    /// - Throws: `DecodingError` if the data is missing or malformed.
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
 
@@ -199,6 +242,10 @@ extension CreateElicitation.Parameters: Codable {
         }
     }
 
+    /// Encodes this value into the given encoder.
+    ///
+    /// - Parameter encoder: The encoder to write the value to.
+    /// - Throws: An error if encoding fails.
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
 
@@ -220,12 +267,18 @@ extension CreateElicitation.Parameters: Codable {
 
 /// Notification sent when a URL-based elicitation is complete
 public struct ElicitationCompleteNotification: Notification {
+    /// The JSON-RPC method name for this notification: `notifications/elicitation/complete`.
     public static let name = "notifications/elicitation/complete"
 
+    /// Parameters for the `ElicitationCompleteNotification` notification.
     public struct Parameters: Hashable, Codable, Sendable {
         /// The elicitation ID that was completed
         public var elicitationId: String
 
+        /// Creates a new `Parameters`.
+        ///
+        /// - Parameters:
+        ///   - elicitationId: The elicitation ID that was completed
         public init(elicitationId: String) {
             self.elicitationId = elicitationId
         }

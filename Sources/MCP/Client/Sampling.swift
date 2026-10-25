@@ -111,6 +111,10 @@ public enum Sampling {
             /// Suggested model name/family
             public let name: String?
 
+            /// Creates a new `Hint`.
+            ///
+            /// - Parameters:
+            ///   - name: Suggested model name/family
             public init(name: String? = nil) {
                 self.name = name
             }
@@ -125,6 +129,13 @@ public enum Sampling {
         /// Importance of advanced model capabilities (0-1 normalized)
         public let intelligencePriority: UnitInterval?
 
+        /// Creates a new `ModelPreferences`.
+        ///
+        /// - Parameters:
+        ///   - hints: Array of model name suggestions that clients can use to select an appropriate model
+        ///   - costPriority: Importance of minimizing costs (0-1 normalized)
+        ///   - speedPriority: Importance of low latency response (0-1 normalized)
+        ///   - intelligencePriority: Importance of advanced model capabilities (0-1 normalized)
         public init(
             hints: [Hint]? = nil,
             costPriority: UnitInterval? = nil,
@@ -159,8 +170,15 @@ public enum Sampling {
     public struct StopReason: RawRepresentable, Hashable, Codable, Sendable,
         ExpressibleByStringLiteral
     {
+        /// The stop reason string as sent on the wire.
         public let rawValue: String
+        /// Creates a stop reason from its wire string.
+        ///
+        /// - Parameter rawValue: The stop reason string. Any provider-specific value is valid.
         public init(rawValue: String) { self.rawValue = rawValue }
+        /// Creates a stop reason from a string literal.
+        ///
+        /// - Parameter value: The stop reason string.
         public init(stringLiteral value: String) { self.rawValue = value }
 
         /// Natural end of turn
@@ -184,6 +202,13 @@ public enum Sampling {
         /// Optional metadata
         public var _meta: Metadata?
 
+        /// Creates a new `ToolUseContent`.
+        ///
+        /// - Parameters:
+        ///   - id: Unique identifier for this tool use
+        ///   - name: Name of the tool being invoked
+        ///   - input: Input parameters for the tool
+        ///   - _meta: Optional metadata
         public init(id: String, name: String, input: [String: Value], _meta: Metadata? = nil) {
             self.id = id
             self.name = name
@@ -219,6 +244,14 @@ public enum Sampling {
             case resourceLink(uri: String, name: String, title: String?, description: String?, mimeType: String?, annotations: Resource.Annotations?)
         }
 
+        /// Creates a new `ToolResultContent`.
+        ///
+        /// - Parameters:
+        ///   - toolUseId: ID of the tool use this result corresponds to
+        ///   - content: Content blocks from tool execution
+        ///   - structuredContent: Structured data from tool execution
+        ///   - isError: Whether the tool execution resulted in an error
+        ///   - _meta: Optional metadata
         public init(
             toolUseId: String,
             content: [ContentBlock],
@@ -242,6 +275,10 @@ extension Sampling.Message: Codable {
         case role, content, _meta
     }
 
+    /// Creates an instance by decoding from the given decoder.
+    ///
+    /// - Parameter decoder: The decoder to read the value from.
+    /// - Throws: `DecodingError` if the data is missing or malformed.
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         role = try container.decode(Role.self, forKey: .role)
@@ -249,6 +286,10 @@ extension Sampling.Message: Codable {
         _meta = try container.decodeIfPresent(Metadata.self, forKey: ._meta)
     }
 
+    /// Encodes this value into the given encoder.
+    ///
+    /// - Parameter encoder: The encoder to write the value to.
+    /// - Throws: An error if encoding fails.
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encode(role, forKey: .role)
@@ -264,6 +305,10 @@ extension Sampling.Message.Content.ContentBlock: Codable {
         case toolUseId, content, structuredContent, isError
     }
 
+    /// Creates an instance by decoding from the given decoder.
+    ///
+    /// - Parameter decoder: The decoder to read the value from.
+    /// - Throws: `DecodingError` if the data is missing or malformed.
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         let type = try container.decode(String.self, forKey: .type)
@@ -305,6 +350,10 @@ extension Sampling.Message.Content.ContentBlock: Codable {
         }
     }
 
+    /// Encodes this value into the given encoder.
+    ///
+    /// - Parameter encoder: The encoder to write the value to.
+    /// - Throws: An error if encoding fails.
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
 
@@ -338,22 +387,36 @@ extension Sampling.Message.Content.ContentBlock: Codable {
 }
 
 extension Sampling.Message.Content: Codable {
+    /// Creates content by decoding either a single content block or an array of blocks.
+    ///
+    /// A single-element array is unwrapped to a single block.
+    ///
+    /// - Parameter decoder: The decoder to read the value from.
+    /// - Throws: `DecodingError` if the data is neither a content block nor an array of them.
     public init(from decoder: Decoder) throws {
         // Try to decode as an array first
-        if let blocks = try? [ContentBlock](from: decoder) {
+        switch Result(catching: { try [ContentBlock](from: decoder) }) {
+        case .success(let blocks):
             // If it's a single-element array, unwrap it to single
             if blocks.count == 1, let block = blocks.first {
                 self = .single(block)
             } else {
                 self = .multiple(blocks)
             }
-        } else {
-            // Try to decode as a single block
+        case .failure:
+            // Not an array: decode as a single block. A malformed single block throws
+            // its own error here, so nothing is lost by moving on from the array probe.
             let block = try ContentBlock(from: decoder)
             self = .single(block)
         }
     }
 
+    /// Encodes this content into the given encoder.
+    ///
+    /// A single block is encoded directly, not wrapped in an array; multiple blocks are encoded as an array.
+    ///
+    /// - Parameter encoder: The encoder to write the value to.
+    /// - Throws: An error if encoding fails.
     public func encode(to encoder: Encoder) throws {
         switch self {
         case .single(let block):
@@ -369,6 +432,9 @@ extension Sampling.Message.Content: Codable {
 // MARK: - ExpressibleByStringLiteral
 
 extension Sampling.Message.Content: ExpressibleByStringLiteral {
+    /// Creates single text content from a string literal.
+    ///
+    /// - Parameter value: The text of the content.
     public init(stringLiteral value: String) {
         self = .single(.text(value))
     }
@@ -377,6 +443,9 @@ extension Sampling.Message.Content: ExpressibleByStringLiteral {
 // MARK: - ExpressibleByStringInterpolation
 
 extension Sampling.Message.Content: ExpressibleByStringInterpolation {
+    /// Creates single text content from a string interpolation.
+    ///
+    /// - Parameter stringInterpolation: The interpolated text.
     public init(stringInterpolation: DefaultStringInterpolation) {
         self = .single(.text(String(stringInterpolation: stringInterpolation)))
     }
@@ -388,6 +457,10 @@ extension Sampling.ToolResultContent.ContentBlock: Codable {
         case uri, name, title, description
     }
 
+    /// Creates an instance by decoding from the given decoder.
+    ///
+    /// - Parameter decoder: The decoder to read the value from.
+    /// - Throws: `DecodingError` if the data is missing or malformed.
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         let type = try container.decode(String.self, forKey: .type)
@@ -426,6 +499,10 @@ extension Sampling.ToolResultContent.ContentBlock: Codable {
         }
     }
 
+    /// Encodes this value into the given encoder.
+    ///
+    /// - Parameter encoder: The encoder to write the value to.
+    /// - Throws: An error if encoding fails.
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
 
@@ -465,6 +542,7 @@ extension Sampling.ToolResultContent.ContentBlock: Codable {
 /// - Warning: The Sampling feature is deprecated by MCP `2026-07-28`. Integrate directly with
 ///   an LLM provider's API instead. See ``Deprecations``.
 public enum CreateSamplingMessage: Method {
+    /// The JSON-RPC method name for this request: `sampling/createMessage`.
     public static let name = "sampling/createMessage"
 
     /// Tool choice configuration for sampling
@@ -482,6 +560,10 @@ public enum CreateSamplingMessage: Method {
         /// The tool choice mode. If omitted, defaults to `.auto`.
         public let mode: Mode?
 
+        /// Creates a new `ToolChoice`.
+        ///
+        /// - Parameters:
+        ///   - mode: The tool choice mode. If omitted, defaults to `.auto`.
         public init(mode: Mode? = .auto) {
             self.mode = mode
         }
@@ -490,11 +572,19 @@ public enum CreateSamplingMessage: Method {
             case mode
         }
 
+        /// Creates an instance by decoding from the given decoder.
+        ///
+        /// - Parameter decoder: The decoder to read the value from.
+        /// - Throws: `DecodingError` if the data is missing or malformed.
         public init(from decoder: Decoder) throws {
             let container = try decoder.container(keyedBy: CodingKeys.self)
             mode = try container.decodeIfPresent(Mode.self, forKey: .mode) ?? .auto
         }
 
+        /// Encodes this value into the given encoder.
+        ///
+        /// - Parameter encoder: The encoder to write the value to.
+        /// - Throws: An error if encoding fails.
         public func encode(to encoder: Encoder) throws {
             var container = encoder.container(keyedBy: CodingKeys.self)
             if let mode, mode != .auto {
@@ -503,6 +593,7 @@ public enum CreateSamplingMessage: Method {
         }
     }
 
+    /// Parameters for the `CreateSamplingMessage` request.
     public struct Parameters: Hashable, Codable, Sendable {
         /// The conversation history to send to the LLM
         public let messages: [Sampling.Message]
@@ -527,6 +618,20 @@ public enum CreateSamplingMessage: Method {
         /// Provider-specific metadata to pass to the LLM
         public let metadata: [String: Value]?
 
+        /// Creates a new `Parameters`.
+        ///
+        /// - Parameters:
+        ///   - messages: The conversation history to send to the LLM
+        ///   - modelPreferences: Model selection preferences
+        ///   - systemPrompt: Optional system prompt
+        ///   - includeContext: What MCP context to include
+        ///   - temperature: Controls randomness (0.0 to 1.0)
+        ///   - maxTokens: Maximum tokens to generate
+        ///   - stopSequences: Array of sequences that stop generation
+        ///   - _meta: Optional request metadata
+        ///   - tools: Tools available for the model to use
+        ///   - toolChoice: Tool choice configuration
+        ///   - metadata: Provider-specific metadata to pass to the LLM
         public init(
             messages: [Sampling.Message],
             modelPreferences: Sampling.ModelPreferences? = nil,
@@ -554,6 +659,7 @@ public enum CreateSamplingMessage: Method {
         }
     }
 
+    /// The result returned in response to the `CreateSamplingMessage` request.
     public struct Result: Hashable, Codable, Sendable {
         /// Name of the model used
         public let model: String
@@ -566,6 +672,14 @@ public enum CreateSamplingMessage: Method {
         /// Optional metadata about this result
         public var _meta: Metadata?
 
+        /// Creates a new `Result`.
+        ///
+        /// - Parameters:
+        ///   - model: Name of the model used
+        ///   - stopReason: Why sampling stopped
+        ///   - role: The role of the completion
+        ///   - content: The completion content
+        ///   - _meta: Optional metadata about this result
         public init(
             model: String,
             stopReason: Sampling.StopReason? = nil,
@@ -584,6 +698,10 @@ public enum CreateSamplingMessage: Method {
             case model, stopReason, role, content, _meta
         }
 
+        /// Encodes this value into the given encoder.
+        ///
+        /// - Parameter encoder: The encoder to write the value to.
+        /// - Throws: An error if encoding fails.
         public func encode(to encoder: Encoder) throws {
             var container = encoder.container(keyedBy: CodingKeys.self)
             try container.encode(model, forKey: .model)
@@ -593,6 +711,10 @@ public enum CreateSamplingMessage: Method {
             try container.encodeIfPresent(_meta, forKey: ._meta)
         }
 
+        /// Creates an instance by decoding from the given decoder.
+        ///
+        /// - Parameter decoder: The decoder to read the value from.
+        /// - Throws: `DecodingError` if the data is missing or malformed.
         public init(from decoder: Decoder) throws {
             let container = try decoder.container(keyedBy: CodingKeys.self)
             model = try container.decode(String.self, forKey: .model)

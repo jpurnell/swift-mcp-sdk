@@ -9,8 +9,10 @@ import Foundation
 ///
 /// - SeeAlso: https://modelcontextprotocol.io/specification/2025-11-25/basic/utilities/progress
 public struct ProgressNotification: Notification {
+    /// The JSON-RPC method name for this notification: `notifications/progress`.
     public static let name: String = "notifications/progress"
 
+    /// Parameters for the `ProgressNotification` notification.
     public struct Parameters: Hashable, Codable, Sendable {
         /// The progress token from the original request.
         ///
@@ -33,6 +35,13 @@ public struct ProgressNotification: Notification {
         /// An optional human-readable message describing the current progress.
         public let message: String?
 
+        /// Creates a new `Parameters`.
+        ///
+        /// - Parameters:
+        ///   - progressToken: The progress token from the original request.
+        ///   - progress: The current progress value.
+        ///   - total: The total expected progress value, if known.
+        ///   - message: An optional human-readable message describing the current progress.
         public init(
             progressToken: ProgressToken,
             progress: Double,
@@ -55,6 +64,10 @@ public enum ProgressToken: Hashable, Codable, Sendable {
     case string(String)
     case integer(Int)
 
+    /// Creates an instance by decoding from the given decoder.
+    ///
+    /// - Parameter decoder: The decoder to read the value from.
+    /// - Throws: `DecodingError` if the data is missing or malformed.
     public init(from decoder: Decoder) throws {
         let container = try decoder.singleValueContainer()
         if let stringValue = try? container.decode(String.self) {
@@ -69,6 +82,10 @@ public enum ProgressToken: Hashable, Codable, Sendable {
         }
     }
 
+    /// Encodes this value into the given encoder.
+    ///
+    /// - Parameter encoder: The encoder to write the value to.
+    /// - Throws: An error if encoding fails.
     public func encode(to encoder: Encoder) throws {
         var container = encoder.singleValueContainer()
         switch self {
@@ -141,11 +158,19 @@ public struct Metadata: Hashable, Codable, Sendable {
         self.progressToken = progressToken
     }
 
+    /// Creates an instance by decoding from the given decoder.
+    ///
+    /// - Parameter decoder: The decoder to read the value from.
+    /// - Throws: `DecodingError` if the data is missing or malformed.
     public init(from decoder: Decoder) throws {
         let container = try decoder.singleValueContainer()
         self.fields = try container.decode([String: Value].self)
     }
 
+    /// Encodes this value into the given encoder.
+    ///
+    /// - Parameter encoder: The encoder to write the value to.
+    /// - Throws: An error if encoding fails.
     public func encode(to encoder: Encoder) throws {
         var container = encoder.singleValueContainer()
         try container.encode(fields)

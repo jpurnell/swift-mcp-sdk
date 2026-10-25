@@ -18,8 +18,11 @@ public struct RequestContext<Output: Sendable & Decodable>: Sendable {
     ///
     /// Example:
     /// ```swift
-    /// let context = try await client.send(request)
-    /// let result = try await context.value
+    /// func pingResult(client: Client) async throws {
+    ///     let context = try await client.send(Ping.request())
+    ///     let result = try await context.value
+    ///     print("Ping returned: \(result)")
+    /// }
     /// ```
     public var value: Output {
         get async throws {
@@ -27,6 +30,11 @@ public struct RequestContext<Output: Sendable & Decodable>: Sendable {
         }
     }
 
+    /// Creates a new `RequestContext`.
+    ///
+    /// - Parameters:
+    ///   - requestID: The unique identifier for this request.
+    ///   - requestTask: The Task representing the asynchronous work for this request.
     public init(requestID: ID, requestTask: Task<Output, Error>) {
         self.requestID = requestID
         self.requestTask = requestTask
